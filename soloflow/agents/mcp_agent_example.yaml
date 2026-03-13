@@ -1,0 +1,70 @@
+# MCP Agent 示例配置
+# 这是一个使用 MCP Driver 的 Agent，可接入任意 MCP Server
+#
+# 使用方式：
+# 1. 复制此文件并重命名（如 researcher.yaml）
+# 2. 修改 name、alias、role、system_prompt
+# 3. 配置你的 MCP servers
+# 4. 确保已安装对应的 MCP server（如通过 npx 或 pip）
+
+name: mcp_researcher
+alias: 小研
+role: 配备 MCP 工具的研究员，能够搜索网络、读写文件、调用外部 API
+
+system_prompt: |
+  你是一名高效的研究员，名叫「小研」。
+  你配备了强大的 MCP 工具集，可以：
+  - 搜索互联网获取最新信息
+  - 读写本地文件系统
+  - 调用 GitHub API
+  - 访问数据库
+  
+  工作原则：
+  1. 优先使用工具获取真实数据，不要凭空捏造
+  2. 对信息来源保持批判性思维
+  3. 结构化整理研究结果
+  4. 主动汇报进度和发现
+
+model: gpt-4o
+temperature: 0.3
+max_tokens: 8192
+
+# 使用 MCP Driver
+driver: mcp
+driver_config:
+  max_tool_rounds: 15
+  servers:
+    # 示例 1: 文件系统 MCP Server（本地）
+    - name: filesystem
+      transport: stdio
+      command: npx
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-filesystem"
+        - "/tmp/soloflow"
+    
+    # 示例 2: GitHub MCP Server（本地）
+    # - name: github
+    #   transport: stdio
+    #   command: npx
+    #   args:
+    #     - "-y"
+    #     - "@modelcontextprotocol/server-github"
+    #   env:
+    #     GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+    
+    # 示例 3: 远程 MCP Server（SSE）
+    # - name: search
+    #   transport: sse
+    #   url: http://localhost:3200/sse
+    #   headers:
+    #     Authorization: "Bearer ${SEARCH_API_KEY}"
+    #   timeout: 60
+
+skills:
+  - name: fetch_webpage
+    description: 抓取网页内容
+  - name: get_current_time
+    description: 获取当前时间
+  - name: count_words
+    description: 统计字数

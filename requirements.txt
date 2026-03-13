@@ -1,26 +1,22 @@
-# SoloFlow - Python 依赖
+# SoloFlow 依赖
 
-# Web 框架
-fastapi==0.109.0
-uvicorn==0.27.0
+# 核心
+openai>=1.12.0
+pyyaml>=6.0
+fastapi>=0.110.0
+uvicorn>=0.27.0
+httpx>=0.27.0
 
-# OpenAI API
-openai==1.10.0
+# 数据库
+aiosqlite>=0.20.0
 
-# YAML 解析
-pyyaml==6.0.1
+# 工具
+python-dotenv>=1.0.0
 
-# 数据验证
-pydantic==2.5.0
-
-# 异步支持
-httpx==0.26.0
-aiohttp==3.9.1  # Webhook 支持
+# MCP 支持（可选，用于 MCPDriver stdio 模式需要 Node.js 环境）
+# 如果使用 Python MCP SDK:
+# mcp>=1.0.0
 
 # 测试
-pytest==7.4.4
-pytest-asyncio==0.23.3
-
-# 可选：国内模型支持
-# dashscope==1.14.0  # 阿里云通义千问
-# zhipuai==2.0.1     # 智谱AI
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

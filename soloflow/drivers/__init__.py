@@ -1,10 +1,31 @@
 """
-Agent Driver 注册表
+Agent Driver 注册表（v2.1）
+
+新增 MCP Driver，支持 Model Context Protocol 工具服务器。
 
 通过 driver 字符串名称选择对应的 Driver 类型。
 YAML 配置示例：
+
 ```yaml
-driver: llm  # 或 openclaw
+# LLM Driver（默认）
+driver: llm
+driver_config:
+  base_url: https://api.openai.com/v1
+
+# MCP Driver
+driver: mcp
+driver_config:
+  servers:
+    - name: filesystem
+      transport: stdio
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+    - name: github
+      transport: sse
+      url: http://localhost:3100/sse
+
+# OpenClaw Driver
+driver: openclaw
 driver_config:
   endpoint: http://localhost:3100
   timeout: 600
@@ -15,12 +36,14 @@ from typing import Any, Dict, Type
 from .base import BaseDriver, DriverResult
 from .llm_driver import LLMDriver
 from .openclaw_driver import OpenClawDriver
+from .mcp_driver import MCPDriver
 
 
 # Driver 注册表
 DRIVER_REGISTRY: Dict[str, Type[BaseDriver]] = {
     "llm": LLMDriver,
     "openclaw": OpenClawDriver,
+    "mcp": MCPDriver,
     # 未来可扩展：
     # "http": HTTPDriver,
     # "mock": MockDriver,
@@ -30,14 +53,14 @@ DRIVER_REGISTRY: Dict[str, Type[BaseDriver]] = {
 def create_driver(driver_type: str, **kwargs) -> BaseDriver:
     """
     创建 Driver 实例
-    
+
     Args:
-        driver_type: Driver 类型（llm/openclaw/...）
+        driver_type: Driver 类型（llm/openclaw/mcp/...）
         **kwargs: Driver 配置参数
-        
+
     Returns:
         BaseDriver: Driver 实例
-        
+
     Raises:
         ValueError: 未知的 driver 类型
     """
@@ -45,26 +68,28 @@ def create_driver(driver_type: str, **kwargs) -> BaseDriver:
     if not cls:
         available = list(DRIVER_REGISTRY.keys())
         raise ValueError(
-            f"Unknown driver: {driver_type}. Available: {available}"
+            f"Unknown driver: '{driver_type}'. Available: {available}"
         )
     return cls(**kwargs)
 
 
 def register_driver(name: str, driver_cls: Type[BaseDriver]):
     """
-    注册新的 Driver 类型
-    
+    注册新的 Driver 类型（支持第三方扩展）
+
     Args:
         name: Driver 名称
-        driver_cls: Driver 类
+        driver_cls: Driver 类（需继承 BaseDriver）
     """
+    if not issubclass(driver_cls, BaseDriver):
+        raise TypeError(f"{driver_cls} 必须继承 BaseDriver")
     DRIVER_REGISTRY[name] = driver_cls
 
 
 def list_drivers() -> Dict[str, Type[BaseDriver]]:
     """
     列出所有注册的 Driver
-    
+
     Returns:
         Dict[str, Type[BaseDriver]]: Driver 注册表
     """
@@ -77,6 +102,7 @@ __all__ = [
     "DriverResult",
     "LLMDriver",
     "OpenClawDriver",
+    "MCPDriver",
     "create_driver",
     "register_driver",
     "list_drivers",
