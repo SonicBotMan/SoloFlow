@@ -92,6 +92,29 @@ system_prompt: |
   你是「小文」，公司的文案师...
 ```
 
+### 6️⃣ **国内模型支持**
+支持国内大模型，降低使用成本：
+
+```python
+# MiniMax、智谱AI、Moonshot、百度、阿里
+from soloflow.models import DomesticModelClient
+
+client = DomesticModelClient("minimax")
+response = await client.chat(messages)
+```
+
+### 7️⃣ **Webhook 集成**
+支持企业协作平台通知：
+
+```python
+from soloflow.webhook import WebhookSender
+
+sender = WebhookSender()
+await sender.send("wecom", "项目完成！")
+```
+
+**支持平台：** 企业微信、钉钉、飞书、Slack、Discord
+
 ---
 
 ## 🚀 快速开始
@@ -201,7 +224,9 @@ python tests/verify.py
 | **小助** | 老板助理 | 主调度、唯一对话入口 | 意图理解、任务分发、偏好学习 |
 | **小点** | 点子王 | 热点分析、创意构思 | 趋势分析、创意推荐 |
 | **小文** | 文案师 | 脚本撰写、文案创作 | 内容创作、风格适配 |
+| **小材** | 素材师 | 素材搜索、采集编辑 | 版权检查、素材推荐 |
 | **小剪** | 剪辑师 | 视频剪辑、后期制作 | 视频剪辑、特效调色 |
+| **小营** | 营销专家 | 营销策略、推广方案 | 受众分析、营销策划 |
 | **小发** | 发布专家 | 多平台发布、数据追踪 | 自动发布、数据追踪 |
 
 **可扩展：** 通过添加 YAML 配置文件即可创建新的AI员工。
@@ -426,18 +451,18 @@ pytest tests/ --cov=soloflow --cov-report=html
 
 ## 🗺️ 路线图
 
-### v1.0.0 (当前)
+### v1.0.0 (当前稳定版)
 - ✅ 核心框架（TaskFSM/AgentLoader/PreferenceMemory）
 - ✅ 5 个 AI 员工配置
 - ✅ Web UI + CLI 模式
 - ✅ 单元测试
 - ✅ Docker 部署
 
-### v1.1.0 (计划中)
-- [ ] 添加更多 Agent（素材师小材、营销专家小营）
+### v1.1.0 (开发中)
+- ✅ 添加更多 Agent（素材师小材、营销专家小营）
+- ✅ 国内模型支持（MiniMax、智谱AI、Moonshot、文心、通义）
+- ✅ Webhook 集成（企业微信、钉钉、飞书、Slack、Discord）
 - [ ] 集成真实 MCP Skills（搜索、文件处理）
-- [ ] 接入国内模型（MiniMax、智谱AI）
-- [ ] 微信/飞书 webhook 接口
 
 ### v2.0.0 (未来)
 - [ ] 多用户支持
