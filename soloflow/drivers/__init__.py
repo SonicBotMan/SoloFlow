@@ -1,83 +1,72 @@
 """
-Agent Driver 注册表
+Driver 注册表
 
-通过 driver 字符串名称选择对应的 Driver 类型。
-YAML 配置示例：
-```yaml
-driver: llm  # 或 openclaw
-driver_config:
-  endpoint: http://localhost:3100
-  timeout: 600
-```
+通过 YAML 中的 driver: xxx 字段选择对应的 Driver 实现。
+支持的 Driver 类型：
+  - llm      : 直接调用 LLM（默认）
+  - openclaw : 接入 OpenClaw 平台
+  - mcp      : 接入任意 MCP Server（stdio/sse）
+  - skill    : 本地 Python Skill 执行引擎
+  - http     : 接入外部 HTTP 服务（预留）
 """
 
-from typing import Any, Dict, Type
 from .base import BaseDriver, DriverResult
 from .llm_driver import LLMDriver
 from .openclaw_driver import OpenClawDriver
+from .mcp_driver import MCPDriver
+from .skill_driver import SkillDriver
 
-
-# Driver 注册表
-DRIVER_REGISTRY: Dict[str, Type[BaseDriver]] = {
+_DRIVER_REGISTRY = {
     "llm": LLMDriver,
     "openclaw": OpenClawDriver,
-    # 未来可扩展：
-    # "http": HTTPDriver,
-    # "mock": MockDriver,
+    "mcp": MCPDriver,
+    "skill": SkillDriver,
 }
 
 
-def create_driver(driver_type: str, **kwargs) -> BaseDriver:
-    """
-    创建 Driver 实例
+def register_driver(name: str, driver_class):
+    """注册自定义 Driver，支持用户扩展
     
     Args:
-        driver_type: Driver 类型（llm/openclaw/...）
-        **kwargs: Driver 配置参数
+        name: driver 类型名称（对应 YAML driver 字段）
+        driver_class: 继承 BaseDriver 的类
+    """
+    if not issubclass(driver_class, BaseDriver):
+        raise TypeError(f"driver_class 必须继承 BaseDriver，当前: {driver_class}")
+    _DRIVER_REGISTRY[name] = driver_class
+
+
+def create_driver(driver_type: str, **kwargs) -> BaseDriver:
+    """根据类型创建 Driver 实例
+    
+    Args:
+        driver_type: driver 类型（llm/openclaw/mcp/skill/http）
+        **kwargs: 传递给 Driver 构造函数的参数
         
     Returns:
-        BaseDriver: Driver 实例
+        BaseDriver 实例
         
     Raises:
         ValueError: 未知的 driver 类型
     """
-    cls = DRIVER_REGISTRY.get(driver_type)
-    if not cls:
-        available = list(DRIVER_REGISTRY.keys())
+    driver_cls = _DRIVER_REGISTRY.get(driver_type)
+    if not driver_cls:
+        available = list(_DRIVER_REGISTRY.keys())
         raise ValueError(
-            f"Unknown driver: {driver_type}. Available: {available}"
+            f"未知的 Driver 类型: '{driver_type}'。"
+            f" 可用类型: {available}。"
+            f" 可通过 register_driver() 注册自定义 Driver。"
         )
-    return cls(**kwargs)
+    return driver_cls(**kwargs)
 
 
-def register_driver(name: str, driver_cls: Type[BaseDriver]):
-    """
-    注册新的 Driver 类型
-    
-    Args:
-        name: Driver 名称
-        driver_cls: Driver 类
-    """
-    DRIVER_REGISTRY[name] = driver_cls
-
-
-def list_drivers() -> Dict[str, Type[BaseDriver]]:
-    """
-    列出所有注册的 Driver
-    
-    Returns:
-        Dict[str, Type[BaseDriver]]: Driver 注册表
-    """
-    return DRIVER_REGISTRY.copy()
-
-
-# 导出
 __all__ = [
     "BaseDriver",
     "DriverResult",
     "LLMDriver",
     "OpenClawDriver",
+    "MCPDriver",
+    "SkillDriver",
     "create_driver",
     "register_driver",
-    "list_drivers",
 ]
