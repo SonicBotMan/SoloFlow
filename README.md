@@ -106,7 +106,70 @@
 
 ## 🚀 快速开始
 
-> 正在开发中，敬请期待...
+### 方式一：Docker Compose（推荐）
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/SonicBotMan/ai-one-person-company.git
+cd ai-one-person-company
+
+# 2. 配置 API Key
+cp .env.example .env
+# 编辑 .env 文件，填入你的 OPENAI_API_KEY
+
+# 3. 一键启动
+docker compose up
+
+# 打开 http://localhost:8000
+```
+
+### 方式二：本地运行
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/SonicBotMan/ai-one-person-company.git
+cd ai-one-person-company
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 配置环境变量
+export OPENAI_API_KEY=sk-xxx
+
+# 4. 启动
+python main.py
+
+# 或使用 CLI 模式
+python main.py --cli
+```
+
+### 使用示例
+
+**Web UI:**
+1. 打开 http://localhost:8000
+2. 在输入框输入需求："帮我做个AI热点视频"
+3. 小助会自动调度团队完成任务
+
+**CLI 模式:**
+```bash
+python main.py --cli
+
+老板 > 帮我做个科技热点视频
+
+⏳ 处理中...
+
+【小助】好的老板！正在为您创建项目...
+
+✅ 项目已创建: #proj_20260313_001
+
+📡 正在召唤点子王获取热点...
+
+【小点】老板好！为您分析当前科技热点...
+
+🔥 热门热点：
+1. GPT-5发布预告 (热度 98)
+...
+```
 
 ## 📊 界面预览
 

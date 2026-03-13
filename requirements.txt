@@ -1,0 +1,25 @@
+# SoloFlow - Python 依赖
+
+# Web 框架
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# OpenAI API
+openai==1.10.0
+
+# YAML 解析
+pyyaml==6.0.1
+
+# 数据验证
+pydantic==2.5.0
+
+# 异步支持
+httpx==0.26.0
+
+# 测试
+pytest==7.4.4
+pytest-asyncio==0.23.3
+
+# 可选：国内模型支持
+# dashscope==1.14.0  # 阿里云通义千问
+# zhipuai==2.0.1     # 智谱AI

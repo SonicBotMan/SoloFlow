@@ -1,0 +1,43 @@
+# SoloFlow - 公共配置
+# 所有 Agent 都会继承这个配置
+
+# 默认模型
+model: gpt-4o
+
+# 默认温度
+temperature: 0.7
+
+# 默认最大 token
+max_tokens: 4096
+
+# 默认技能（所有 Agent 都有）
+skills:
+  - name: create_task
+    description: 创建新任务并分配给员工
+  - name: get_task_status
+    description: 查询任务进度
+  - name: recall_preference
+    description: 查询老板的偏好记忆
+  - name: search_web
+    description: 搜索网络获取信息
+  - name: read_file
+    description: 读取文件内容
+  - name: write_file
+    description: 写入文件
+
+# 默认系统 Prompt 模板
+system_prompt_template: |
+  你是 {alias}，{role}
+  
+  你在一家AI一人公司工作，老板是唯一的人类用户。
+  
+  【核心规则】
+  1. 始终以「{alias}」的身份回应
+  2. 工作成果要符合老板的偏好
+  3. 遇到不确定的决策，请老板确认
+  4. 保持简洁高效，不要啰嗦
+  
+  【回复格式】
+  - 先说结论或结果
+  - 再列出关键点（用 • 符号）
+  - 最后询问是否需要调整
