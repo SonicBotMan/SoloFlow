@@ -20,6 +20,7 @@ class AgentSkill:
     """Agent 技能"""
     name: str
     description: str = ""
+    parameters: Dict = None  # v2.0: 工具参数定义（用于 OpenAI function calling）
 
 
 @dataclass
@@ -34,6 +35,9 @@ class AgentConfig:
     model: str = "gpt-4o"         # 支持不同Agent用不同模型
     temperature: float = 0.7
     max_tokens: int = 4096
+    # v2.0: Driver 支持
+    driver: str = "llm"           # Agent 运行时（llm/openclaw/http）
+    driver_config: Dict = None    # Driver 配置
     
     def to_dict(self) -> Dict:
         """转换为字典"""
@@ -125,7 +129,8 @@ class AgentLoader:
             elif isinstance(skill_data, dict):
                 skills.append(AgentSkill(
                     name=skill_data.get("name", ""),
-                    description=skill_data.get("description", "")
+                    description=skill_data.get("description", ""),
+                    parameters=skill_data.get("parameters", {})
                 ))
         
         return AgentConfig(
@@ -138,6 +143,9 @@ class AgentLoader:
             model=data.get("model", "gpt-4o"),
             temperature=data.get("temperature", 0.7),
             max_tokens=data.get("max_tokens", 4096),
+            # v2.0: Driver 支持
+            driver=data.get("driver", "llm"),
+            driver_config=data.get("driver_config", None),
         )
     
     def get(self, name: str) -> AgentConfig:
