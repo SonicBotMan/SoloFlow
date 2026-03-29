@@ -13,7 +13,7 @@ driver_config:
   timeout: 30
   max_tool_rounds: 8
 
-model: gpt-4o-mini
+model: glm-4-flash
 temperature: 0.3
 max_tokens: 4096
 

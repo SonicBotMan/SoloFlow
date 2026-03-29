@@ -1,208 +1,129 @@
 """
-OpenClaw Driver - 接入 OpenClaw
+OpenClaw Driver - 接入 OpenClaw 实例完整对接
 
-这是关键新增，让 SoloFlow 可以通过 OpenClaw 执行任务。
 工作模式：
 1. 向 OpenClaw 实例发送任务
-2. OpenClaw 执行（可能调用 MCP tools、写代码等）
+2. OpenClaw 执行（可能调用 MCP tools、 写代码等）
 3. 通过轮询或 webhook 回调获取结果
 """
 
 import asyncio
+import logging
 import httpx
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from .base import BaseDriver, DriverResult
+
+logger = logging.getLogger("soloflow.openclaw_driver")
 
 
 class OpenClawDriver(BaseDriver):
     """
-    OpenClaw Driver。
+    OpenClaw Driver - 完整实现
     
-    接入 OpenClaw 实例，让 Agent 可以：
+    让 Agent 可以通过 OpenClaw 执行任务：
     - 调用 MCP tools
     - 执行代码
     - 访问文件系统
-    
-    配置示例（YAML）：
-    ```yaml
-    driver: openclaw
-    driver_config:
-      endpoint: ${OPENCLAW_ENDPOINT}
-      api_key: ${OPENCLAW_API_KEY}
-      timeout: 600
-      poll_interval: 5
-    ```
     """
     
-    def __init__(
-        self,
-        endpoint: str,
-        api_key: str = None,
-        timeout: int = 300,
-        poll_interval: int = 5,
-        **kwargs
-    ):
-        """
-        初始化 OpenClaw Driver
-        
-        Args:
-            endpoint: OpenClaw 实例地址（如 http://localhost:3100）
-            api_key: API Key（可选）
-            timeout: 超时时间（秒）
-            poll_interval: 轮询间隔（秒）
-            **kwargs: 其他配置
-        """
-        self.endpoint = endpoint.rstrip("/")
-        self.api_key = api_key
-        self.timeout = timeout
-        self.poll_interval = poll_interval
-        self.config = kwargs
+    def __init__(self, config: Dict):
+        super().__init__()
+        self.endpoint = config.get("endpoint", "http://localhost:18210")
+        self.api_key = config.get("api_key", "")
+        self.timeout = config.get("timeout", 120)
     
     async def execute(
         self,
         system_prompt: str,
         user_message: str,
-        tools: Optional[List[Dict]] = None,
-        config: Optional[Dict] = None
+        tools: list[dict] = None,
+        config: dict = None
     ) -> DriverResult:
-        """
-        执行 OpenClaw 任务
-        
-        工作流程：
-        1. 向 OpenClaw 提交任务
-        2. 轮询等待完成
-        3. 返回结果
-        
-        Args:
-            system_prompt: 系统提示词
-            user_message: 用户消息
-            tools: 工具定义列表（可选）
-            config: 运行时配置（可选）
-            
-        Returns:
-            DriverResult: 执行结果
-        """
-        task_id = str(uuid.uuid4())
-        headers = {}
+        """通过 OpenClaw 执行任务"""
+        headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         
+        # 构建消息
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_message})
+        
+        # 创建会话
+        session_id = str(uuid.uuid4())[:8]
         payload = {
-            "task_id": task_id,
-            "system_prompt": system_prompt,
-            "message": user_message,
-            "tools": tools or [],
-            "config": config or {}
+            "session_id": session_id,
+            "messages": messages,
+            "model": config.get("model", "glm-4-flash"),
+            "temperature": config.get("temperature", 0.7),
+            "max_tokens": config.get("max_tokens", 4096),
+            "stream": False
         }
         
-        timeout = max(10, self.timeout)
+        if tools:
+            payload["tools"] = tools
         
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            try:
-                # 1. 提交任务
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                # 发送任务
                 resp = await client.post(
-                    f"{self.endpoint}/api/tasks",
+                    f"{self.endpoint}/api/sessions",
                     json=payload,
                     headers=headers
                 )
-                resp.raise_for_status()
-                job = resp.json()
-                remote_task_id = job.get("id", task_id)
                 
-                # 2. 轮询等待完成
-                elapsed = 0
-                while elapsed < self.timeout:
-                    await asyncio.sleep(self.poll_interval)
-                    elapsed += self.poll_interval
+                if resp.status_code not in (200, 201):
+                    error_text = resp.text[:500] if resp.status_code == 401 else f"Auth failed"
+                    return DriverResult(content="", success=False, error=error_text)
+                
+                data = resp.json()
+                session_id = data.get("id", session_id)
+                
+                # 轮询结果（最多 60 秒）
+                for i in range(30):
+                    await asyncio.sleep(2)
                     
-                    status_resp = await client.get(
-                        f"{self.endpoint}/api/tasks/{remote_task_id}",
+                    poll_resp = await client.get(
+                        f"{self.endpoint}/api/sessions/{session_id}",
                         headers=headers
                     )
-                    status = status_resp.json()
                     
-                    task_status = status.get("status")
+                    if poll_resp.status_code == 404:
+                        break
                     
-                    if task_status in ("done", "completed", "success"):
+                    poll_data = poll_resp.json()
+                    status = poll_data.get("status", "")
+                    
+                    if status == "completed":
+                        content = poll_data.get("result", "")
+                        tokens = poll_data.get("tokens_used", 0)
                         return DriverResult(
-                            content=status.get("result", ""),
-                            tool_calls=status.get("tool_calls", []),
-                            raw=status,
-                            tokens_used=status.get("tokens_used", 0),
+                            content=content,
+                            tokens_used=tokens,
                             success=True
                         )
-                    elif task_status in ("failed", "error"):
-                        return DriverResult(
-                            content="",
-                            tool_calls=[],
-                            raw=status,
-                            tokens_used=0,
-                            success=False,
-                            error=status.get("error", "Unknown error")
-                        )
+                    elif status == "failed":
+                        error = poll_data.get("error", "Unknown error")
+                        return DriverResult(content="", success=False, error=error)
                 
                 # 超时
                 return DriverResult(
                     content="",
-                    tool_calls=[],
-                    raw=None,
-                    tokens_used=0,
                     success=False,
-                    error=f"Task timed out after {self.timeout}s"
+                    error="Timeout waiting for OpenClaw result"
                 )
                 
-            except httpx.HTTPStatusError as e:
-                return DriverResult(
-                    content="",
-                    tool_calls=[],
-                    raw=None,
-                    tokens_used=0,
-                    success=False,
-                    error=f"HTTP error: {e.response.status_code} - {e.response.text}"
-                )
-            except Exception as e:
-                return DriverResult(
-                    content="",
-                    tool_calls=[],
-                    raw=None,
-                    tokens_used=0,
-                    success=False,
-                    error=str(e)
-                )
+        except Exception as e:
+            logger.error(f"OpenClaw driver error: {e}")
+            return DriverResult(content="", success=False, error=str(e))
     
-    async def health_check(self) -> bool:
-        """
-        检查 OpenClaw 是否可用
-        
-        Returns:
-            bool: 是否健康
-        """
+    async def health_check(self) -> Dict:
+        """健康检查"""
         try:
             async with httpx.AsyncClient(timeout=5) as client:
-                r = await client.get(f"{self.endpoint}/health")
-                return r.status_code == 200
-        except Exception:
-            return False
-    
-    async def list_tools(self) -> List[Dict]:
-        """
-        列出 OpenClaw 中可用的工具
-        
-        Returns:
-            List[Dict]: 工具列表
-        """
-        headers = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                r = await client.get(
-                    f"{self.endpoint}/api/tools",
-                    headers=headers
-                )
-                r.raise_for_status()
-                return r.json().get("tools", [])
-        except Exception:
-            return []
+                resp = await client.get(f"{self.endpoint}/api/status")
+                return {"status": "ok", "code": resp.status_code}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}

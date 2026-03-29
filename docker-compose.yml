@@ -1,32 +1,17 @@
-version: "3.9"
+version: "3.8"
 
 services:
   soloflow:
     build: .
-    image: soloflow:latest
-    container_name: soloflow
-    
     ports:
-      - "${PORT:-8000}:8000"
-    
-    volumes:
-      - ./data:/app/data
-      - ./soloflow/agents:/app/soloflow/agents:ro
-    
+      - "8000:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      - DATABASE_PATH=/app/data/soloflow.db
-      - HOST=0.0.0.0
-      - PORT=8000
-    
-    restart: unless-stopped
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - MODEL=${MODEL:-gpt-4o}
+      - SOLOFLOW_DB=/app/data/soloflow.db
+    volumes:
+      - soloflow-data:/app/data
 
 volumes:
-  data:
+  soloflow-data:

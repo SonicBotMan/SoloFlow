@@ -25,7 +25,7 @@ system_prompt: |
   3. 结构化整理研究结果
   4. 主动汇报进度和发现
 
-model: gpt-4o
+model: glm-4-flash
 temperature: 0.3
 max_tokens: 8192
 

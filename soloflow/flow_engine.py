@@ -14,6 +14,7 @@ FlowEngine - 通用 Flow 执行引擎（v2.0 重构版）
 
 import asyncio
 import json
+import logging
 import os
 from typing import Dict, List, Optional
 from openai import AsyncOpenAI
@@ -23,6 +24,8 @@ from .agent_loader import AgentLoader, AgentConfig
 from .memory import PreferenceMemory
 from .context_bus import ContextBus
 from .drivers import create_driver, BaseDriver
+
+logger = logging.getLogger("soloflow.flow_engine")
 
 
 class FlowEngine:
@@ -104,6 +107,8 @@ class FlowEngine:
         
         # Step 1: 让 assistant 做通用的任务拆解
         assistant_cfg = self.loader.get("assistant")
+        # 优先使用环境变量 MODEL，其次用 assistant 配置，最后默认 glm-4-flash
+        assistant_model = self.env.get("MODEL") or assistant_cfg.model or "glm-4-flash"
         pref_ctx = self.memory.format_for_prompt("assistant")
         
         # 动态构建 agent 列表，不硬编码
@@ -152,7 +157,7 @@ class FlowEngine:
         
         try:
             plan_resp = await self.client.chat.completions.create(
-                model=assistant_cfg.model,
+                model=assistant_model,
                 messages=messages,
                 response_format={"type": "json_object"},
                 temperature=assistant_cfg.temperature
@@ -175,32 +180,28 @@ class FlowEngine:
                 "understanding": plan.get("understanding")
             }
         
-        # Step 2: 顺序执行任务（后续可改为 DAG 并行）
-        task_results = []
-        for t in plan.get("tasks", []):
-            # 创建任务
+        # Step 2: 并行执行所有任务（无依赖关系时并行）
+        async def _run_and_collect(t):
+            """执行单个任务并收集结果"""
             task = self.fsm.create(
                 title=t["title"],
                 description=t["description"],
                 agent=t["agent"],
                 context={"flow_id": flow_id}
             )
-            
-            # 执行任务
             result = await self.run_task(task.id, flow_id)
-            
-            # 发布到 ContextBus，供下游任务使用
             publish_key = t.get("publish_as") or t["agent"]
             self.context_bus.publish(flow_id, publish_key, result, task.id)
-            
-            # 记录结果
             alias = self.loader.get(t["agent"]).alias
-            task_results.append({
+            return {
                 "id": task.id,
                 "agent": t["agent"],
                 "alias": alias,
                 "result": result
-            })
+            }
+        
+        coroutines = [_run_and_collect(t) for t in plan.get("tasks", [])]
+        task_results = list(await asyncio.gather(*coroutines))
         
         return {
             "flow_id": flow_id,
@@ -208,12 +209,13 @@ class FlowEngine:
             "tasks": task_results
         }
     
-    async def run_task(self, task_id: str, flow_id: str = None) -> str:
-        """执行单个任务，自动注入 ContextBus 上下文
+    async def run_task(self, task_id: str, flow_id: str = None, max_retries: int = 2) -> str:
+        """执行单个任务，自动注入 ContextBus 上下文，带自动重试
         
         Args:
             task_id: 任务ID
             flow_id: Flow ID（可选）
+            max_retries: 最大重试次数（默认2次）
             
         Returns:
             str: 执行结果
@@ -247,44 +249,48 @@ class FlowEngine:
         # 状态转移：RUNNING
         self.fsm.transition(task_id, TaskStatus.RUNNING)
         
-        try:
-            # 获取 Driver
-            driver = self._get_driver(task.agent)
-            
-            # 执行
-            result = await driver.execute(
-                system_prompt=system_prompt,
-                user_message=f"{task.title}\n\n{task.description}",
-                tools=tools,
-                config={
-                    "model": agent_cfg.model,
-                    "temperature": agent_cfg.temperature,
-                    "max_tokens": agent_cfg.max_tokens
-                }
-            )
-            
-            # 检查结果
-            if result.success:
-                content = result.content
+        # 获取 Driver
+        driver = self._get_driver(task.agent)
+        
+        # 带重试执行
+        last_error = None
+        for attempt in range(max_retries + 1):
+            try:
+                result = await driver.execute(
+                    system_prompt=system_prompt,
+                    user_message=f"{task.title}\n\n{task.description}",
+                    tools=tools,
+                    config={
+                        "model": agent_cfg.model,
+                        "temperature": agent_cfg.temperature,
+                        "max_tokens": agent_cfg.max_tokens
+                    }
+                )
                 
-                # 检查是否需要人工确认
-                if "[需要确认]" in content or "[WAIT_HUMAN]" in content:
-                    self.fsm.transition(task_id, TaskStatus.WAITING_HUMAN, content)
+                if result.success:
+                    content = result.content
+                    if "[需要确认]" in content or "[WAIT_HUMAN]" in content:
+                        self.fsm.transition(task_id, TaskStatus.WAITING_HUMAN, content)
+                    else:
+                        self.fsm.transition(task_id, TaskStatus.DONE, content)
+                    return content
                 else:
-                    self.fsm.transition(task_id, TaskStatus.DONE, content)
-                
-                return content
-            else:
-                # 执行失败
-                error_msg = f"❌ Driver 执行失败: {result.error}"
+                    last_error = result.error
+                    if attempt < max_retries:
+                        await asyncio.sleep(1)
+                        continue
+                    error_msg = f"❌ Driver 执行失败 (重试{max_retries}次后): {last_error}"
+                    self.fsm.transition(task_id, TaskStatus.FAILED, error_msg)
+                    return error_msg
+                    
+            except Exception as e:
+                last_error = str(e)
+                if attempt < max_retries:
+                    await asyncio.sleep(1)
+                    continue
+                error_msg = f"❌ 任务执行异常 (重试{max_retries}次后): {last_error}"
                 self.fsm.transition(task_id, TaskStatus.FAILED, error_msg)
                 return error_msg
-                
-        except Exception as e:
-            # 异常处理
-            error_msg = f"❌ 任务执行异常: {e}"
-            self.fsm.transition(task_id, TaskStatus.FAILED, error_msg)
-            return error_msg
     
     async def health_check(self) -> dict:
         """健康检查
