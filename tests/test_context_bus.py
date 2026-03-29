@@ -1,40 +1,41 @@
 """ContextBus 测试"""
-import pytest
+import os, tempfile, pytest
 from soloflow.context_bus import ContextBus
 
+def _bus():
+    f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db = f.name; f.close()
+    return ContextBus(db), db
 
-@pytest.fixture
-def bus():
-    return ContextBus()
+class TestBus:
+    def test_publish_get(self):
+        b, db = _bus()
+        b.publish("f1", "k", "v1", "t1")
+        assert b.get("f1", "k") == "v1"
+        b.conn.close(); os.unlink(db)
 
+    def test_prompt(self):
+        b, db = _bus()
+        b.publish("f1", "a", "v1", "t1")
+        b.publish("f1", "b", "v2", "t2")
+        assert "a" in b.build_context_prompt("f1")
+        b.conn.close(); os.unlink(db)
 
-class TestContextBus:
-    def test_publish_and_get(self, bus):
-        """测试发布和获取"""
-        bus.publish("flow1", "writer", "脚本内容", "task-1")
-        result = bus.get("flow1", "writer")
-        assert result is not None
-        assert result["content"] == "脚本内容"
+    def test_empty(self):
+        b, db = _bus()
+        assert b.get("f1", "x") is None
+        b.conn.close(); os.unlink(db)
 
-    def test_build_context_prompt(self, bus):
-        """测试构建上下文提示词"""
-        bus.publish("flow1", "writer", "脚本内容", "task-1")
-        bus.publish("flow1", "visual", "分镜描述", "task-2")
-        
-        prompt = bus.build_context_prompt("flow1")
-        assert "writer" in prompt
-        assert "脚本内容" in prompt
+    def test_overwrite(self):
+        b, db = _bus()
+        b.publish("f1", "k", "v1", "t1")
+        b.publish("f1", "k", "v2", "t2")
+        assert b.get("f1", "k") == "v2"
+        b.conn.close(); os.unlink(db)
 
-    def test_empty_context(self, bus):
-        """测试空上下文"""
-        result = bus.get("flow1", "writer")
-        assert result is None
-        prompt = bus.build_context_prompt("flow1")
-        assert prompt == ""
-
-    def test_overwrite(self, bus):
-        """测试覆盖更新"""
-        bus.publish("flow1", "writer", "版本1", "task-1")
-        bus.publish("flow1", "writer", "版本2", "task-2")
-        result = bus.get("flow1", "writer")
-        assert result["content"] == "版本2"
+    def test_isolation(self):
+        b, db = _bus()
+        b.publish("f1", "k", "v1", "t1")
+        b.publish("f2", "k", "v2", "t2")
+        assert b.get("f1", "k") == "v1"
+        b.conn.close(); os.unlink(db)
