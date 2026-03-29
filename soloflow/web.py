@@ -83,6 +83,43 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """SSE 流式聊天接口
+    
+    返回 Server-Sent Events 流：
+    - type: "task_start" | "task_progress" | "task_done" | "flow_done"
+    - data: 任务进度信息
+    """
+    from fastapi.responses import StreamingResponse
+    import json as json_mod
+    
+    runner = get_runner()
+    
+    async def event_generator():
+        try:
+            # 先发一个开始事件
+            yield f"data: {json_mod.dumps({'type': 'flow_start', 'message': request.message})}\n\n"
+            
+            result = await runner.dispatch(request.message, request.user_id)
+            
+            # 逐步发送任务结果
+            if isinstance(result, dict) and "tasks" in result:
+                for task in result["tasks"]:
+                    yield f"data: {json_mod.dumps({'type': 'task_done', 'agent': task.get('agent'), 'alias': task.get('alias'), 'result': task.get('result', '')[:200]}, ensure_ascii=False)}\n\n"
+            
+            # 最终结果
+            yield f"data: {json_mod.dumps({'type': 'flow_done', 'result': result}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json_mod.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+
 @app.get("/api/tasks")
 def list_tasks(status: str = None):
     """列出任务"""

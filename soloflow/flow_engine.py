@@ -153,12 +153,16 @@ class FlowEngine:
       "agent": "员工name",
       "title": "任务标题",
       "description": "详细说明",
-      "publish_as": "result_key"
+      "publish_as": "result_key",
+      "depends_on": ["前置任务的publish_as"]
     }}
   ]
 }}
 
-如果需要老板确认，设置 need_confirm: true"""
+重要：
+- 每个任务通过 depends_on 声明依赖（值为前置任务的 publish_as）
+- 无依赖的任务会被并行执行，有依赖的按拓扑排序串行
+- 如果需要老板确认，设置 need_confirm: true"""
         
         # 调用 assistant
         messages = [
