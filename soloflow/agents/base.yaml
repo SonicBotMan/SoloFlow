@@ -1,6 +1,16 @@
 # SoloFlow - 公共配置
 # 所有 Agent 都会继承这个配置
 
+# DAG 依赖说明：
+# 在 flow 的 tasks 列表中，可以为每个 task 添加 depends_on 字段
+# depends_on 是一个 task agent 名称列表，表示当前任务依赖哪些任务先完成
+# 例如：
+#   - agent: scriptwriter
+#     depends_on: [assistant]      # 依赖 assistant 的结果
+#   - agent: visual
+#     depends_on: [scriptwriter]   # 依赖 scriptwriter 的结果
+# 不指定 depends_on 或空列表 = 无依赖，第一层并行执行
+
 # 默认模型
 model: glm-4-flash
 
