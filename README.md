@@ -1,25 +1,14 @@
 # SoloFlow ⚡
 
-**AI 原生工作流编排引擎** —— 将复杂多步骤 AI 任务转化为结构化、可观测、可重试的工作流。
+**OpenClaw 工作流编排插件** —— 将复杂多步骤 AI 任务转化为结构化、可观测、可重试的工作流。
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Python Tests](https://img.shields.io/badge/Python%20tests-58%20passing-brightgreen)](./tests)
-[![TypeScript Tests](https://img.shields.io/badge/TypeScript%20tests-175%20passing-brightgreen)](./openclaw-plugin/tests)
+[![TypeScript Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](./openclaw-plugin/tests)
+[![Bundle](https://img.shields.io/badge/bundle-0.27MB-orange)](./openclaw-plugin/dist)
 
 ---
 
-## 定位
-
-SoloFlow 是为 **一人公司** 设计的 AI 工作流框架。
-
-你描述需求，系统自动完成剩余工作——从任务规划到执行、从记忆学习到技能进化，全部自动化。
-
-两个版本协同工作：
-
-| 组件 | 技术栈 | 定位 |
-|------|--------|------|
-| **`soloflow/`** (Python) | Python / asyncio / SQLite | 轻量核心，可独立运行 |
-| **`openclaw-plugin/`** (TypeScript) | TypeScript / Bun / OpenClaw | 完整企业级插件 |
+SoloFlow 是 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 的工作流编排大脑。用户描述需求，系统自动完成剩余工作——从任务规划到执行、从记忆学习到技能进化，全部自动化。
 
 ---
 
@@ -37,7 +26,7 @@ SoloFlow 是为 **一人公司** 设计的 AI 工作流框架。
 
 ### ⚙️ DAG + FSM 混合架构
 - **DAG** — 表达任务之间的依赖关系，并行优化
-- **FSM** — 严格的状态机governance（pending → running → success/failure/retry）
+- **FSM** — 严格的状态机 governance（pending → running → success/failure/retry）
 - 两者结合：既有工作流的表达力，又有状态机的严谨性
 
 ### 🔄 弹性执行
@@ -46,67 +35,42 @@ SoloFlow 是为 **一人公司** 设计的 AI 工作流框架。
 - 完整执行日志和状态追踪
 
 ### 📦 Skill 自动进化
-系统自动检测重复模式，分析成功案例，生成可复用的 Skill。重复任务自动升级为自动化技能，越用越快。
+系统自动检测重复模式，分析成功案例，生成可复用的 Skill。重复任务自动升级为自动化技能。
+
+### 🔌 MCP 工具暴露
+通过 MCP 协议暴露 5 个核心工具：`soloflow_run`、`soloflow_status`、`soloflow_list`、`soloflow_cancel`、`soloflow_create`，供外部 AI 系统调用。
 
 ---
 
 ## 架构
 
 ```
-用户需求（自然语言）
-    ↓
-┌─────────────────────────────────────────────────────────────┐
-│  OpenClaw Plugin (TypeScript)                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐  │
-│  │ DAG Engine  │  │ FSM Engine  │  │ ContextBus        │  │
-│  │ (调度/并行) │  │ (状态机)    │  │ (步骤间数据传递)  │  │
-│  └─────────────┘  └─────────────┘  └──────────────────┘  │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐  │
-│  │ Memory      │  │ Skills      │  │ Vector Search    │  │
-│  │ (三层记忆)  │  │ (自动进化)  │  │ (RRF/MMR 检索)   │  │
-│  └─────────────┘  └─────────────┘  └──────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────────────────────────┐
-│  SoloFlow Core (Python)                                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐  │
-│  │ FlowEngine  │  │ Agent Loader│  │ PreferenceMemory │  │
-│  │ (并行调度)  │  │ (YAML配置)  │  │ (贝叶斯偏好)     │  │
-│  └─────────────┘  └─────────────┘  └──────────────────┘  │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐  │
-│  │ FSM         │  │ ContextBus  │  │ Drivers          │  │
-│  │ (SQLite持久)│  │ (数据总线)  │  │ LLM/MCP/OpenClaw│  │
-│  └─────────────┘  └─────────────┘  └──────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-    ↓
-外部服务（OpenAI / MCP / OpenClaw / 自定义 Skill）
+openclaw-plugin/
+├── src/
+│   ├── core/               # DAG + FSM 引擎
+│   ├── agents/             # Discipline Agents (deep/quick/visual/ultrabrain)
+│   ├── memory/             # 三层记忆系统 (Working/Episodic/Semantic)
+│   ├── skills/             # Skill 自动进化
+│   ├── coordination/       # 多 Agent 协调 (TeamBuilder/ModelSelector/LoadBalancer)
+│   ├── vector/              # 向量检索 (RRF/MMR + 时间衰减)
+│   ├── visual/             # YAML ↔ DAG 双向同步
+│   ├── api/                # REST API + WebSocket Server
+│   ├── marketplace/        # 插件市场
+│   └── multiuser/          # 多用户 / RBAC
+├── ui/                     # React Flow 可视化构建器
+└── tests/                  # 175 TypeScript 测试
 ```
 
 ---
 
 ## 快速开始
 
-### Python 核心（独立运行）
-
-```bash
-# 安装依赖
-pip install -r requirements.txt
-
-# 设置 API Key
-export OPENAI_API_KEY="your-key"
-
-# 运行
-python main.py "帮我做一条关于AI编程的短视频"
-```
-
-### OpenClaw 插件（完整功能）
-
 ```bash
 cd openclaw-plugin
 bun install
 bun run build
 
-# 插件会自动注册到 OpenClaw
+# 插件自动注册到 OpenClaw
 # 使用 /workflow 命令创建和管理工作流
 ```
 
@@ -127,42 +91,7 @@ bun run build
 
 ---
 
-## 项目结构
-
-```
-ai-one-person-company/
-├── soloflow/                    # Python 核心引擎
-│   ├── flow_engine.py           # 并行任务调度
-│   ├── fsm.py                  # SQLite 状态机
-│   ├── context_bus.py          # 数据总线
-│   ├── memory.py               # 偏好记忆
-│   ├── agent_loader.py         # YAML Agent 加载
-│   └── drivers/                # LLM / MCP / OpenClaw / Skill
-│
-├── openclaw-plugin/             # OpenClaw 插件（TypeScript）
-│   ├── src/
-│   │   ├── core/               # DAG + FSM 引擎
-│   │   ├── agents/             # Discipline Agents
-│   │   ├── memory/            # 三层记忆系统
-│   │   ├── skills/             # Skill 进化
-│   │   ├── coordination/      # 多 Agent 协调
-│   │   ├── vector/            # 向量检索
-│   │   ├── visual/             # YAML ↔ DAG 双向同步
-│   │   ├── api/               # REST API + WebSocket
-│   │   └── multiuser/         # 多用户 / RBAC
-│   ├── ui/                    # React Flow 可视化构建器
-│   └── tests/                 # 175 TypeScript 测试
-│
-├── main.py                     # Python 入口
-├── requirements.txt            # Python 依赖
-└── README.md                   # 本文件
-```
-
----
-
 ## 研究基础
-
-SoloFlow 的设计参考了以下开源项目：
 
 - [**oh-my-openagent**](https://github.com/SonicBotMan/oh-my-openagent) — Discipline Agents、Sisyphean Hook 系统、Interview 规划模式
 - [**lobster-press**](https://github.com/SonicBotMan/lobster-press) — MemOS 四阶段架构、遗忘曲线、三层记忆系统
