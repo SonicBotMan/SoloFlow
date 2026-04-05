@@ -1,0 +1,50 @@
+{
+  "name": "@soloflow/openclaw-plugin",
+  "version": "0.1.0",
+  "description": "TypeScript plugin for OpenClaw — AI Agent framework integration for SoloFlow",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun --minify",
+    "dev": "bun run --watch ./src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "openclaw",
+    "soloflow",
+    "ai-agent",
+    "plugin",
+    "mcp",
+    "llm"
+  ],
+  "author": "SonicBotMan",
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "bun-types": "^1.1.14",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "dependencies": {
+    "jose": "^6.2.2",
+    "yaml": "^2.8.3"
+  }
+}

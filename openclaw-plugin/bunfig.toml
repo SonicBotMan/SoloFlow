@@ -1,0 +1,24 @@
+[install]
+# Use hardlinks for faster installs (Bun default)
+backend = "hardlink"
+
+# Production optimizations
+optional = true
+peer = false
+production = false
+
+[test]
+# Test configuration
+coverage = false
+preload = ["./src/test-setup.ts"]
+
+[run]
+# Runtime configuration
+# Silence bun shell warnings
+silent = false
+
+[build]
+# Build targets
+# --target bun is set in package.json scripts
+minify = true
+sourcemap = "external"

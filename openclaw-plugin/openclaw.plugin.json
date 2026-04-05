@@ -1,0 +1,402 @@
+{
+  "id": "workflow-orchestration",
+  "name": "Workflow Orchestration",
+  "version": "1.0.0",
+  "description": "Workflow orchestration engine for OpenClaw — manage, monitor, and execute multi-step agent workflows via slash commands and RPC methods.",
+  "kind": "workflow-engine",
+  "skills": ["./skills"],
+
+  "contracts": {
+    "tools": [
+      "workflow.start",
+      "workflow.status",
+      "workflow.cancel",
+      "workflow.list"
+    ]
+  },
+
+  "permissions": [
+    "gateway.rpc.call",
+    "gateway.events.subscribe",
+    "gateway.events.publish",
+    "tools.exec",
+    "sessions.read",
+    "sessions.write",
+    "memory.read",
+    "hooks.before_tool_call"
+  ],
+
+  "dependencies": {
+    "openclaw": ">=2.0.0",
+    "gateway": ">=2.0.0"
+  },
+
+  "providerAuthEnvVars": {
+    "workflow-orchestration": [
+      "WORKFLOW_ENGINE_API_KEY",
+      "WORKFLOW_GATEWAY_URL"
+    ]
+  },
+
+  "uiHints": {
+    "gatewayUrl": {
+      "label": "Gateway URL",
+      "placeholder": "ws://localhost:3000",
+      "help": "OpenClaw Gateway WebSocket endpoint for workflow dispatch."
+    },
+    "maxConcurrentWorkflows": {
+      "label": "Max Concurrent Workflows",
+      "placeholder": "10",
+      "help": "Upper limit on simultaneously running workflows (0 = unlimited)."
+    },
+    "defaultTimeout": {
+      "label": "Default Timeout (ms)",
+      "placeholder": "300000",
+      "help": "Per-workflow timeout in milliseconds. Workflows exceeding this are force-cancelled."
+    },
+    "retryPolicy": {
+      "label": "Retry Policy",
+      "help": "Retry configuration for failed workflow steps: maxAttempts, backoffMs, retryOn."
+    },
+    "persistence": {
+      "label": "Persistence Backend",
+      "help": "Storage backend for workflow state. 'memory' for ephemeral, 'sqlite' for durable."
+    }
+  },
+
+  "commands": [
+    {
+      "name": "/workflow start",
+      "description": "Start a new workflow from a registered template or inline definition.",
+      "args": [
+        {
+          "name": "template",
+          "type": "string",
+          "required": false,
+          "description": "Name of a registered workflow template."
+        },
+        {
+          "name": "steps",
+          "type": "array",
+          "required": false,
+          "description": "Inline step definitions when not using a template."
+        },
+        {
+          "name": "params",
+          "type": "object",
+          "required": false,
+          "description": "Input parameters passed into the workflow."
+        },
+        {
+          "name": "timeout",
+          "type": "number",
+          "required": false,
+          "description": "Per-execution timeout override in milliseconds."
+        }
+      ]
+    },
+    {
+      "name": "/workflow status",
+      "description": "Show the current status of a running or completed workflow.",
+      "args": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Workflow execution ID."
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "description": "Include per-step details and timestamps."
+        }
+      ]
+    },
+    {
+      "name": "/workflow cancel",
+      "description": "Cancel a running workflow by ID.",
+      "args": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Workflow execution ID to cancel."
+        },
+        {
+          "name": "force",
+          "type": "boolean",
+          "required": false,
+          "description": "Force-terminate without waiting for graceful shutdown."
+        }
+      ]
+    },
+    {
+      "name": "/workflow list",
+      "description": "List workflows, optionally filtered by status or template.",
+      "args": [
+        {
+          "name": "status",
+          "type": "string",
+          "required": false,
+          "description": "Filter by status: running, completed, failed, cancelled."
+        },
+        {
+          "name": "template",
+          "type": "string",
+          "required": false,
+          "description": "Filter by template name."
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "description": "Maximum number of results (default 20)."
+        }
+      ]
+    }
+  ],
+
+  "rpc": {
+    "methods": [
+      {
+        "name": "workflow.start",
+        "description": "Start a workflow execution. Returns the workflow ID and initial state.",
+        "params": {
+          "type": "object",
+          "properties": {
+            "template": {
+              "type": "string",
+              "description": "Registered template name."
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "tool": { "type": "string" },
+                  "input": { "type": "object" },
+                  "dependsOn": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["id", "tool"]
+              },
+              "description": "Inline workflow step definitions."
+            },
+            "params": {
+              "type": "object",
+              "description": "Workflow input parameters."
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Execution timeout in milliseconds."
+            }
+          }
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "status": { "type": "string", "enum": ["pending", "running"] },
+            "createdAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      },
+      {
+        "name": "workflow.status",
+        "description": "Query the current status of a workflow execution.",
+        "params": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" }
+          },
+          "required": ["id"]
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "status": {
+              "type": "string",
+              "enum": ["pending", "running", "completed", "failed", "cancelled"]
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "status": { "type": "string" },
+                  "startedAt": { "type": "string" },
+                  "completedAt": { "type": "string" },
+                  "error": { "type": "string" }
+                }
+              }
+            },
+            "createdAt": { "type": "string" },
+            "updatedAt": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "workflow.cancel",
+        "description": "Cancel a running workflow.",
+        "params": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "force": { "type": "boolean" }
+          },
+          "required": ["id"]
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "status": { "type": "string", "enum": ["cancelling", "cancelled"] },
+            "cancelledAt": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "workflow.list",
+        "description": "List workflow executions with optional filters.",
+        "params": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["running", "completed", "failed", "cancelled"]
+            },
+            "template": { "type": "string" },
+            "limit": { "type": "number" },
+            "offset": { "type": "number" }
+          }
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "workflows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "template": { "type": "string" },
+                  "status": { "type": "string" },
+                  "createdAt": { "type": "string" },
+                  "updatedAt": { "type": "string" }
+                }
+              }
+            },
+            "total": { "type": "number" }
+          }
+        }
+      }
+    ]
+  },
+
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "gatewayUrl": {
+        "type": "string",
+        "description": "OpenClaw Gateway WebSocket URL.",
+        "default": "ws://localhost:3000"
+      },
+      "maxConcurrentWorkflows": {
+        "type": "number",
+        "description": "Maximum concurrent workflow executions (0 = unlimited).",
+        "default": 10,
+        "minimum": 0
+      },
+      "defaultTimeout": {
+        "type": "number",
+        "description": "Default per-workflow timeout in milliseconds.",
+        "default": 300000,
+        "minimum": 1000
+      },
+      "retryPolicy": {
+        "type": "object",
+        "description": "Retry configuration for failed steps.",
+        "additionalProperties": false,
+        "properties": {
+          "maxAttempts": {
+            "type": "number",
+            "default": 3,
+            "minimum": 0
+          },
+          "backoffMs": {
+            "type": "number",
+            "default": 1000,
+            "minimum": 0
+          },
+          "retryOn": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Error types that trigger a retry."
+          }
+        }
+      },
+      "persistence": {
+        "type": "string",
+        "enum": ["memory", "sqlite"],
+        "description": "Persistence backend for workflow state.",
+        "default": "memory"
+      },
+      "sqlitePath": {
+        "type": "string",
+        "description": "File path for SQLite persistence (only used when persistence=sqlite)."
+      },
+      "templates": {
+        "type": "object",
+        "description": "Pre-registered workflow templates keyed by name.",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "steps": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "defaults": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "hooks": {
+        "type": "object",
+        "description": "Lifecycle hooks for workflow events.",
+        "additionalProperties": false,
+        "properties": {
+          "onWorkflowStart": {
+            "type": "string",
+            "description": "Hook called when a workflow starts."
+          },
+          "onWorkflowComplete": {
+            "type": "string",
+            "description": "Hook called when a workflow completes successfully."
+          },
+          "onWorkflowFail": {
+            "type": "string",
+            "description": "Hook called when a workflow fails."
+          },
+          "onStepComplete": {
+            "type": "string",
+            "description": "Hook called after each step completes."
+          }
+        }
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Master enable/disable toggle for the plugin."
+      }
+    },
+    "required": []
+  }
+}

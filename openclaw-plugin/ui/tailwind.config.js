@@ -1,0 +1,56 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        'surface-0': 'var(--surface-0)',
+        'surface-1': 'var(--surface-1)',
+        'surface-2': 'var(--surface-2)',
+        'surface-3': 'var(--surface-3)',
+        'text-primary': 'var(--text-primary)',
+        'text-secondary': 'var(--text-secondary)',
+        'text-tertiary': 'var(--text-tertiary)',
+        'discipline-deep': 'var(--discipline-deep)',
+        'discipline-quick': 'var(--discipline-quick)',
+        'discipline-visual': 'var(--discipline-visual)',
+        'discipline-ultrabrain': 'var(--discipline-ultrabrain)',
+        'accent': 'var(--accent)',
+        'success': 'var(--success)',
+        'warning': 'var(--warning)',
+        'error': 'var(--error)',
+        'border-subtle': 'var(--border-subtle)',
+        'border-default': 'var(--border-default)',
+      },
+      fontFamily: {
+        sans: ['DM Sans', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
+        'xs': ['0.75rem', { lineHeight: '1rem' }],
+        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
+        'base': ['1rem', { lineHeight: '1.5rem' }],
+        'lg': ['1.125rem', { lineHeight: '1.5rem' }],
+        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
+      },
+      borderRadius: {
+        'sm': '6px',
+        'md': '8px',
+        'lg': '12px',
+        'xl': '16px',
+      },
+      boxShadow: {
+        'node': '0 4px 24px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle)',
+        'node-hover': '0 8px 32px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-default)',
+        'toolbar': '0 1px 0 var(--border-subtle), 0 4px 16px -4px rgba(0, 0, 0, 0.4)',
+        'glow-deep': '0 0 20px rgba(56, 139, 253, 0.25)',
+        'glow-quick': '0 0 20px rgba(63, 185, 80, 0.25)',
+        'glow-visual': '0 0 20px rgba(188, 140, 255, 0.25)',
+        'glow-ultrabrain': '0 0 20px rgba(240, 136, 62, 0.25)',
+      },
+    },
+  },
+  plugins: [],
+};
