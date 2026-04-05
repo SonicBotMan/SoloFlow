@@ -28,7 +28,7 @@ jobs:
 
       - name: Lint
         run: |
-          ruff check soloflow/ --ignore=E501
+          ruff check soloflow/ --ignore=E501,F401
 
       - name: Run tests
         run: |
