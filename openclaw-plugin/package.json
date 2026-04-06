@@ -5,7 +5,7 @@
   "type": "module",
   "openclaw": {
     "extensions": [
-      "./dist/index.js"
+      "./dist-esm/index.js"
     ]
   },
   "main": "./dist/index.js",
@@ -21,6 +21,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "build:bundle": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist-esm/index.js --external:better-sqlite3 --external:openclaw --external:@sinclair/typebox",
     "dev": "tsc --watch",
     "test": "echo 'no tests yet'",
     "typecheck": "tsc --noEmit",
