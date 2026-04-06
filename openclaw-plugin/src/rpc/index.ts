@@ -575,7 +575,7 @@ export class RPCRouter {
             description: cfg.systemPrompt.split(".")[0],
             defaultModel: cfg.defaultModel,
             maxTokens: cfg.maxTokens,
-            tools: cfg.defaultTools,
+            tools: [],
           };
         });
         return { disciplines };

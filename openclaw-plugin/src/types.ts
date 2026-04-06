@@ -213,35 +213,9 @@ export type StateEvent =
   | { type: "step:failed"; workflowId: WorkflowId; stepId: StepId; error: string }
   | { type: "step:skipped"; workflowId: WorkflowId; stepId: StepId };
 
-// ─── OpenClaw LLM Service ────────────────────────────────────────────
+// ─── OpenClaw Host Models Config (re-export for convenience) ─────────
 
-export interface LlmMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-export interface LlmCompletionRequest {
-  model: string;
-  messages: LlmMessage[];
-  max_tokens?: number;
-  temperature?: number;
-  tools?: string[];
-}
-
-export interface LlmCompletionResponse {
-  content: string;
-  model: string;
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  finish_reason?: string;
-}
-
-export interface LlmService {
-  complete(request: LlmCompletionRequest): Promise<LlmCompletionResponse>;
-}
+export type { HostModelsConfig } from "./agents/llm-client.js";
 
 // ─── OpenClaw Host API ───────────────────────────────────────────────
 
@@ -265,6 +239,8 @@ export interface OpenClawApi {
     error: (msg: string, ...args: unknown[]) => void;
     debug: (msg: string, ...args: unknown[]) => void;
   };
+  /** Host model provider config for direct LLM calls. */
+  hostModels?: import("./agents/llm-client.js").HostModelsConfig;
   config: {
     get: <T = unknown>(key: string, defaultValue?: T) => T;
     set: (key: string, value: unknown) => void;

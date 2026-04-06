@@ -230,15 +230,13 @@ export default definePluginEntry({
             workflowService.start(wfId);
 
             // Fire-and-forget execution (non-blocking)
-            const shimApi = {
+            // Pass host model config so steps can call LLM directly via HTTP
+            const hostModels = api.config?.models as Record<string, unknown> | undefined;
+            const execApi = {
               logger: log,
-              services: {
-                get: () => {
-                  throw new Error("No LLM service in safe mode");
-                },
-              },
+              hostModels: hostModels as import("./types.js").HostModelsConfig | undefined,
             };
-            scheduler.execute(wfId, shimApi as never).catch((e: unknown) =>
+            scheduler.execute(wfId, execApi as never).catch((e: unknown) =>
               log.error(`schedule error: ${e}`),
             );
 

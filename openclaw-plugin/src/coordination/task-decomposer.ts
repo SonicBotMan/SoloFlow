@@ -1,5 +1,10 @@
-import type { LlmService, StepId, WorkflowStep } from "../types.js";
+import type { StepId, WorkflowStep } from "../types.js";
 import type { CoordinationEventHandler } from "./types.js";
+
+/** Local LLM service interface — matches the old OpenClaw LlmService shape. */
+interface LlmService {
+  complete(request: { model: string; messages: Array<{ role: string; content: string }>; max_tokens?: number; temperature?: number }): Promise<{ content: string }>;
+}
 
 // ─── Decomposition Config ─────────────────────────────────────────────
 

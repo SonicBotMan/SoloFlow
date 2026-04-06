@@ -1,5 +1,10 @@
-import type { AgentDiscipline, LlmService, OpenClawApi } from "../types.js";
+import type { AgentDiscipline, OpenClawApi } from "../types.js";
 import type { Skill, SkillScore, SkillStep, TaskPattern } from "./types.js";
+
+/** Local LLM service interface — matches the old OpenClaw LlmService shape. */
+interface LlmService {
+  complete(request: { model: string; messages: Array<{ role: string; content: string }>; max_tokens?: number; temperature?: number }): Promise<{ content: string }>;
+}
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_COMPLEXITY_STEPS = 10;

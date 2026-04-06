@@ -1,6 +1,5 @@
 import type { AgentDiscipline, DAG, StepId, WorkflowStep } from "../types.js";
 import type { AgentTeam, TeamConfig, TeamMember, TeamYaml } from "./types.js";
-import { DISCIPLINE_CONFIGS } from "../agents/discipline.js";
 import { ModelSelector } from "./model-selector.js";
 
 // ─── Defaults ─────────────────────────────────────────────────────────
@@ -60,7 +59,6 @@ export class TeamBuilder {
 
         const selection = this.modelSelector.selectModel(step);
         const discipline = step.discipline;
-        const disciplineConf = DISCIPLINE_CONFIGS[discipline];
 
         let slots = disciplineSlots.get(discipline);
         if (!slots) {
@@ -71,7 +69,7 @@ export class TeamBuilder {
         let member = this.findOrCreateMember(slots, stepId, layerIdx, {
           discipline,
           model: selection.model,
-          skills: [...disciplineConf.defaultTools],
+          skills: [],
         });
 
         member.assignedSteps.push(stepId);

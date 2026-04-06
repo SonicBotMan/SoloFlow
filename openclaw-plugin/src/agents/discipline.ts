@@ -1,13 +1,18 @@
+/**
+ * SoloFlow — Discipline Agent
+ *
+ * Executes workflow steps via direct HTTP LLM calls (OpenAI-compatible API).
+ * No dependency on api.runtime.subagent.
+ */
+
 import type {
   AgentDiscipline,
   AgentResult,
-  LlmCompletionRequest,
-  LlmCompletionResponse,
-  LlmService,
   OpenClawApi,
   WorkflowStep,
 } from "../types.js";
 import { AGENT_DISCIPLINES } from "../types.js";
+import { completeLLM } from "./llm-client.js";
 
 // ─── Discipline Configuration ─────────────────────────────────────────
 
@@ -15,43 +20,43 @@ export interface DisciplineConfig {
   defaultModel: string;
   maxTokens: number;
   temperature: number;
-  defaultTools: string[];
   systemPrompt: string;
+  stepTimeoutMs: number;
 }
 
 export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConfig>> = {
   deep: {
-    defaultModel: "claude-3-opus",
+    defaultModel: "",
     maxTokens: 8192,
     temperature: 0.3,
-    defaultTools: ["web-search", "code-runner", "data-analysis"],
+    stepTimeoutMs: 120_000,
     systemPrompt:
       "You are a deep-reasoning agent. Perform thorough research, multi-step analysis, and produce well-structured, detailed output. Prefer correctness over speed.",
   },
 
   quick: {
-    defaultModel: "claude-3-haiku",
+    defaultModel: "",
     maxTokens: 2048,
     temperature: 0.5,
-    defaultTools: ["web-search", "http-request"],
+    stepTimeoutMs: 60_000,
     systemPrompt:
       "You are a fast-response agent. Complete the task quickly with a concise answer. Optimise for speed and brevity.",
   },
 
   visual: {
-    defaultModel: "claude-3-sonnet",
+    defaultModel: "",
     maxTokens: 4096,
     temperature: 0.6,
-    defaultTools: ["image-gen", "screenshot", "browser"],
+    stepTimeoutMs: 120_000,
     systemPrompt:
       "You are a visual/frontend agent. Focus on UI design, frontend code, image generation, and visual quality. Produce pixel-perfect output.",
   },
 
   ultrabrain: {
-    defaultModel: "o1",
+    defaultModel: "",
     maxTokens: 16384,
     temperature: 0.2,
-    defaultTools: ["code-runner", "data-analysis", "web-search"],
+    stepTimeoutMs: 300_000,
     systemPrompt:
       "You are an ultrabrain agent. Solve hard logic, algorithms, and architecture problems. Use chain-of-thought reasoning. Prioritise rigour and correctness.",
   },
@@ -91,7 +96,7 @@ export function routeToDiscipline(task: string): AgentDiscipline {
     let score = 0;
     for (const kw of entry.keywords) {
       if (lower.includes(kw)) {
-        score += kw.length; // longer keyword matches are stronger signals
+        score += kw.length;
       }
     }
     if (score > bestScore) {
@@ -108,13 +113,11 @@ export function routeToDiscipline(task: string): AgentDiscipline {
 export class DisciplineAgent {
   readonly discipline: AgentDiscipline;
   readonly config: DisciplineConfig;
-  readonly tools: string[];
   currentWorkflow: string | null = null;
 
   constructor(discipline: AgentDiscipline) {
     this.discipline = discipline;
     this.config = DISCIPLINE_CONFIGS[discipline];
-    this.tools = [...this.config.defaultTools];
   }
 
   /** Classify an arbitrary input string to a discipline. */
@@ -123,9 +126,7 @@ export class DisciplineAgent {
   }
 
   /**
-   * Execute a workflow step.
-   * Delegates to `executeViaOpenClaw` when an `OpenClawApi` is available.
-   * Returns an error result when no OpenClaw runtime is provided.
+   * Execute a workflow step via direct HTTP LLM call.
    */
   async execute(
     step: WorkflowStep,
@@ -140,58 +141,35 @@ export class DisciplineAgent {
       };
     }
 
-    return this.executeViaOpenClaw(step, api);
-  }
-
-  async executeViaOpenClaw(
-    step: WorkflowStep,
-    api: OpenClawApi,
-  ): Promise<AgentResult> {
     const startedAt = Date.now();
     this.currentWorkflow = step.id as unknown as string;
 
+    const prompt = (step.config["prompt"] as string) ?? step.name;
+
+    const systemPrompt = [
+      this.config.systemPrompt,
+      "",
+      `You are executing step "${step.name}" (${step.id}) of a SoloFlow workflow.`,
+      "Complete the task described below.",
+      "Return your final result as a concise summary of what you accomplished.",
+    ].join("\n");
+
     try {
-      api.logger.debug(
-        `[discipline:${this.discipline}] executing step "${step.name}" (${step.id})`,
-      );
+      const hostModels = api.hostModels;
+      const modelOverride = this.config.defaultModel || undefined;
 
-      let llm: LlmService;
-      try {
-        llm = api.services.get<LlmService>("openclaw.llm");
-      } catch {
-        api.logger.error(
-          `[discipline:${this.discipline}] OpenClaw LLM service not available — ` +
-          `register an "openclaw.llm" service or install an LLM provider plugin`,
-        );
-        return {
-          stepId: step.id,
-          discipline: this.discipline,
-          output: null,
-          durationMs: Date.now() - startedAt,
-          error: "OpenClaw LLM not configured — no 'openclaw.llm' service found",
-        };
-      }
-
-      const request: LlmCompletionRequest = {
-        model: this.config.defaultModel,
-        max_tokens: this.config.maxTokens,
+      const result = await completeLLM(prompt, hostModels, {
+        model: modelOverride || undefined,
+        maxTokens: this.config.maxTokens,
         temperature: this.config.temperature,
-        messages: [
-          { role: "system", content: this.config.systemPrompt },
-          {
-            role: "user",
-            content: (step.config["prompt"] as string) ?? step.name,
-          },
-        ],
-      };
-
-      const response: LlmCompletionResponse = await llm.complete(request);
+        systemPrompt,
+        timeoutMs: this.config.stepTimeoutMs,
+      });
 
       return {
         stepId: step.id,
         discipline: this.discipline,
-        output: response.content,
-        tokensUsed: response.usage.total_tokens,
+        output: result.text,
         durationMs: Date.now() - startedAt,
       };
     } catch (err) {
@@ -206,7 +184,6 @@ export class DisciplineAgent {
       this.currentWorkflow = null;
     }
   }
-
 }
 
 // ─── Agent Factory ────────────────────────────────────────────────────
