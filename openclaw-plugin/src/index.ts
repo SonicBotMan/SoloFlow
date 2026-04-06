@@ -14,6 +14,8 @@ import { Type } from "@sinclair/typebox";
 
 import { WorkflowService } from "./services/workflow-service.js";
 import { Scheduler } from "./services/scheduler.js";
+import { TemplateRegistry } from "./services/template-registry.js";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 import type {
   AgentDiscipline,
@@ -52,6 +54,7 @@ export default definePluginEntry({
 
     const workflowService = new WorkflowService();
     const scheduler = new Scheduler(workflowService);
+    const templateRegistry = new TemplateRegistry();
 
     // ── 2. Phase 2 subsystems (behind try-catch walls) ──────────────
 
@@ -378,7 +381,83 @@ export default definePluginEntry({
       });
     });
 
-    // ── 5. Cleanup on deactivate ────────────────────────────────────
+    // ── 5. API server (HTTP via gateway, behind try-catch) ──────────
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let apiServerClose: (() => void) | null = null;
+
+    void (async () => {
+      try {
+        const { createApiServer } = await import("./api/index.js");
+        const apiServer = createApiServer(
+          { workflowService, scheduler, templateRegistry },
+          { requireAuth: false },
+        );
+
+        api.registerHttpRoute({
+          path: "/soloflow",
+          match: "prefix",
+          auth: "plugin",
+          handler: async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
+            // Strip /soloflow prefix
+            const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+            const internalPath = url.pathname.replace(/^\/soloflow/, "") || "/";
+
+            // Parse query string
+            const query: Record<string, string> = {};
+            for (const [k, v] of url.searchParams) {
+              query[k] = v;
+            }
+
+            // Collect headers (lowercase)
+            const headers: Record<string, string> = {};
+            for (const [k, v] of Object.entries(req.headers)) {
+              if (typeof v === "string") headers[k] = v;
+              else if (Array.isArray(v) && v[0] !== undefined) headers[k] = v[0];
+            }
+
+            // Parse JSON body for POST/PUT/PATCH
+            let body: unknown = undefined;
+            if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+              const chunks: Buffer[] = [];
+              for await (const chunk of req) chunks.push(chunk as Buffer);
+              const raw = Buffer.concat(chunks).toString("utf8");
+              if (raw.trim()) {
+                try { body = JSON.parse(raw); } catch { body = raw; }
+              }
+            }
+
+            const apiReq = {
+              method: (req.method ?? "GET") as "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
+              path: internalPath,
+              params: {},
+              query,
+              body,
+              headers,
+            };
+
+            const apiRes = await apiServer.handle(apiReq);
+
+            res.statusCode = apiRes.status;
+            for (const [k, v] of Object.entries(apiRes.headers)) {
+              res.setHeader(k, v);
+            }
+            if (!apiRes.headers["content-type"]) {
+              res.setHeader("content-type", "application/json");
+            }
+            res.end(typeof apiRes.body === "string" ? apiRes.body : JSON.stringify(apiRes.body));
+            return true;
+          },
+        });
+
+        apiServerClose = () => apiServer.close();
+        log.info("API server ready at /soloflow");
+      } catch (e) {
+        log.warn(`API server disabled: ${e}`);
+      }
+    })();
+
+    // ── 6. Cleanup on deactivate ────────────────────────────────────
 
     try {
       api.registerHook("plugin:deactivate" as any, () => {
@@ -388,6 +467,7 @@ export default definePluginEntry({
         hookSystem?.clear();
         vectorSystem?.close().catch(() => {});
         memorySystem?.close().catch(() => {});
+        apiServerClose?.();
         log.info("deactivated");
       });
     } catch {
