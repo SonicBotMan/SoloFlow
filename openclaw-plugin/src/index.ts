@@ -231,7 +231,7 @@ export default definePluginEntry({
 
             // Fire-and-forget execution (non-blocking)
             // Pass host model config so steps can call LLM directly via HTTP
-            const hostModels = api.config?.models as Record<string, unknown> | undefined;
+            const hostModels = api.config?.["models"] as Record<string, unknown> | undefined;
             const execApi = {
               logger: log,
               hostModels: hostModels as import("./types.js").HostModelsConfig | undefined,

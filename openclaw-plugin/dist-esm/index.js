@@ -55,6 +55,141 @@ var init_types = __esm({
   }
 });
 
+// src/agents/llm-client.ts
+function resolveApiKey(input) {
+  if (!input) return void 0;
+  if (typeof input === "string") return input;
+  if (input.source === "env") return process.env[input.id];
+  return void 0;
+}
+function buildHeaders(provider) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...provider.headers
+  };
+  if (provider.apiKey) {
+    headers["Authorization"] = `Bearer ${provider.apiKey}`;
+  }
+  return headers;
+}
+function normalizeEndpoint(baseUrl, suffix) {
+  const base = baseUrl.replace(/\/+$/, "");
+  if (base.endsWith(suffix)) return base;
+  return `${base}${suffix}`;
+}
+function pickCompletionProvider(providers) {
+  const entries = Object.entries(providers).filter(([, p]) => p.models?.length > 0);
+  if (entries.length === 0) return void 0;
+  entries.sort(([, a], [, b]) => {
+    const aScore = (a.api === "openai-completions" ? 2 : 0) + (resolveApiKey(a.apiKey) ? 1 : 0);
+    const bScore = (b.api === "openai-completions" ? 2 : 0) + (resolveApiKey(b.apiKey) ? 1 : 0);
+    return bScore - aScore;
+  });
+  const first = entries[0];
+  if (!first) return void 0;
+  const [name, provider] = first;
+  return {
+    name,
+    baseUrl: provider.baseUrl,
+    apiKey: resolveApiKey(provider.apiKey),
+    api: provider.api,
+    headers: provider.headers,
+    model: provider.models[0]?.id ?? provider.models[0]?.name ?? "unknown"
+  };
+}
+function findModelProvider(providers, modelId) {
+  for (const entry of Object.entries(providers)) {
+    const name = entry[0];
+    const provider = entry[1];
+    const found = provider.models.find((m) => m.id === modelId);
+    if (found) {
+      return {
+        name,
+        baseUrl: provider.baseUrl,
+        apiKey: resolveApiKey(provider.apiKey),
+        api: provider.api,
+        headers: provider.headers,
+        model: found.id
+      };
+    }
+  }
+  const allEntries = Object.entries(providers);
+  for (let i = 0; i < allEntries.length; i++) {
+    const entry = allEntries[i];
+    if (!entry) continue;
+    const name = entry[0];
+    const provider = entry[1];
+    const found = provider.models.find((m) => m.id.endsWith(modelId) || m.name === modelId);
+    if (found) {
+      return {
+        name,
+        baseUrl: provider.baseUrl,
+        apiKey: resolveApiKey(provider.apiKey),
+        api: provider.api,
+        headers: provider.headers,
+        model: found.id
+      };
+    }
+  }
+  return void 0;
+}
+async function completeLLM(prompt, hostModels, options = {}) {
+  if (!hostModels?.providers) {
+    throw new Error(
+      "No LLM providers configured. Set up model providers in OpenClaw config."
+    );
+  }
+  const providers = hostModels.providers;
+  let provider;
+  if (options.model) {
+    provider = findModelProvider(providers, options.model);
+  }
+  if (!provider) {
+    provider = pickCompletionProvider(providers);
+  }
+  if (!provider) {
+    throw new Error(
+      "No suitable completion provider found. Ensure at least one provider has models configured."
+    );
+  }
+  const model = options.model ? provider.model : provider.model;
+  const endpoint = normalizeEndpoint(provider.baseUrl, "/chat/completions");
+  const messages = [];
+  if (options.systemPrompt) {
+    messages.push({ role: "system", content: options.systemPrompt });
+  }
+  messages.push({ role: "user", content: prompt });
+  const body = {
+    model,
+    messages,
+    temperature: options.temperature ?? 0.5
+  };
+  if (options.maxTokens) {
+    body["max_tokens"] = options.maxTokens;
+  }
+  const timeoutMs = options.timeoutMs ?? 6e4;
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: buildHeaders(provider),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!resp.ok) {
+    const respBody = await resp.text();
+    throw new Error(
+      `LLM request failed (${provider.name} ${resp.status}): ${respBody.slice(0, 500)}`
+    );
+  }
+  const json = await resp.json();
+  const text = json.choices?.[0]?.message?.content ?? "";
+  return { text, model, provider: provider.name };
+}
+var init_llm_client = __esm({
+  "src/agents/llm-client.ts"() {
+    "use strict";
+  }
+});
+
 // src/agents/discipline.ts
 var discipline_exports = {};
 __export(discipline_exports, {
@@ -102,33 +237,34 @@ var init_discipline = __esm({
   "src/agents/discipline.ts"() {
     "use strict";
     init_types();
+    init_llm_client();
     DISCIPLINE_CONFIGS = {
       deep: {
-        defaultModel: "claude-3-opus",
+        defaultModel: "",
         maxTokens: 8192,
         temperature: 0.3,
-        defaultTools: ["web-search", "code-runner", "data-analysis"],
+        stepTimeoutMs: 12e4,
         systemPrompt: "You are a deep-reasoning agent. Perform thorough research, multi-step analysis, and produce well-structured, detailed output. Prefer correctness over speed."
       },
       quick: {
-        defaultModel: "claude-3-haiku",
+        defaultModel: "",
         maxTokens: 2048,
         temperature: 0.5,
-        defaultTools: ["web-search", "http-request"],
+        stepTimeoutMs: 6e4,
         systemPrompt: "You are a fast-response agent. Complete the task quickly with a concise answer. Optimise for speed and brevity."
       },
       visual: {
-        defaultModel: "claude-3-sonnet",
+        defaultModel: "",
         maxTokens: 4096,
         temperature: 0.6,
-        defaultTools: ["image-gen", "screenshot", "browser"],
+        stepTimeoutMs: 12e4,
         systemPrompt: "You are a visual/frontend agent. Focus on UI design, frontend code, image generation, and visual quality. Produce pixel-perfect output."
       },
       ultrabrain: {
-        defaultModel: "o1",
+        defaultModel: "",
         maxTokens: 16384,
         temperature: 0.2,
-        defaultTools: ["code-runner", "data-analysis", "web-search"],
+        stepTimeoutMs: 3e5,
         systemPrompt: "You are an ultrabrain agent. Solve hard logic, algorithms, and architecture problems. Use chain-of-thought reasoning. Prioritise rigour and correctness."
       }
     };
@@ -153,21 +289,17 @@ var init_discipline = __esm({
     DisciplineAgent = class {
       discipline;
       config;
-      tools;
       currentWorkflow = null;
       constructor(discipline) {
         this.discipline = discipline;
         this.config = DISCIPLINE_CONFIGS[discipline];
-        this.tools = [...this.config.defaultTools];
       }
       /** Classify an arbitrary input string to a discipline. */
       classify(input) {
         return routeToDiscipline(input);
       }
       /**
-       * Execute a workflow step.
-       * Delegates to `executeViaOpenClaw` when an `OpenClawApi` is available.
-       * Returns an error result when no OpenClaw runtime is provided.
+       * Execute a workflow step via direct HTTP LLM call.
        */
       async execute(step2, api) {
         if (!api) {
@@ -178,48 +310,30 @@ var init_discipline = __esm({
             error: "OpenClaw API not provided \u2014 cannot execute without runtime"
           };
         }
-        return this.executeViaOpenClaw(step2, api);
-      }
-      async executeViaOpenClaw(step2, api) {
         const startedAt = Date.now();
         this.currentWorkflow = step2.id;
+        const prompt = step2.config["prompt"] ?? step2.name;
+        const systemPrompt = [
+          this.config.systemPrompt,
+          "",
+          `You are executing step "${step2.name}" (${step2.id}) of a SoloFlow workflow.`,
+          "Complete the task described below.",
+          "Return your final result as a concise summary of what you accomplished."
+        ].join("\n");
         try {
-          api.logger.debug(
-            `[discipline:${this.discipline}] executing step "${step2.name}" (${step2.id})`
-          );
-          let llm;
-          try {
-            llm = api.services.get("openclaw.llm");
-          } catch {
-            api.logger.error(
-              `[discipline:${this.discipline}] OpenClaw LLM service not available \u2014 register an "openclaw.llm" service or install an LLM provider plugin`
-            );
-            return {
-              stepId: step2.id,
-              discipline: this.discipline,
-              output: null,
-              durationMs: Date.now() - startedAt,
-              error: "OpenClaw LLM not configured \u2014 no 'openclaw.llm' service found"
-            };
-          }
-          const request = {
-            model: this.config.defaultModel,
-            max_tokens: this.config.maxTokens,
+          const hostModels = api.hostModels;
+          const modelOverride = this.config.defaultModel || void 0;
+          const result = await completeLLM(prompt, hostModels, {
+            model: modelOverride || void 0,
+            maxTokens: this.config.maxTokens,
             temperature: this.config.temperature,
-            messages: [
-              { role: "system", content: this.config.systemPrompt },
-              {
-                role: "user",
-                content: step2.config["prompt"] ?? step2.name
-              }
-            ]
-          };
-          const response = await llm.complete(request);
+            systemPrompt,
+            timeoutMs: this.config.stepTimeoutMs
+          });
           return {
             stepId: step2.id,
             discipline: this.discipline,
-            output: response.content,
-            tokensUsed: response.usage.total_tokens,
+            output: result.text,
             durationMs: Date.now() - startedAt
           };
         } catch (err) {
@@ -11239,15 +11353,12 @@ var index_default = definePluginEntry({
               };
             }
             workflowService.start(wfId);
-            const shimApi = {
+            const hostModels = api.config?.["models"];
+            const execApi = {
               logger: log,
-              services: {
-                get: () => {
-                  throw new Error("No LLM service in safe mode");
-                }
-              }
+              hostModels
             };
-            scheduler.execute(wfId, shimApi).catch(
+            scheduler.execute(wfId, execApi).catch(
               (e) => log.error(`schedule error: ${e}`)
             );
             return {
