@@ -11121,7 +11121,7 @@ function previewWorkflow(dag) {
 
 // src/index.ts
 var PLUGIN_NAME = "soloflow";
-var PLUGIN_VERSION = "0.2.0-safe";
+var PLUGIN_VERSION = "0.4.0";
 var index_default = definePluginEntry({
   id: "workflow-orchestration",
   name: "SoloFlow",
@@ -11289,12 +11289,24 @@ var index_default = definePluginEntry({
               };
             }
             workflowService.start(wfId);
-            scheduler.execute(wfId, api).catch(
-              (e) => log.error(`schedule error: ${e}`)
-            );
+            const readyIds = workflowService.getReadySteps(wfId, /* @__PURE__ */ new Set(), /* @__PURE__ */ new Set());
+            const readySteps = readyIds.map((id) => {
+              const s = wf.steps.get(id);
+              return {
+                id: s.id,
+                name: s.name,
+                discipline: s.discipline,
+                action: s.config?.["prompt"] ?? s.name,
+                dependencies: s.dependencies
+              };
+            });
             return {
-              content: [{ type: "text", text: `Workflow ${wfId} started (${wf.steps.size} steps)` }],
-              details: { workflowId: wfId, state: "running" }
+              content: [{ type: "text", text: JSON.stringify({
+                workflowId: wfId,
+                totalSteps: wf.steps.size,
+                readySteps
+              }, null, 2) }],
+              details: { workflowId: wfId, state: "running", readyCount: readySteps.length }
             };
           } catch (e) {
             return {
@@ -11328,6 +11340,7 @@ var index_default = definePluginEntry({
             discipline: s.discipline,
             state: s.state,
             error: s.error,
+            result: s.result,
             durationMs: s.startedAt && s.completedAt ? s.completedAt - s.startedAt : void 0
           }));
           return {
@@ -11401,6 +11414,102 @@ var index_default = definePluginEntry({
               details: { error: true }
             };
           }
+        }
+      }
+    );
+    api.registerTool(
+      {
+        name: "soloflow_ready_steps",
+        description: "Get steps that are ready to execute (all dependencies met). The main agent calls this to know which steps to spawn next.",
+        label: "SoloFlow: Get Ready Steps",
+        parameters: Type.Object({
+          workflowId: Type.String({ description: "Workflow ID" })
+        }),
+        async execute(_toolCallId, params) {
+          const wfId = params.workflowId;
+          const wf = workflowService.get(wfId);
+          if (!wf) return { content: [{ type: "text", text: "Workflow not found" }], details: { error: true } };
+          const completed = /* @__PURE__ */ new Set();
+          const running = /* @__PURE__ */ new Set();
+          for (const [id, step2] of wf.steps) {
+            if (step2.state === "completed") completed.add(id);
+            else if (step2.state === "running") running.add(id);
+          }
+          const readyIds = workflowService.getReadySteps(wfId, completed, running);
+          const readySteps = readyIds.map((id) => {
+            const s = wf.steps.get(id);
+            return {
+              id: s.id,
+              name: s.name,
+              discipline: s.discipline,
+              action: s.config?.["prompt"] ?? s.name,
+              dependencies: s.dependencies
+            };
+          });
+          return {
+            content: [{ type: "text", text: JSON.stringify({ readySteps, completed: completed.size, running: running.size, total: wf.steps.size }, null, 2) }],
+            details: { workflowId: wfId, readyCount: readySteps.length }
+          };
+        }
+      }
+    );
+    api.registerTool(
+      {
+        name: "soloflow_advance_step",
+        description: "Mark a step as completed with its result. This unlocks downstream dependent steps. The main agent calls this after confirming a subagent has finished.",
+        label: "SoloFlow: Advance Step",
+        parameters: Type.Object({
+          workflowId: Type.String({ description: "Workflow ID" }),
+          stepId: Type.String({ description: "Step ID to mark complete" }),
+          result: Type.Optional(Type.String({ description: "The text output/result from executing this step" })),
+          error: Type.Optional(Type.String({ description: "Error message if the step failed" }))
+        }),
+        async execute(_toolCallId, params) {
+          const wfId = params.workflowId;
+          const stepId = params.stepId;
+          const wf = workflowService.get(wfId);
+          if (!wf) return { content: [{ type: "text", text: "Workflow not found" }], details: { error: true } };
+          const step2 = wf.steps.get(stepId);
+          if (!step2) return { content: [{ type: "text", text: `Step not found: ${stepId}` }], details: { error: true } };
+          if (step2.state === "completed") return { content: [{ type: "text", text: `Step ${stepId} already completed` }], details: { error: true } };
+          step2.state = params.error ? "failed" : "completed";
+          step2.result = params.result ?? null;
+          step2.error = params.error ?? void 0;
+          step2.completedAt = Date.now();
+          workflowService.update(wf);
+          const allSteps = Array.from(wf.steps.values());
+          const allDone = allSteps.every((s) => s.state === "completed" || s.state === "failed");
+          const anyFailed = allSteps.some((s) => s.state === "failed");
+          let newState = wf.state;
+          let message;
+          if (allDone) {
+            newState = anyFailed ? "failed" : "completed";
+            wf.state = newState;
+            wf.updatedAt = Date.now();
+            workflowService.update(wf);
+            message = `Workflow ${wfId} ${newState}!`;
+          } else {
+            const completed = /* @__PURE__ */ new Set();
+            const running = /* @__PURE__ */ new Set();
+            for (const [id, s] of wf.steps) {
+              if (s.state === "completed") completed.add(id);
+              else if (s.state === "running") running.add(id);
+            }
+            const newReady = workflowService.getReadySteps(wfId, completed, running);
+            message = `Step ${stepId} completed. ${newReady.length} step(s) now ready: ${newReady.join(", ") || "none"}`;
+          }
+          return {
+            content: [{ type: "text", text: JSON.stringify({
+              workflowId: wfId,
+              stepId,
+              stepState: step2.state,
+              workflowState: newState,
+              message,
+              completedCount: allSteps.filter((s) => s.state === "completed").length,
+              totalSteps: allSteps.length
+            }, null, 2) }],
+            details: { workflowId: wfId, stepState: step2.state, workflowState: newState }
+          };
         }
       }
     );
@@ -11495,7 +11604,7 @@ var index_default = definePluginEntry({
     } catch {
     }
     log.info(
-      `activated (safe mode) \u2014 5 tools registered, subsystems loading async`
+      `activated (v0.4) \u2014 7 tools registered, subsystems loading async`
     );
   }
 });

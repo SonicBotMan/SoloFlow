@@ -31,7 +31,7 @@ import type {
 // ─── Plugin metadata ────────────────────────────────────────────────────
 
 const PLUGIN_NAME = "soloflow";
-const PLUGIN_VERSION = "0.2.0-safe";
+const PLUGIN_VERSION = "0.4.0";
 
 // ─── Entry point ────────────────────────────────────────────────────────
 
@@ -229,15 +229,26 @@ export default definePluginEntry({
 
             workflowService.start(wfId);
 
-            // Fire-and-forget execution (non-blocking)
-            // Pass the real plugin API so subagents have full tool access
-            scheduler.execute(wfId, api as never).catch((e: unknown) =>
-              log.error(`schedule error: ${e}`),
-            );
+            // Return workflow summary with initial ready steps
+            const readyIds = workflowService.getReadySteps(wfId, new Set(), new Set());
+            const readySteps = readyIds.map(id => {
+              const s = wf.steps.get(id)!;
+              return {
+                id: s.id,
+                name: s.name,
+                discipline: s.discipline,
+                action: (s.config?.["prompt"] ?? s.name) as string,
+                dependencies: s.dependencies,
+              };
+            });
 
             return {
-              content: [{ type: "text" as const, text: `Workflow ${wfId} started (${wf.steps.size} steps)` }],
-              details: { workflowId: wfId, state: "running" },
+              content: [{ type: "text" as const, text: JSON.stringify({
+                workflowId: wfId,
+                totalSteps: wf.steps.size,
+                readySteps,
+              }, null, 2) }],
+              details: { workflowId: wfId, state: "running", readyCount: readySteps.length },
             };
           } catch (e) {
             return {
@@ -274,6 +285,7 @@ export default definePluginEntry({
             discipline: s.discipline,
             state: s.state,
             error: s.error,
+            result: s.result,
             durationMs:
               s.startedAt && s.completedAt ? s.completedAt - s.startedAt : undefined,
           }));
@@ -354,6 +366,118 @@ export default definePluginEntry({
               details: { error: true },
             };
           }
+        },
+      },
+      
+    );
+
+    // ── 3b. Execution tools (main-agent-driven) ────────────────────
+
+    api.registerTool(
+      {
+        name: "soloflow_ready_steps",
+        description: "Get steps that are ready to execute (all dependencies met). The main agent calls this to know which steps to spawn next.",
+        label: "SoloFlow: Get Ready Steps",
+        parameters: Type.Object({
+          workflowId: Type.String({ description: "Workflow ID" }),
+        }),
+        async execute(_toolCallId: string, params: any) {
+          const wfId = params.workflowId as WorkflowId;
+          const wf = workflowService.get(wfId);
+          if (!wf) return { content: [{ type: "text" as const, text: "Workflow not found" }], details: { error: true } };
+
+          const completed = new Set<StepId>();
+          const running = new Set<StepId>();
+          for (const [id, step] of wf.steps) {
+            if (step.state === "completed") completed.add(id);
+            else if (step.state === "running") running.add(id);
+          }
+
+          const readyIds = workflowService.getReadySteps(wfId, completed, running);
+          const readySteps = readyIds.map(id => {
+            const s = wf.steps.get(id)!;
+            return {
+              id: s.id,
+              name: s.name,
+              discipline: s.discipline,
+              action: (s.config?.["prompt"] ?? s.name) as string,
+              dependencies: s.dependencies,
+            };
+          });
+
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ readySteps, completed: completed.size, running: running.size, total: wf.steps.size }, null, 2) }],
+            details: { workflowId: wfId, readyCount: readySteps.length },
+          };
+        },
+      },
+      
+    );
+
+    api.registerTool(
+      {
+        name: "soloflow_advance_step",
+        description: "Mark a step as completed with its result. This unlocks downstream dependent steps. The main agent calls this after confirming a subagent has finished.",
+        label: "SoloFlow: Advance Step",
+        parameters: Type.Object({
+          workflowId: Type.String({ description: "Workflow ID" }),
+          stepId: Type.String({ description: "Step ID to mark complete" }),
+          result: Type.Optional(Type.String({ description: "The text output/result from executing this step" })),
+          error: Type.Optional(Type.String({ description: "Error message if the step failed" })),
+        }),
+        async execute(_toolCallId: string, params: any) {
+          const wfId = params.workflowId as WorkflowId;
+          const stepId = params.stepId as StepId;
+          const wf = workflowService.get(wfId);
+          if (!wf) return { content: [{ type: "text" as const, text: "Workflow not found" }], details: { error: true } };
+
+          const step = wf.steps.get(stepId);
+          if (!step) return { content: [{ type: "text" as const, text: `Step not found: ${stepId}` }], details: { error: true } };
+          if (step.state === "completed") return { content: [{ type: "text" as const, text: `Step ${stepId} already completed` }], details: { error: true } };
+
+          step.state = params.error ? "failed" : "completed";
+          step.result = params.result ?? null;
+          step.error = params.error ?? undefined;
+          step.completedAt = Date.now();
+
+          workflowService.update(wf);
+
+          const allSteps = Array.from(wf.steps.values());
+          const allDone = allSteps.every(s => s.state === "completed" || s.state === "failed");
+          const anyFailed = allSteps.some(s => s.state === "failed");
+
+          let newState: WorkflowState = wf.state;
+          let message: string;
+
+          if (allDone) {
+            newState = anyFailed ? "failed" : "completed";
+            wf.state = newState;
+            wf.updatedAt = Date.now();
+            workflowService.update(wf);
+            message = `Workflow ${wfId} ${newState}!`;
+          } else {
+            const completed = new Set<StepId>();
+            const running = new Set<StepId>();
+            for (const [id, s] of wf.steps) {
+              if (s.state === "completed") completed.add(id);
+              else if (s.state === "running") running.add(id);
+            }
+            const newReady = workflowService.getReadySteps(wfId, completed, running);
+            message = `Step ${stepId} completed. ${newReady.length} step(s) now ready: ${newReady.join(", ") || "none"}`;
+          }
+
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({
+              workflowId: wfId,
+              stepId,
+              stepState: step.state,
+              workflowState: newState,
+              message,
+              completedCount: allSteps.filter(s => s.state === "completed").length,
+              totalSteps: allSteps.length,
+            }, null, 2) }],
+            details: { workflowId: wfId, stepState: step.state, workflowState: newState },
+          };
         },
       },
       
@@ -468,7 +592,7 @@ export default definePluginEntry({
     }
 
     log.info(
-      `activated (safe mode) — 5 tools registered, subsystems loading async`,
+      `activated (v0.4) — 7 tools registered, subsystems loading async`,
     );
   },
 });
