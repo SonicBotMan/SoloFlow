@@ -1,4 +1,5 @@
-import { Database } from "bun:sqlite";
+import BetterSqlite3 from "better-sqlite3";
+type Database = BetterSqlite3.Database;
 import type { Skill } from "./types";
 
 const CREATE_TABLE_SQL = `
@@ -69,30 +70,30 @@ export class SkillRegistry {
   private db: Database;
 
   constructor(dbPath = ":memory:") {
-    this.db = new Database(dbPath);
+    this.db = new BetterSqlite3(dbPath);
     this.db.exec(CREATE_TABLE_SQL);
   }
 
   register(skill: Skill): void {
     const params = serializeSkill(skill);
-    this.db.run(INSERT_SQL, params);
+    this.db.prepare(INSERT_SQL).run(...params);
   }
 
   get(skillId: string): Skill | undefined {
-    const row = this.db.query(SELECT_BY_ID_SQL).get(skillId) as
+    const row = this.db.prepare(SELECT_BY_ID_SQL).get(skillId) as
       | Record<string, unknown>
       | null;
     return row ? deserializeSkill(row) : undefined;
   }
 
   list(): Skill[] {
-    const rows = this.db.query(SELECT_ALL_SQL).all() as Record<string, unknown>[];
+    const rows = this.db.prepare(SELECT_ALL_SQL).all() as Record<string, unknown>[];
     return rows.map(deserializeSkill);
   }
 
   search(query: string): Skill[] {
     const pattern = `%${query}%`;
-    const rows = this.db.query(SEARCH_SQL).all(pattern, pattern) as Record<
+    const rows = this.db.prepare(SEARCH_SQL).all(pattern, pattern) as Record<
       string,
       unknown
     >[];
@@ -103,15 +104,15 @@ export class SkillRegistry {
     skill.installed = true;
     skill.updatedAt = Date.now();
     const params = serializeSkill(skill);
-    this.db.run(INSERT_SQL, params);
+    this.db.prepare(INSERT_SQL).run(...params);
   }
 
   uninstallSkill(skillId: string): void {
-    this.db.run(UPDATE_INSTALLED_SQL, [0, Date.now(), skillId]);
+    this.db.prepare(UPDATE_INSTALLED_SQL).run(0, Date.now(), skillId);
   }
 
   delete(skillId: string): void {
-    this.db.run(DELETE_SQL, [skillId]);
+    this.db.prepare(DELETE_SQL).run(skillId);
   }
 
   close(): void {

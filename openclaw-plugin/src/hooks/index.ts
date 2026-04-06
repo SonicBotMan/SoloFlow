@@ -170,137 +170,18 @@ export function registerBuiltinHooks(system: HookSystem = hookSystem): () => voi
   return () => unsubs.forEach((fn) => fn());
 }
 
-// ─── OpenClaw Integration ──────────────────────────────────────────
-
-/**
- * Map SoloFlow StateEvent types to HookEvent names.
- * Used by the state-service subscriber to bridge into the hook system.
+/* ─── OpenClaw Integration ──────────────────────────────────────────
+ * NOTE: The bridge logic (STATE_EVENT_TO_HOOK, hookEventFromTransition,
+ * and the full registerHooks body) has been moved into index.ts.
+ * These helpers are kept as no-op stubs to avoid breaking any callers.
  */
-const STATE_EVENT_TO_HOOK: Record<string, HookEvent | undefined> = {
-  "workflow:created": "workflow:created",
-  "workflow:state_changed": "workflow:state_changed",
-  "step:started": "step:starting",
-  "step:completed": "step:completed",
-  "step:failed": "step:failed",
-};
 
-/**
- * Derive a concrete HookEvent from a state transition.
- * Maps FSM transitions like (running→completed) to specific hook events.
- */
-function hookEventFromTransition(to: string): HookEvent | undefined {
-  switch (to) {
-    case "running":
-      return "workflow:started";
-    case "paused":
-      return "workflow:paused";
-    case "completed":
-      return "workflow:completed";
-    case "failed":
-      return "workflow:failed";
-    case "cancelled":
-      return "workflow:cancelled";
-    default:
-      return undefined;
-  }
+/** @deprecated — bridge moved to index.ts */
+export function registerHooks(_api: OpenClawApi, _system: HookSystem = hookSystem): () => void {
+  return () => {};
 }
 
-/**
- * Register SoloFlow hooks with the OpenClaw host API.
- * Bridges OpenClaw's generic event system into SoloFlow's typed hook system.
- */
-export function registerHooks(api: OpenClawApi, system: HookSystem = hookSystem): () => void {
-  const stateService = api.services.get<{
-    getWorkflow: (id: string) => Workflow | undefined;
-    subscribe: (listener: (event: Record<string, unknown>) => void) => () => void;
-  }>("soloflow.state-service");
-
-  /** Bridge StateEvents → HookEvents */
-  const onStateEvent = (event: Record<string, unknown>) => {
-    const type = event["type"] as string;
-    const hookEvent = STATE_EVENT_TO_HOOK[type];
-
-    if (type === "workflow:state_changed") {
-      const { workflowId, to } = event as { workflowId: string; to: string };
-      const wf = stateService?.getWorkflow(workflowId);
-      const derived = hookEventFromTransition(to as string);
-      if (derived && wf) {
-        system.emit(derived, {
-          event: derived,
-          workflow: wf,
-          timestamp: Date.now(),
-          metadata: event as Record<string, unknown>,
-        });
-      }
-      return;
-    }
-
-    if (hookEvent) {
-      const workflowId = (event as { workflowId?: string }).workflowId;
-      const wf = workflowId ? stateService?.getWorkflow(workflowId) : undefined;
-      system.emit(hookEvent, {
-        event: hookEvent,
-        workflow: wf,
-        timestamp: Date.now(),
-        metadata: event as Record<string, unknown>,
-      });
-    }
-  };
-
-  // Register with OpenClaw's event system
-  const stateUnsub = stateService?.subscribe(onStateEvent as (event: unknown) => void);
-
-  // Register soloflow-specific named hooks on the OpenClaw host
-  api.hooks.register("soloflow:onStepStart", (...args: unknown[]) => {
-    const [step, workflow] = args as [WorkflowStep?, Workflow?];
-    if (step) {
-      system.emit("step:starting", {
-        event: "step:starting",
-        workflow,
-        step,
-        timestamp: Date.now(),
-      });
-    }
-  });
-
-  api.hooks.register("soloflow:onStepComplete", (...args: unknown[]) => {
-    const [step, workflow] = args as [WorkflowStep?, Workflow?];
-    if (step) {
-      system.emit("step:completed", {
-        event: "step:completed",
-        workflow,
-        step,
-        timestamp: Date.now(),
-      });
-    }
-  });
-
-  api.hooks.register("soloflow:onWorkflowComplete", (...args: unknown[]) => {
-    const [workflow] = args as [Workflow?];
-    if (workflow) {
-      system.emit("workflow:completed", {
-        event: "workflow:completed",
-        workflow,
-        timestamp: Date.now(),
-      });
-    }
-  });
-
-  // Return cleanup function
-  return () => {
-    stateUnsub?.();
-    api.hooks.unregister("soloflow:onStepStart");
-    api.hooks.unregister("soloflow:onStepComplete");
-    api.hooks.unregister("soloflow:onWorkflowComplete");
-  };
-}
-
-/**
- * Unregister all SoloFlow hooks from the OpenClaw host API.
- * Standalone convenience for the deactivation path.
- */
-export function unregisterHooks(api: OpenClawApi): void {
-  api.hooks.unregister("soloflow:onStepStart");
-  api.hooks.unregister("soloflow:onStepComplete");
-  api.hooks.unregister("soloflow:onWorkflowComplete");
+/** @deprecated — bridge moved to index.ts */
+export function unregisterHooks(_api: OpenClawApi): void {
+  // No-op
 }

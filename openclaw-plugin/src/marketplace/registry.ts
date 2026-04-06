@@ -1,4 +1,5 @@
-import { Database } from "bun:sqlite";
+import BetterSqlite3 from "better-sqlite3";
+type Database = BetterSqlite3.Database;
 import type {
   InstalledItem,
   MarketplaceEvent,
@@ -156,7 +157,7 @@ export class LocalRegistry {
   private listeners: Array<(event: MarketplaceEvent) => void> = [];
 
   constructor(dbPath: string = ":memory:") {
-    this.db = new Database(dbPath);
+    this.db = new BetterSqlite3(dbPath);
     this.db.exec("PRAGMA journal_mode=WAL");
     this.db.exec("PRAGMA foreign_keys=ON");
     this.db.exec(SCHEMA);
@@ -232,7 +233,7 @@ export class LocalRegistry {
   }
 
   get(itemId: string): MarketplaceItem | undefined {
-    const row = this.db.query("SELECT * FROM items WHERE id = ?").get(itemId) as ItemRow | null;
+    const row = this.db.prepare("SELECT * FROM items WHERE id = ?").get(itemId) as ItemRow | null;
     if (!row) return undefined;
     return itemFromRow(row);
   }
@@ -291,7 +292,7 @@ export class LocalRegistry {
   }
 
   install(itemId: string, installPath?: string): InstalledItem {
-    const row = this.db.query("SELECT * FROM items WHERE id = ?").get(itemId) as ItemRow | null;
+    const row = this.db.prepare("SELECT * FROM items WHERE id = ?").get(itemId) as ItemRow | null;
     if (!row) throw new Error(`Item not found: ${itemId}`);
 
     const now = Date.now();
@@ -326,7 +327,7 @@ export class LocalRegistry {
   }
 
   uninstall(itemId: string): void {
-    const existing = this.db.query("SELECT item_id FROM installed WHERE item_id = ?").get(itemId);
+    const existing = this.db.prepare("SELECT item_id FROM installed WHERE item_id = ?").get(itemId);
     if (!existing) throw new Error(`Item not installed: ${itemId}`);
 
     this.db.prepare("DELETE FROM installed WHERE item_id = ?").run(itemId);
@@ -334,7 +335,7 @@ export class LocalRegistry {
   }
 
   listInstalled(): InstalledItem[] {
-    const rows = this.db.query("SELECT * FROM installed ORDER BY installed_at DESC").all() as InstalledRow[];
+    const rows = this.db.prepare("SELECT * FROM installed ORDER BY installed_at DESC").all() as InstalledRow[];
     return rows.map((row) => ({
       itemId: row.item_id,
       kind: row.kind as MarketplaceItemKind,
@@ -345,7 +346,7 @@ export class LocalRegistry {
   }
 
   isInstalled(itemId: string): boolean {
-    const row = this.db.query("SELECT 1 FROM installed WHERE item_id = ?").get(itemId);
+    const row = this.db.prepare("SELECT 1 FROM installed WHERE item_id = ?").get(itemId);
     return row !== null;
   }
 

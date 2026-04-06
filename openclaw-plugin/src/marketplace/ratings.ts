@@ -1,4 +1,5 @@
-import { Database } from "bun:sqlite";
+import BetterSqlite3 from "better-sqlite3";
+type Database = BetterSqlite3.Database;
 import type { Rating, RatingSummary } from "./types";
 
 const RATINGS_SCHEMA = `
@@ -37,7 +38,7 @@ export class RatingService {
   private db: Database;
 
   constructor(dbPath: string = ":memory:") {
-    this.db = new Database(dbPath);
+    this.db = new BetterSqlite3(dbPath);
     this.db.exec("PRAGMA journal_mode=WAL");
     this.db.exec(RATINGS_SCHEMA);
   }
@@ -77,7 +78,7 @@ export class RatingService {
   }
 
   getRating(itemId: string): RatingSummary {
-    const rows = this.db.query(
+    const rows = this.db.prepare(
       "SELECT stars, COUNT(*) as cnt FROM ratings WHERE item_id = ? GROUP BY stars"
     ).all(itemId) as RatingCountRow[];
 
@@ -99,7 +100,7 @@ export class RatingService {
   }
 
   getRatings(itemId: string, limit: number = 50, offset: number = 0): Rating[] {
-    const rows = this.db.query(
+    const rows = this.db.prepare(
       "SELECT * FROM ratings WHERE item_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
     ).all(itemId, limit, offset) as RatingRow[];
 
@@ -118,7 +119,7 @@ export class RatingService {
   }
 
   getUserRating(itemId: string, userId: string): Rating | undefined {
-    const row = this.db.query(
+    const row = this.db.prepare(
       "SELECT * FROM ratings WHERE item_id = ? AND user_id = ?"
     ).get(itemId, userId) as RatingRow | null;
 

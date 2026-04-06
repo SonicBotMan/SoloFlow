@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ESNext"],
-    "types": ["bun-types"],
+    "types": [],
 
     // Strict Type Checking
     "strict": true,
@@ -34,8 +34,11 @@
     "isolatedModules": true,
 
     // Advanced
-    "skipLibCheck": true,
-    "verbatimModuleSyntax": true
+    "baseUrl": ".",
+    "paths": {
+      "openclaw/*": ["/home/ceshi1/.npm-global/lib/node_modules/openclaw/dist/*"]
+    },
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]

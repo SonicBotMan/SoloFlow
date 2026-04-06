@@ -365,9 +365,9 @@ export class VectorIndexer implements RetrievalStore {
   }
 
   private async openDatabase(): Promise<Database> {
-    const { Database } = await import("bun:sqlite");
-    return new Database(this.dbPath, { create: true });
+    const { default: Database } = await import("better-sqlite3");
+    return new Database(this.dbPath);
   }
 }
 
-type Database = import("bun:sqlite").Database;
+type Database = ReturnType<typeof import("better-sqlite3")>;
