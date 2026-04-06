@@ -123,28 +123,28 @@ var init_discipline = __esm({
     "use strict";
     DISCIPLINE_CONFIGS = {
       deep: {
-        defaultModel: "",
+        defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
         maxTokens: 8192,
         temperature: 0.3,
         stepTimeoutMs: 12e4,
         systemPrompt: "You are a deep-reasoning agent. Perform thorough research, multi-step analysis, and produce well-structured, detailed output. Prefer correctness over speed. Use tools when needed to complete your task."
       },
       quick: {
-        defaultModel: "",
+        defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
         maxTokens: 2048,
         temperature: 0.5,
         stepTimeoutMs: 6e4,
         systemPrompt: "You are a fast-response agent. Complete the task quickly with a concise answer. Optimise for speed and brevity. Use tools when needed."
       },
       visual: {
-        defaultModel: "",
+        defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
         maxTokens: 4096,
         temperature: 0.6,
         stepTimeoutMs: 12e4,
         systemPrompt: "You are a visual/frontend agent. Focus on UI design, frontend code, image generation, and visual quality. Produce pixel-perfect output. Use tools when needed."
       },
       ultrabrain: {
-        defaultModel: "",
+        defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
         maxTokens: 16384,
         temperature: 0.2,
         stepTimeoutMs: 3e5,
@@ -213,9 +213,8 @@ var init_discipline = __esm({
           const sessionKey = `agent:main:subagent:soloflow:${step2.id}:${Date.now()}`;
           const { runId } = await runtime.subagent.run({
             sessionKey,
-            message: prompt
-            // model and provider overrides require plugin config opt-in
-            // (plugins.entries.<id>.subagent.allowModelOverride: true)
+            message: prompt,
+            model: this.config.defaultModel || void 0
           });
           const result = await runtime.subagent.waitForRun({
             runId,

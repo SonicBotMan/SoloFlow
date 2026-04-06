@@ -25,7 +25,7 @@ export interface DisciplineConfig {
 
 export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConfig>> = {
   deep: {
-    defaultModel: "",
+    defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
     maxTokens: 8192,
     temperature: 0.3,
     stepTimeoutMs: 120_000,
@@ -34,7 +34,7 @@ export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConf
   },
 
   quick: {
-    defaultModel: "",
+    defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
     maxTokens: 2048,
     temperature: 0.5,
     stepTimeoutMs: 60_000,
@@ -43,7 +43,7 @@ export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConf
   },
 
   visual: {
-    defaultModel: "",
+    defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
     maxTokens: 4096,
     temperature: 0.6,
     stepTimeoutMs: 120_000,
@@ -52,7 +52,7 @@ export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConf
   },
 
   ultrabrain: {
-    defaultModel: "",
+    defaultModel: "minimax-portal/MiniMax-M2.7-highspeed",
     maxTokens: 16384,
     temperature: 0.2,
     stepTimeoutMs: 300_000,
@@ -226,8 +226,7 @@ export class DisciplineAgent {
       const { runId } = await runtime.subagent.run({
         sessionKey,
         message: prompt,
-        // model and provider overrides require plugin config opt-in
-        // (plugins.entries.<id>.subagent.allowModelOverride: true)
+        model: this.config.defaultModel || undefined,
       });
 
       // Wait for completion
