@@ -106,5 +106,5 @@ export const codeReviewWorkflow: WorkflowTemplate = {
  *
  * CLI:
  *   /workflow create code-review-workflow
- *   /workflow start <id> --var repo="SonicBotMan/openclaw-plugin" --var pr="7"
+ *   /workflow start <id> --var repo="SonicBotMan/SoloFlow" --var pr="7"
  */

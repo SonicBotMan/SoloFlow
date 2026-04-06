@@ -397,9 +397,9 @@ The `LobsterPressAdapter` interface bridges SoloFlow's memory to the LobsterPres
 ### Install
 
 ```bash
-# Clone into your OpenClaw plugins directory
-git clone https://github.com/SonicBotMan/openclaw-plugin.git
-cd openclaw-plugin
+# Clone the SoloFlow repo into your OpenClaw plugins directory (or symlink this folder)
+git clone https://github.com/SonicBotMan/SoloFlow.git
+cd SoloFlow/openclaw-plugin
 
 bun install
 bun run build
@@ -507,7 +507,7 @@ Multi-user support (JWT auth, RBAC), REST API, WebSocket real-time updates, plug
 
 Star the repo if you find it useful. Contributions, issues, and ideas welcome.
 
-[GitHub](https://github.com/SonicBotMan/openclaw-plugin) · [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) · [LobsterPress](https://github.com/SonicBotMan/lobster-press)
+[GitHub — SoloFlow](https://github.com/SonicBotMan/SoloFlow) · [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) · [LobsterPress](https://github.com/SonicBotMan/lobster-press)
 
 MIT License · Built by [SonicBotMan](https://github.com/SonicBotMan)
 

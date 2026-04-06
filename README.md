@@ -3,83 +3,114 @@
 **OpenClaw 工作流编排插件** —— 将复杂多步骤 AI 任务转化为结构化、可观测、可重试的工作流。
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Website](https://img.shields.io/badge/官网-soloflow.pmparker.net-6366f1)](https://soloflow.pmparker.net/)
 [![TypeScript Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](./openclaw-plugin/tests)
-[![Bundle](https://img.shields.io/badge/bundle-0.27MB-orange)](./openclaw-plugin/dist)
+[![Bundle](https://img.shields.io/badge/bundle-%7E0.27MB-orange)](./openclaw-plugin/dist)
 
 ---
 
-SoloFlow 是 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 的工作流编排大脑。用户描述需求，系统自动完成剩余工作——从任务规划到执行、从记忆学习到技能进化，全部自动化。
+SoloFlow 是 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 的工作流编排层：从任务规划到执行、从记忆沉淀到技能进化，把多步 AI 流程变成可编排、可追踪、可恢复的流水线。
+
+| 资源 | 链接 |
+|------|------|
+| **产品官网（特性 / 架构 / 对比 / 快速上手）** | [soloflow.pmparker.net](https://soloflow.pmparker.net/) |
+| **本仓库** | [github.com/SonicBotMan/SoloFlow](https://github.com/SonicBotMan/SoloFlow) |
+| **发行说明** | [Releases](https://github.com/SonicBotMan/SoloFlow/releases)（例如 **v2.0.0**，2026-04） |
+| **插件详细文档（英文长文）** | [openclaw-plugin/README.md](./openclaw-plugin/README.md) |
 
 ---
 
 ## 核心特性
 
 ### 🧠 认知记忆系统
-基于龙虾饼（LobsterPress）的四级记忆架构：Core Intelligence → Skill Evolution → Multi-Agent → Engineering。三层记忆（语义/情景/工作）配合遗忘曲线 `R(t) = base × e^(-t/stability)`，让 Agent 越用越懂你。
+
+基于 [LobsterPress（lobster-press）](https://github.com/SonicBotMan/lobster-press) 的认知记忆思路：工作 / 情景 / 语义三层记忆，配合遗忘曲线 `R(t) = base × e^(-t/stability)`，让 Agent 在多次运行中持续积累可用上下文。
 
 ### 🎯 Discipline-Aware 路由
-根据任务类型自动路由到最适合的 Agent：
+
+按任务类型自动路由到合适的执行路径：
+
 - **quick** — 简单查询、格式化、翻译
 - **deep** — 深度研究、多步推理、架构设计
-- **visual** — UI/UX、视觉设计、前端开发
-- **ultrabrain** — 复杂算法、硬逻辑、原创方案
+- **visual** — UI/UX、视觉与前端相关任务
+- **ultrabrain** — 复杂算法、硬逻辑、强推理类任务
 
 ### ⚙️ DAG + FSM 混合架构
-- **DAG** — 表达任务之间的依赖关系，并行优化
-- **FSM** — 严格的状态机 governance（pending → running → success/failure/retry）
-- 两者结合：既有工作流的表达力，又有状态机的严谨性
+
+- **DAG** — 表达步骤依赖，同层可并行调度
+- **FSM** — 工作流状态与合法迁移（如 `idle → queued → running`，以及 `completed` / `failed` / `paused` / `cancelled`、重试回 `queued` 等）
+
+两者结合：既有图编排的表达力，又有状态机的可观测与可治理性。
 
 ### 🔄 弹性执行
-- 任务失败自动重试（可配置次数）
-- 超时控制 + 优雅降级
-- 完整执行日志和状态追踪
+
+- 步骤级自动重试（可配置）
+- 超时与失败收敛策略
+- 执行过程日志与状态查询（RPC / MCP）
 
 ### 📦 Skill 自动进化
-系统自动检测重复模式，分析成功案例，生成可复用的 Skill。重复任务自动升级为自动化技能。
 
-### 🔌 MCP 工具暴露
-通过 MCP 协议暴露 5 个核心工具：`soloflow_run`、`soloflow_status`、`soloflow_list`、`soloflow_cancel`、`soloflow_create`，供外部 AI 系统调用。
+检测重复成功模式，沉淀为可复用 Skill，便于团队共享与二次调用。
+
+### 🔌 MCP 工具
+
+通过 MCP 暴露 5 个工具，供外部 AI 或宿主调用：`soloflow_run`、`soloflow_status`、`soloflow_list`、`soloflow_cancel`、`soloflow_create`。
 
 ---
 
-## 架构
+## 仓库结构（插件）
+
+实现代码在 **`openclaw-plugin/`** 下，与官网架构说明一致，核心目录概览：
 
 ```
 openclaw-plugin/
 ├── src/
-│   ├── core/               # DAG + FSM 引擎
-│   ├── agents/             # Discipline Agents (deep/quick/visual/ultrabrain)
-│   ├── memory/             # 三层记忆系统 (Working/Episodic/Semantic)
-│   ├── skills/             # Skill 自动进化
-│   ├── coordination/       # 多 Agent 协调 (TeamBuilder/ModelSelector/LoadBalancer)
-│   ├── vector/              # 向量检索 (RRF/MMR + 时间衰减)
-│   ├── visual/             # YAML ↔ DAG 双向同步
-│   ├── api/                # REST API + WebSocket Server
-│   ├── marketplace/        # 插件市场
-│   └── multiuser/          # 多用户 / RBAC
-├── ui/                     # React Flow 可视化构建器
-└── tests/                  # 175 TypeScript 测试
+│   ├── core/           # DAG + FSM
+│   ├── agents/         # Discipline 执行与路由
+│   ├── services/       # 工作流服务、调度、规划等
+│   ├── memory/         # 工作 / 情景 / 语义记忆
+│   ├── skills/         # Skill 进化与注册
+│   ├── coordination/   # 多 Agent 协调
+│   ├── vector/         # 向量检索与相关能力
+│   ├── visual/         # YAML ↔ 可视化 DAG 同步
+│   ├── mcp/            # MCP 工具实现
+│   ├── api/            # REST / WebSocket 等
+│   ├── rpc/            # JSON-RPC 工作流接口
+│   ├── commands/       # /workflow 等命令
+│   ├── hooks/          # 生命周期钩子
+│   ├── marketplace/    # 市场相关
+│   └── multiuser/      # 多用户 / RBAC
+├── ui/                 # React Flow 可视化构建器
+└── tests/              # TypeScript 测试（`bun test`，当前 175 个用例）
 ```
+
+更细的模块说明、RPC 示例与路线图见 [**openclaw-plugin/README.md**](./openclaw-plugin/README.md)。
 
 ---
 
 ## 快速开始
 
+**前置**：安装 [Bun](https://bun.sh)；插件包要求 **Node ≥ 22**（见 `openclaw-plugin/package.json` 的 `engines`）。将本仓库置于你的 OpenClaw 插件目录后执行：
+
 ```bash
-cd openclaw-plugin
+git clone https://github.com/SonicBotMan/SoloFlow.git
+cd SoloFlow/openclaw-plugin
+
 bun install
 bun run build
 
-# 插件自动注册到 OpenClaw
-# 使用 /workflow 命令创建和管理工作流
+# 可选：运行测试（应与 CI 一致，175 pass）
+bun test
 ```
+
+构建产物由 `openclaw.plugin.json` / 包内 `openclaw.extensions` 声明，供 OpenClaw 加载；在宿主侧使用 **`/workflow`**（及别名）创建与管理工作流。具体挂载方式以 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 文档为准。
 
 ---
 
-## 竞品对比
+## 竞品对比（能力概览）
 
 | 特性 | SoloFlow | CrewAI | LangGraph | AutoGPT | n8n |
-|------|:--------:|:-------:|:---------:|:--------:|:---:|
+|------|:--------:|:------:|:---------:|:-------:|:---:|
 | Discipline-Aware 路由 | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 认知记忆系统 | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Skill 自动进化 | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -87,15 +118,16 @@ bun run build
 | 可视化构建器 | ✅ | ❌ | ❌ | ❌ | ✅ |
 | 多用户/RBAC | ✅ | ❌ | ❌ | ❌ | ✅ |
 | OpenClaw 集成 | ✅ | ❌ | ❌ | ❌ | ❌ |
+| MCP 工具接口 | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 遗忘曲线 | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
 ## 研究基础
 
-- [**oh-my-openagent**](https://github.com/SonicBotMan/oh-my-openagent) — Discipline Agents、Sisyphean Hook 系统、Interview 规划模式
-- [**lobster-press**](https://github.com/SonicBotMan/lobster-press) — MemOS 四阶段架构、遗忘曲线、三层记忆系统
-- [**openclaw-portable**](https://github.com/SonicBotMan/openclaw-portable) — OpenClaw 生态核心
+- [**oh-my-openagent**](https://github.com/SonicBotMan/oh-my-openagent) — Discipline Agents、Sisyphean Hook、Interview 规划等
+- [**lobster-press**](https://github.com/SonicBotMan/lobster-press) — 记忆架构、遗忘曲线、语义层
+- [**openclaw-portable**](https://github.com/SonicBotMan/openclaw-portable) — OpenClaw 生态宿主
 
 ---
 
