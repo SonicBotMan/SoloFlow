@@ -1,10 +1,10 @@
-import type { Workflow, WorkflowId, AgentDiscipline } from "../types";
+import type { Workflow, WorkflowId, AgentDiscipline } from "../types.js";
 import type {
   MemoryNamespace,
   EpisodicEntry,
   MemoryQuery,
   MemoryResultEntry,
-} from "./types";
+} from "./types.js";
 
 const DEFAULT_EPISODIC_CAPACITY = 500;
 const DEFAULT_COMPRESSION_THRESHOLD_MS = 12 * 60 * 60 * 1000;

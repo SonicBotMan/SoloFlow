@@ -6,7 +6,7 @@
  * systems like Zapier, Make.com, n8n, and custom scripts.
  */
 
-import type { WorkflowState } from "../types";
+import type { WorkflowState } from "../types.js";
 
 // ─── JSON-RPC 2.0 Base ──────────────────────────────────────────────
 

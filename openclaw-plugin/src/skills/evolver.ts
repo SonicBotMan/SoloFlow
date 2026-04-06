@@ -1,5 +1,5 @@
-import type { AgentDiscipline, LlmService, OpenClawApi } from "../types";
-import type { Skill, SkillScore, SkillStep, TaskPattern } from "./types";
+import type { AgentDiscipline, LlmService, OpenClawApi } from "../types.js";
+import type { Skill, SkillScore, SkillStep, TaskPattern } from "./types.js";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_COMPLEXITY_STEPS = 10;

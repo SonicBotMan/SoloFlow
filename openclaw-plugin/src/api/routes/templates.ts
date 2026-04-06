@@ -1,7 +1,7 @@
-import type { ApiRequest, ApiResponse, CreateTemplateBody } from "../types";
-import type { StepId } from "../../types";
-import { jsonResponse, HttpError } from "../router";
-import { TemplateRegistry } from "../../services/template-registry";
+import type { ApiRequest, ApiResponse, CreateTemplateBody } from "../types.js";
+import type { StepId } from "../../types.js";
+import { jsonResponse, HttpError } from "../router.js";
+import { TemplateRegistry } from "../../services/template-registry.js";
 
 function asStepId(s: string): StepId {
   return s as unknown as StepId;
@@ -33,13 +33,13 @@ export function createTemplateRoutes(templates: TemplateRegistry) {
         throw new HttpError(400, "At least one step is required");
       }
 
-      const template: import("../../types").WorkflowTemplate = {
+      const template: import("../../types.js").WorkflowTemplate = {
         name: body.name,
         description: body.description ?? "",
         steps: body.steps.map((s, i) => ({
           id: asStepId(s.id ?? `step-${i}`),
           name: s.name,
-          discipline: s.discipline as import("../../types").AgentDiscipline,
+          discipline: s.discipline as import("../../types.js").AgentDiscipline,
           dependencies: s.dependencies.map(asStepId),
           config: s.config,
         })),

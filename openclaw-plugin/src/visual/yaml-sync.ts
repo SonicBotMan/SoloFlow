@@ -4,7 +4,7 @@
  */
 
 import { parse as yamlParse, stringify as yamlStringify } from "yaml";
-import type { DAG, DAGNode, DAGEdge, StepId, AgentDiscipline } from "../types";
+import type { DAG, DAGNode, DAGEdge, StepId, AgentDiscipline } from "../types.js";
 
 // ─── Public Types ──────────────────────────────────────────────────────
 

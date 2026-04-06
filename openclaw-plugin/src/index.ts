@@ -12,8 +12,8 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "@sinclair/typebox";
 
-import { WorkflowService } from "./services/workflow-service";
-import { Scheduler } from "./services/scheduler";
+import { WorkflowService } from "./services/workflow-service.js";
+import { Scheduler } from "./services/scheduler.js";
 
 import type {
   AgentDiscipline,
@@ -23,7 +23,7 @@ import type {
   Workflow,
   WorkflowStep,
   DAG,
-} from "./types";
+} from "./types.js";
 
 
 // ─── Plugin metadata ────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ export default definePluginEntry({
     // Memory system (pure Map, no SQLite) — lazy init behind try-catch
     void (async () => {
       try {
-        const mod = await import("./memory/index");
+        const mod = await import("./memory/index.js");
         memorySystem = new mod.MemorySystem();
         await memorySystem.init();
         log.info("memory system ready");
@@ -79,7 +79,7 @@ export default definePluginEntry({
     // Vector search (better-sqlite3 + FTS5) — lazy init behind try-catch
     void (async () => {
       try {
-        const mod = await import("./vector/index");
+        const mod = await import("./vector/index.js");
         vectorSystem = new mod.VectorSearchSystem({ embedding: { type: "local" }, search: {} });
         await vectorSystem.init();
         log.info("vector search ready");
@@ -95,7 +95,7 @@ export default definePluginEntry({
     // Hook system (pure Map, no external deps)
     void (async () => {
       try {
-        const { HookSystem, registerBuiltinHooks } = await import("./hooks/index");
+        const { HookSystem, registerBuiltinHooks } = await import("./hooks/index.js");
         hookSystem = new HookSystem();
         unregisterBuiltinHooks = registerBuiltinHooks(hookSystem);
 
@@ -153,7 +153,7 @@ export default definePluginEntry({
             { description: "Workflow steps" },
           ),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: any) {
           try {
             const { name, description, steps } = params;
             const now = Date.now();
@@ -202,7 +202,7 @@ export default definePluginEntry({
           }
         },
       },
-      { optional: true },
+      
     );
 
     api.registerTool(
@@ -213,7 +213,7 @@ export default definePluginEntry({
         parameters: Type.Object({
           workflowId: Type.String({ description: "Workflow ID to start" }),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: any) {
           try {
             const wfId = params.workflowId as WorkflowId;
             const wf = workflowService.get(wfId);
@@ -251,7 +251,7 @@ export default definePluginEntry({
           }
         },
       },
-      { optional: true },
+      
     );
 
     api.registerTool(
@@ -262,7 +262,7 @@ export default definePluginEntry({
         parameters: Type.Object({
           workflowId: Type.String({ description: "Workflow ID" }),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: any) {
           const wf = workflowService.get(params.workflowId as WorkflowId);
           if (!wf) {
             return {
@@ -296,7 +296,7 @@ export default definePluginEntry({
           };
         },
       },
-      { optional: true },
+      
     );
 
     api.registerTool(
@@ -309,7 +309,7 @@ export default definePluginEntry({
             Type.String({ description: "Filter by status: running|completed|failed|cancelled" }),
           ),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: any) {
           const filter = params.status
             ? { status: params.status as WorkflowState }
             : undefined;
@@ -329,7 +329,7 @@ export default definePluginEntry({
           };
         },
       },
-      { optional: true },
+      
     );
 
     api.registerTool(
@@ -343,7 +343,7 @@ export default definePluginEntry({
             Type.Boolean({ description: "Force cancel from any non-terminal state" }),
           ),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: any) {
           try {
             const wfId = params.workflowId as WorkflowId;
             workflowService.cancel(wfId);
@@ -360,12 +360,12 @@ export default definePluginEntry({
           }
         },
       },
-      { optional: true },
+      
     );
 
     // ── 4. Gateway methods (lightweight RPC) ────────────────────────
 
-    api.registerGatewayMethod("soloflow.metrics", async (opts) => {
+    api.registerGatewayMethod("soloflow.metrics", async (opts: { respond: (success: boolean, data: unknown) => void }) => {
       const wfs = workflowService.list();
       opts.respond(true, {
         version: PLUGIN_VERSION,
@@ -402,13 +402,13 @@ export default definePluginEntry({
 
 // ─── Named exports (for programmatic use) ───────────────────────────────
 
-export { WorkflowService } from "./services/workflow-service";
-export { Scheduler } from "./services/scheduler";
-export { HookSystem, getMetrics } from "./hooks/index";
-export { DisciplineAgent, allAgents, getAgent } from "./agents/discipline";
-export { MemorySystem } from "./memory/index";
-export { VectorSearchSystem } from "./vector/index";
-export { dagToYaml, yamlToDag, validateWorkflow, previewWorkflow } from "./visual/index";
+export { WorkflowService } from "./services/workflow-service.js";
+export { Scheduler } from "./services/scheduler.js";
+export { HookSystem, getMetrics } from "./hooks/index.js";
+export { DisciplineAgent, allAgents, getAgent } from "./agents/discipline.js";
+export { MemorySystem } from "./memory/index.js";
+export { VectorSearchSystem } from "./vector/index.js";
+export { dagToYaml, yamlToDag, validateWorkflow, previewWorkflow } from "./visual/index.js";
 export type {
   Workflow,
   WorkflowId,
@@ -416,4 +416,4 @@ export type {
   WorkflowState,
   AgentDiscipline,
   SchedulerOptions,
-} from "./types";
+} from "./types.js";

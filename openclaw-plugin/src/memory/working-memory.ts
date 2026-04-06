@@ -1,11 +1,11 @@
-import type { WorkflowId, StepId } from "../types";
+import type { WorkflowId, StepId } from "../types.js";
 import type {
   MemoryNamespace,
   WorkingEntry,
   WorkingEntrySourceType,
   MemoryQuery,
   MemoryResultEntry,
-} from "./types";
+} from "./types.js";
 
 const DEFAULT_WORKING_CAPACITY = 256;
 

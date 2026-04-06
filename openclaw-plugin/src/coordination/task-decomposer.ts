@@ -1,5 +1,5 @@
-import type { LlmService, StepId, WorkflowStep } from "../types";
-import type { CoordinationEventHandler } from "./types";
+import type { LlmService, StepId, WorkflowStep } from "../types.js";
+import type { CoordinationEventHandler } from "./types.js";
 
 // ─── Decomposition Config ─────────────────────────────────────────────
 

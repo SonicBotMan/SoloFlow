@@ -5,20 +5,20 @@
  * Integrates with the OpenClaw plugin lifecycle.
  */
 
-import type { ApiRequest, ApiResponse, ApiServices } from "./types";
-import type { OpenClawApi } from "../types";
-import { Router, jsonResponse, type HttpError } from "./router";
-import { WebSocketServer } from "./websocket";
-import { createWorkflowRoutes } from "./routes/workflows";
-import { createExecutionRoutes } from "./routes/executions";
-import { createTemplateRoutes } from "./routes/templates";
+import type { ApiRequest, ApiResponse, ApiServices } from "./types.js";
+import type { OpenClawApi } from "../types.js";
+import { Router, jsonResponse, type HttpError } from "./router.js";
+import { WebSocketServer } from "./websocket.js";
+import { createWorkflowRoutes } from "./routes/workflows.js";
+import { createExecutionRoutes } from "./routes/executions.js";
+import { createTemplateRoutes } from "./routes/templates.js";
 import {
   createCompositeAuthMiddleware,
   createJwtAuthMiddleware,
   createApiKeyAuthMiddleware,
   type JwtAuthOptions,
   type ApiKeyAuthOptions,
-} from "./middleware/auth";
+} from "./middleware/auth.js";
 
 export interface ApiServerConfig {
   jwt?: JwtAuthOptions;
@@ -98,7 +98,7 @@ function registerRoutes(
   router.get("/templates/:id", routes.tplRoutes.get);
 }
 
-function errorHandlingMiddleware(): import("./types").Middleware {
+function errorHandlingMiddleware(): import("./types.js").Middleware {
   return async (_req: ApiRequest, next: () => Promise<ApiResponse>) => {
     try {
       return await next();

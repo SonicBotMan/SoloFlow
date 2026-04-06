@@ -1,4 +1,4 @@
-import type { Embedding, EmbeddingProviderConfig, EmbeddingProviderType } from "./types";
+import type { Embedding, EmbeddingProviderConfig, EmbeddingProviderType } from "./types.js";
 
 const PROVIDER_DEFAULTS: Record<EmbeddingProviderType, { model: string; dimensions: number }> = {
   openai: { model: "text-embedding-3-small", dimensions: 1536 },

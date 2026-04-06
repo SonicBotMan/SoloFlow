@@ -2,13 +2,13 @@
  * SoloFlow Multi-User System — Facade combining auth, tenants, RBAC, and namespaces.
  */
 
-import type { OpenClawApi } from "../types";
-import type { User, UserId, TenantId, Role, Permission, AuthConfig, TenantSettings } from "./types";
-import { asUserId } from "./types";
-import { AuthService, AuthError } from "./auth";
-import { TenantManager } from "./tenant";
-import { RBACService } from "./rbac";
-import { NamespaceManager } from "./namespace";
+import type { OpenClawApi } from "../types.js";
+import type { User, UserId, TenantId, Role, Permission, AuthConfig, TenantSettings } from "./types.js";
+import { asUserId } from "./types.js";
+import { AuthService, AuthError } from "./auth.js";
+import { TenantManager } from "./tenant.js";
+import { RBACService } from "./rbac.js";
+import { NamespaceManager } from "./namespace.js";
 
 export class MultiUserSystem {
   readonly auth: AuthService;
@@ -183,11 +183,11 @@ export class MultiUserSystem {
   }
 }
 
-export { AuthService, AuthError } from "./auth";
-export { TenantManager, TenantError } from "./tenant";
-export { RBACService, PermissionError } from "./rbac";
-export { NamespaceManager } from "./namespace";
+export { AuthService, AuthError } from "./auth.js";
+export { TenantManager, TenantError } from "./tenant.js";
+export { RBACService, PermissionError } from "./rbac.js";
+export { NamespaceManager } from "./namespace.js";
 export type {
   User, UserId, Tenant, TenantId, Role, Permission,
   AuthConfig, JwtPayload, ApiKey, NamespacedKey, TenantSettings,
-} from "./types";
+} from "./types.js";

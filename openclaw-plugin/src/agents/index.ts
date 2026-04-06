@@ -1,7 +1,7 @@
-import type { AgentConfig, AgentDiscipline, AgentResult, OpenClawApi, WorkflowStep } from "../types";
+import type { AgentConfig, AgentDiscipline, AgentResult, OpenClawApi, WorkflowStep } from "../types.js";
 
-export { AGENT_DISCIPLINES } from "../types";
-export type { AgentConfig, AgentDiscipline, AgentResult } from "../types";
+export { AGENT_DISCIPLINES } from "../types.js";
+export type { AgentConfig, AgentDiscipline, AgentResult } from "../types.js";
 
 const disciplineDefaults: Record<AgentDiscipline, Partial<AgentConfig>> = {
   deep: { maxTokens: 8192, temperature: 0.3 },
@@ -24,7 +24,7 @@ export async function executeAgentStep(
 
   void config;
 
-  const { DisciplineAgent } = await import("./discipline");
+  const { DisciplineAgent } = await import("./discipline.js");
   const agent = new DisciplineAgent(step.discipline);
   return agent.execute(step, api);
 }

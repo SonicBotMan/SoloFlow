@@ -15,11 +15,11 @@ import type {
   WorkflowId,
   WorkflowStep,
   WorkflowState,
-} from "../types";
-import { AGENT_DISCIPLINES } from "../types";
-import { WorkflowService } from "../services/workflow-service";
-import { Scheduler } from "../services/scheduler";
-import { DISCIPLINE_CONFIGS } from "../agents/discipline";
+} from "../types.js";
+import { AGENT_DISCIPLINES } from "../types.js";
+import { WorkflowService } from "../services/workflow-service.js";
+import { Scheduler } from "../services/scheduler.js";
+import { DISCIPLINE_CONFIGS } from "../agents/discipline.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -610,4 +610,4 @@ export class RPCRouter {
 
 // ─── Re-exports ───────────────────────────────────────────────────────
 
-export type { RPCMethod, RPCRequest, RPCResponse } from "../types";
+export type { RPCMethod, RPCRequest, RPCResponse } from "../types.js";

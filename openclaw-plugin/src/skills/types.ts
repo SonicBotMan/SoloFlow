@@ -5,7 +5,7 @@
  * and generating reusable SKILL.md skills.
  */
 
-import type { AgentDiscipline } from "../types";
+import type { AgentDiscipline } from "../types.js";
 
 // ─── Skill Step ───────────────────────────────────────────────────────
 

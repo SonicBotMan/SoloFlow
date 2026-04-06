@@ -5,8 +5,8 @@
  * Uses Bun's built-in `Bun.crypto` APIs — no external JWT library required.
  */
 
-import type { ApiRequest, ApiResponse, Middleware } from "../types";
-import { jsonError } from "../router";
+import type { ApiRequest, ApiResponse, Middleware } from "../types.js";
+import { jsonError } from "../router.js";
 
 export interface JwtAuthOptions {
   secret: string;

@@ -5,8 +5,8 @@
  * sharing and installing workflow templates, skills, and agents.
  */
 
-import type { AgentDiscipline, WorkflowTemplate } from "../types";
-import type { Skill } from "../skills/types";
+import type { AgentDiscipline, WorkflowTemplate } from "../types.js";
+import type { Skill } from "../skills/types.js";
 
 // ─── Marketplace Item Kinds ──────────────────────────────────────────
 

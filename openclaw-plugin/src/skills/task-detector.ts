@@ -1,5 +1,5 @@
-import type { AgentDiscipline, Workflow } from "../types";
-import type { DetectedTask, TaskPattern } from "./types";
+import type { AgentDiscipline, Workflow } from "../types.js";
+import type { DetectedTask, TaskPattern } from "./types.js";
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 const MIN_PATTERN_OCCURRENCES = 2;

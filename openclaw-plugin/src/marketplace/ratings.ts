@@ -1,6 +1,6 @@
 import BetterSqlite3 from "better-sqlite3";
 type Database = BetterSqlite3.Database;
-import type { Rating, RatingSummary } from "./types";
+import type { Rating, RatingSummary } from "./types.js";
 
 const RATINGS_SCHEMA = `
   CREATE TABLE IF NOT EXISTS ratings (

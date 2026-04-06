@@ -3,5 +3,5 @@ export {
   yamlToDag,
   validateWorkflow,
   previewWorkflow,
-} from "./yaml-sync";
-export type { WorkflowMetadata, ValidationResult } from "./yaml-sync";
+} from "./yaml-sync.js";
+export type { WorkflowMetadata, ValidationResult } from "./yaml-sync.js";

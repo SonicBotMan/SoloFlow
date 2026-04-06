@@ -6,7 +6,7 @@ import type {
   MemoryResultEntry,
   ForgettingCurveConfig,
   LobsterPressAdapter,
-} from "./types";
+} from "./types.js";
 
 const DEFAULT_FORGETTING_CONFIG: ForgettingCurveConfig = {
   base: 1.0,

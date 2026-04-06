@@ -1,6 +1,6 @@
 import BetterSqlite3 from "better-sqlite3";
 type Database = BetterSqlite3.Database;
-import type { Skill } from "./types";
+import type { Skill } from "./types.js";
 
 const CREATE_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS skills (

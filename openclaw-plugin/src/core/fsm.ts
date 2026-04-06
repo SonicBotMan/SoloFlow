@@ -1,5 +1,5 @@
-import type { WorkflowState } from "../types";
-import { WORKFLOW_TRANSITIONS } from "../types";
+import type { WorkflowState } from "../types.js";
+import { WORKFLOW_TRANSITIONS } from "../types.js";
 
 export function canTransition(from: WorkflowState, to: WorkflowState): boolean {
   return WORKFLOW_TRANSITIONS[from]?.includes(to) ?? false;

@@ -3,7 +3,7 @@ import type {
   SemanticEntry,
   EpisodicEntry,
   MemoryQuery,
-} from "./types";
+} from "./types.js";
 
 interface LobsterPressModule {
   SemanticMemory: new (config?: { dbPath?: string }) => {

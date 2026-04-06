@@ -7,7 +7,7 @@
  *   Semantic  → Facts, preferences, skills (with forgetting curve)
  */
 
-import type { WorkflowId, StepId, WorkflowState, AgentDiscipline } from "../types";
+import type { WorkflowId, StepId, WorkflowState, AgentDiscipline } from "../types.js";
 
 // ─── Memory Namespace ────────────────────────────────────────────────
 

@@ -5,7 +5,7 @@
  * that can be used to create workflows via `/workflow start --template <name>`.
  */
 
-import type { StepId, WorkflowTemplate } from "../types";
+import type { StepId, WorkflowTemplate } from "../types.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 

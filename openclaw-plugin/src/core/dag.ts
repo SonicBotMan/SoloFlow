@@ -1,4 +1,4 @@
-import type { DAG, DAGEdge, DAGNode, StepId, WorkflowStep } from "../types";
+import type { DAG, DAGEdge, DAGNode, StepId, WorkflowStep } from "../types.js";
 
 export function buildDAG(steps: WorkflowStep[]): DAG {
   const nodes = new Map<StepId, DAGNode>();

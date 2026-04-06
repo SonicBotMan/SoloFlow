@@ -1,10 +1,10 @@
-import type { OpenClawApi, WorkflowId } from "../types";
-import type { MCPToolRequest, MCPToolResponse } from "./types";
-import { MCPServer } from "./server";
-import { SoloFlowMCPTools, type SoloFlowMCPToolServices } from "./soloflow-tools";
-import { WorkflowService } from "../services/workflow-service";
-import { Scheduler } from "../services/scheduler";
-import { TemplateRegistry } from "../services/template-registry";
+import type { OpenClawApi, WorkflowId } from "../types.js";
+import type { MCPToolRequest, MCPToolResponse } from "./types.js";
+import { MCPServer } from "./server.js";
+import { SoloFlowMCPTools, type SoloFlowMCPToolServices } from "./soloflow-tools.js";
+import { WorkflowService } from "../services/workflow-service.js";
+import { Scheduler } from "../services/scheduler.js";
+import { TemplateRegistry } from "../services/template-registry.js";
 
 export interface MCPServerServices {
   workflowService: WorkflowService;
@@ -81,6 +81,6 @@ export function createMCPServer(services: MCPServerServices): {
   };
 }
 
-export { MCPServer } from "./server";
-export { SoloFlowMCPTools } from "./soloflow-tools";
-export type { SoloFlowMCPToolServices } from "./soloflow-tools";
+export { MCPServer } from "./server.js";
+export { SoloFlowMCPTools } from "./soloflow-tools.js";
+export type { SoloFlowMCPToolServices } from "./soloflow-tools.js";

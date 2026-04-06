@@ -5,7 +5,7 @@
  * and WebSocket message types for real-time workflow updates.
  */
 
-import type { WorkflowId, WorkflowState, StepId, StateEvent } from "../types";
+import type { WorkflowId, WorkflowState, StepId, StateEvent } from "../types.js";
 
 // ─── HTTP Method ──────────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ export interface WebSocketConnection {
 // ─── API Server Services ──────────────────────────────────────────────
 
 export interface ApiServices {
-  workflowService: import("../services/workflow-service").WorkflowService;
-  scheduler: import("../services/scheduler").Scheduler;
-  templateRegistry: import("../services/template-registry").TemplateRegistry;
+  workflowService: import("../services/workflow-service.js").WorkflowService;
+  scheduler: import("../services/scheduler.js").Scheduler;
+  templateRegistry: import("../services/template-registry.js").TemplateRegistry;
 }

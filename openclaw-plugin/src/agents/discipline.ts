@@ -6,8 +6,8 @@ import type {
   LlmService,
   OpenClawApi,
   WorkflowStep,
-} from "../types";
-import { AGENT_DISCIPLINES } from "../types";
+} from "../types.js";
+import { AGENT_DISCIPLINES } from "../types.js";
 
 // ─── Discipline Configuration ─────────────────────────────────────────
 

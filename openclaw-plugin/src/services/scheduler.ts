@@ -15,10 +15,10 @@ import type {
   Workflow,
   WorkflowId,
   WorkflowStep,
-} from "../types";
-import { getReadySteps, topologicalSort } from "../core/dag";
-import { executeAgentStep } from "../agents";
-import { WorkflowService } from "./workflow-service";
+} from "../types.js";
+import { getReadySteps, topologicalSort } from "../core/dag.js";
+import { executeAgentStep } from "../agents/index.js";
+import { WorkflowService } from "./workflow-service.js";
 
 // ─── Execution Status ────────────────────────────────────────────────
 

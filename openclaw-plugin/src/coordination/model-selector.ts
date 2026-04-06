@@ -1,5 +1,5 @@
-import type { AgentDiscipline, StepId, WorkflowStep } from "../types";
-import type { ModelSelection, ModelTier } from "./types";
+import type { AgentDiscipline, StepId, WorkflowStep } from "../types.js";
+import type { ModelSelection, ModelTier } from "./types.js";
 
 // ─── Tier Registry ────────────────────────────────────────────────────
 

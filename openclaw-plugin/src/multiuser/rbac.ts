@@ -1,5 +1,5 @@
-import type { User, Permission, Role } from "./types";
-import { ROLE_PERMISSIONS } from "./types";
+import type { User, Permission, Role } from "./types.js";
+import { ROLE_PERMISSIONS } from "./types.js";
 
 export class RBACService {
   checkPermission(user: User, permission: Permission): boolean {

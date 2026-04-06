@@ -1,12 +1,12 @@
-import type { WorkflowTemplate } from "../types";
+import type { WorkflowTemplate } from "../types.js";
 import type {
   AgentListing,
   ItemMetadata,
   MarketplaceItemKind,
   SkillListing,
   TemplateListing,
-} from "./types";
-import { LocalRegistry } from "./registry";
+} from "./types.js";
+import { LocalRegistry } from "./registry.js";
 
 type ListingByKind<K extends MarketplaceItemKind> =
   K extends "template" ? TemplateListing

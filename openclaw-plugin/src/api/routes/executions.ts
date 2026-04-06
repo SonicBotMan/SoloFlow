@@ -1,13 +1,13 @@
-import type { ApiRequest, ApiResponse, ExecutionLogEntry } from "../types";
-import type { ApiServices } from "../types";
-import type { WorkflowId, StepId } from "../../types";
-import { jsonResponse, HttpError } from "../router";
+import type { ApiRequest, ApiResponse, ExecutionLogEntry } from "../types.js";
+import type { ApiServices } from "../types.js";
+import type { WorkflowId, StepId } from "../../types.js";
+import { jsonResponse, HttpError } from "../router.js";
 
 function asWorkflowId(s: string): WorkflowId {
   return s as unknown as WorkflowId;
 }
 
-function buildLogsFromStatus(status: import("../../services/scheduler").WorkflowExecutionStatus): ExecutionLogEntry[] {
+function buildLogsFromStatus(status: import("../../services/scheduler.js").WorkflowExecutionStatus): ExecutionLogEntry[] {
   const logs: ExecutionLogEntry[] = [];
 
   logs.push({

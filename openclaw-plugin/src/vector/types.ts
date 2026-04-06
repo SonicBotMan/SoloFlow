@@ -5,7 +5,7 @@
  * with RRF (Reciprocal Rank Fusion) and MMR (Maximal Marginal Relevance).
  */
 
-import type { WorkflowId, StepId, Workflow, WorkflowStep } from "../types";
+import type { WorkflowId, StepId, Workflow, WorkflowStep } from "../types.js";
 
 // ─── Embedding ────────────────────────────────────────────────────────
 

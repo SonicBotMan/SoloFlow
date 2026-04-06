@@ -14,16 +14,16 @@ import type {
   StepId,
   WorkflowState,
   WorkflowTemplate,
-} from "../types";
-import { WORKFLOW_STATES } from "../types";
-import type { WorkflowFilter } from "../services/workflow-service";
-import { WorkflowService } from "../services/workflow-service";
-import { Scheduler } from "../services/scheduler";
-import { TemplateRegistry } from "../services/template-registry";
+} from "../types.js";
+import { WORKFLOW_STATES } from "../types.js";
+import type { WorkflowFilter } from "../services/workflow-service.js";
+import { WorkflowService } from "../services/workflow-service.js";
+import { Scheduler } from "../services/scheduler.js";
+import { TemplateRegistry } from "../services/template-registry.js";
 
 // ─── Re-exports ──────────────────────────────────────────────────────
 
-export type { CommandContext, CommandRegistration } from "../types";
+export type { CommandContext, CommandRegistration } from "../types.js";
 
 // ─── Formatting Helpers ──────────────────────────────────────────────
 

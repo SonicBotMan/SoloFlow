@@ -1,17 +1,17 @@
-import type { Workflow, WorkflowStep, WorkflowId } from "../types";
+import type { Workflow, WorkflowStep, WorkflowId } from "../types.js";
 import type {
   VectorQuery,
   VectorResult,
   VectorSearchSystemConfig,
   IndexStats,
   VectorSearchSystemResult,
-} from "./types";
-import { DEFAULT_SEARCH_OPTIONS } from "./types";
-import { createEmbedder, type Embedder } from "./embedder";
-import { HybridRetriever } from "./retriever";
-import { VectorIndexer } from "./indexer";
-import type { SemanticMemory } from "../memory/semantic-memory";
-import type { EpisodicMemory } from "../memory/episodic-memory";
+} from "./types.js";
+import { DEFAULT_SEARCH_OPTIONS } from "./types.js";
+import { createEmbedder, type Embedder } from "./embedder.js";
+import { HybridRetriever } from "./retriever.js";
+import { VectorIndexer } from "./indexer.js";
+import type { SemanticMemory } from "../memory/semantic-memory.js";
+import type { EpisodicMemory } from "../memory/episodic-memory.js";
 
 export class VectorSearchSystem {
   readonly embedder: Embedder;
@@ -212,9 +212,9 @@ export class VectorSearchSystem {
   }
 }
 
-export { createEmbedder, type Embedder } from "./embedder";
-export { HybridRetriever, type RetrievalStore } from "./retriever";
-export { VectorIndexer } from "./indexer";
+export { createEmbedder, type Embedder } from "./embedder.js";
+export { HybridRetriever, type RetrievalStore } from "./retriever.js";
+export { VectorIndexer } from "./indexer.js";
 
 export type {
   Embedding,
@@ -232,4 +232,4 @@ export type {
   IndexedDocument,
   IndexStats,
   VectorSearchSystemConfig,
-} from "./types";
+} from "./types.js";

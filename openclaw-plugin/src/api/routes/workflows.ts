@@ -1,8 +1,8 @@
-import type { ApiRequest, ApiResponse, CreateWorkflowBody, ListWorkflowsQuery, UpdateWorkflowBody } from "../types";
-import type { ApiServices } from "../types";
-import type { WorkflowId, StepId, WorkflowStep, WorkflowState } from "../../types";
-import { jsonResponse, HttpError } from "../router";
-import { TemplateRegistry } from "../../services/template-registry";
+import type { ApiRequest, ApiResponse, CreateWorkflowBody, ListWorkflowsQuery, UpdateWorkflowBody } from "../types.js";
+import type { ApiServices } from "../types.js";
+import type { WorkflowId, StepId, WorkflowStep, WorkflowState } from "../../types.js";
+import { jsonResponse, HttpError } from "../router.js";
+import { TemplateRegistry } from "../../services/template-registry.js";
 
 function asStepId(s: string): StepId {
   return s as unknown as StepId;
@@ -12,7 +12,7 @@ function asWorkflowId(s: string): WorkflowId {
   return s as unknown as WorkflowId;
 }
 
-function serializeWorkflow(workflow: import("../../types").Workflow) {
+function serializeWorkflow(workflow: import("../../types.js").Workflow) {
   const steps = Array.from(workflow.steps.values()).map((s) => ({
     id: s.id,
     name: s.name,
@@ -76,13 +76,13 @@ export function createWorkflowRoutes(services: ApiServices, _templates: Template
       const steps: WorkflowStep[] = body.steps.map((s, i) => ({
         id: asStepId(s.id ?? `step-${i}`),
         name: s.name,
-        discipline: s.discipline as import("../../types").AgentDiscipline,
+        discipline: s.discipline as import("../../types.js").AgentDiscipline,
         dependencies: s.dependencies.map(asStepId),
         config: s.config,
         state: "pending" as const,
       }));
 
-      const workflow: import("../../types").Workflow = {
+      const workflow: import("../../types.js").Workflow = {
         id: crypto.randomUUID() as unknown as WorkflowId,
         name: body.name,
         description: body.description ?? "",

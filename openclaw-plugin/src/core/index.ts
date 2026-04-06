@@ -1,2 +1,2 @@
-export { buildDAG, topologicalSort, getReadySteps, detectCycle } from "./dag";
-export { canTransition, transition } from "./fsm";
+export { buildDAG, topologicalSort, getReadySteps, detectCycle } from "./dag.js";
+export { canTransition, transition } from "./fsm.js";

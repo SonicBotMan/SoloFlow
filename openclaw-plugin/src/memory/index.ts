@@ -1,4 +1,4 @@
-import type { Workflow } from "../types";
+import type { Workflow } from "../types.js";
 import type {
   MemoryNamespace,
   MemoryQuery,
@@ -9,12 +9,12 @@ import type {
   SemanticEntry,
   LobsterPressAdapter,
   ForgettingCurveConfig,
-} from "./types";
+} from "./types.js";
 
-import { WorkingMemory } from "./working-memory";
-import { EpisodicMemory } from "./episodic-memory";
-import { SemanticMemory } from "./semantic-memory";
-import { LobsterPressBridge, InMemoryFallbackAdapter } from "./bridge";
+import { WorkingMemory } from "./working-memory.js";
+import { EpisodicMemory } from "./episodic-memory.js";
+import { SemanticMemory } from "./semantic-memory.js";
+import { LobsterPressBridge, InMemoryFallbackAdapter } from "./bridge.js";
 
 const DEFAULT_NAMESPACE = "default";
 
@@ -191,4 +191,4 @@ export type {
   MemoryTier,
   ForgettingCurveConfig,
   LobsterPressAdapter,
-} from "./types";
+} from "./types.js";

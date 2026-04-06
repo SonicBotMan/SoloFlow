@@ -10,7 +10,7 @@ import type {
   WorkflowId,
   WorkflowState,
   WorkflowStep,
-} from "../types";
+} from "../types.js";
 import type {
   MCPTool,
   SoloFlowCancelInput,
@@ -23,11 +23,11 @@ import type {
   SoloFlowRunOutput,
   SoloFlowStatusInput,
   SoloFlowStatusOutput,
-} from "./types";
-import { JSONRPC_ERROR_CODES } from "./types";
-import { WorkflowService } from "../services/workflow-service";
-import { Scheduler } from "../services/scheduler";
-import { TemplateRegistry } from "../services/template-registry";
+} from "./types.js";
+import { JSONRPC_ERROR_CODES } from "./types.js";
+import { WorkflowService } from "../services/workflow-service.js";
+import { Scheduler } from "../services/scheduler.js";
+import { TemplateRegistry } from "../services/template-registry.js";
 
 function brandId(id: string): WorkflowId {
   return id as unknown as WorkflowId;
@@ -286,7 +286,7 @@ export class SoloFlowMCPTools {
 }
 
 function buildWorkflowFromTemplate(
-  tmpl: { name: string; description: string; steps: Array<{ id: StepId; name: string; discipline: import("../types").AgentDiscipline; dependencies: StepId[]; config: Record<string, unknown> }> },
+  tmpl: { name: string; description: string; steps: Array<{ id: StepId; name: string; discipline: import("../types.js").AgentDiscipline; dependencies: StepId[]; config: Record<string, unknown> }> },
   nameOverride: string | undefined,
   metadata: Record<string, unknown>,
 ): Workflow {

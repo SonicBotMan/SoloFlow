@@ -1,5 +1,5 @@
-import type { StepId, WorkflowStep } from "../types";
-import type { LoadBalancingConfig, TeamMember } from "./types";
+import type { StepId, WorkflowStep } from "../types.js";
+import type { LoadBalancingConfig, TeamMember } from "./types.js";
 
 // ─── Defaults ─────────────────────────────────────────────────────────
 

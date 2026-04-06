@@ -9,7 +9,7 @@ import type {
   AgentDiscipline,
   StepId,
   WorkflowStep,
-} from "../types";
+} from "../types.js";
 
 // ─── Model Selection ──────────────────────────────────────────────────
 

@@ -7,10 +7,10 @@ import type {
   RRFCandidate,
   MMRCandidate,
   IndexedDocument,
-} from "./types";
-import { DEFAULT_SEARCH_OPTIONS as defaultOpts } from "./types";
-import type { Embedder } from "./embedder";
-import { cosineSimilarity } from "./embedder";
+} from "./types.js";
+import { DEFAULT_SEARCH_OPTIONS as defaultOpts } from "./types.js";
+import type { Embedder } from "./embedder.js";
+import { cosineSimilarity } from "./embedder.js";
 
 export interface RetrievalStore {
   ftsSearch(query: string, limit: number): Promise<FTSResult[]>;

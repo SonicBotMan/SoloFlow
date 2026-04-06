@@ -1,14 +1,14 @@
-import type { OpenClawApi, Workflow } from "../types";
+import type { OpenClawApi, Workflow } from "../types.js";
 import type {
   DetectedTask,
   Skill,
   SkillEvolutionEvent,
   SkillScore,
   TaskPattern,
-} from "./types";
-import { TaskDetector } from "./task-detector";
-import { SkillEvolver } from "./evolver";
-import { SkillRegistry } from "./registry";
+} from "./types.js";
+import { TaskDetector } from "./task-detector.js";
+import { SkillEvolver } from "./evolver.js";
+import { SkillRegistry } from "./registry.js";
 
 type EvolutionListener = (event: SkillEvolutionEvent) => void;
 

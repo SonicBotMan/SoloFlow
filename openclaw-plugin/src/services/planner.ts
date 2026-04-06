@@ -11,8 +11,8 @@ import type {
   StepId,
   WorkflowStep,
   WorkflowTemplate,
-} from "../types";
-import { routeToDiscipline, DISCIPLINE_CONFIGS } from "../agents/discipline";
+} from "../types.js";
+import { routeToDiscipline, DISCIPLINE_CONFIGS } from "../agents/discipline.js";
 
 // ─── Configuration ────────────────────────────────────────────────────
 

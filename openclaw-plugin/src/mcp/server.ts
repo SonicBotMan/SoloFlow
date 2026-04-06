@@ -4,8 +4,8 @@ import type {
   MCPToolInfo,
   MCPToolRequest,
   MCPToolResponse,
-} from "./types";
-import { JSONRPC_ERROR_CODES } from "./types";
+} from "./types.js";
+import { JSONRPC_ERROR_CODES } from "./types.js";
 
 export class MCPServer {
   private readonly tools = new Map<string, MCPTool>();

@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
-import type { User, UserId, AuthConfig, ApiKey, ApiKeyId } from "./types";
-import { asUserId, asApiKeyId } from "./types";
+import type { User, UserId, AuthConfig, ApiKey, ApiKeyId } from "./types.js";
+import { asUserId, asApiKeyId } from "./types.js";
 
 const DEFAULT_CONFIG: AuthConfig = {
   jwtSecret: "soloflow-default-secret-change-me",

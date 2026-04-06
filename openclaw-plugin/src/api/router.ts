@@ -5,7 +5,7 @@
  * and error handling.
  */
 
-import type { ApiRequest, ApiResponse, ApiError, HttpMethod, Middleware, Route, RouteHandler } from "./types";
+import type { ApiRequest, ApiResponse, ApiError, HttpMethod, Middleware, Route, RouteHandler } from "./types.js";
 
 export class Router {
   private readonly routes: Route[] = [];

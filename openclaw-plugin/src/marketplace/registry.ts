@@ -8,8 +8,8 @@ import type {
   SearchFilters,
   SearchResult,
   VersionInfo,
-} from "./types";
-import type { ItemMetadata } from "./types";
+} from "./types.js";
+import type { ItemMetadata } from "./types.js";
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS items (

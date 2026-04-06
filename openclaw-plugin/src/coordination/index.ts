@@ -6,18 +6,18 @@
  * single coordination pipeline.
  */
 
-import type { OpenClawApi, Workflow } from "../types";
+import type { OpenClawApi, Workflow } from "../types.js";
 import type {
   CoordinationEventHandler,
   CoordinationResult,
   LoadBalancingConfig,
   TeamConfig,
-} from "./types";
+} from "./types.js";
 
-import { TeamBuilder } from "./team-builder";
-import { ModelSelector } from "./model-selector";
-import { LoadBalancer } from "./load-balancer";
-import { TaskDecomposer } from "./task-decomposer";
+import { TeamBuilder } from "./team-builder.js";
+import { ModelSelector } from "./model-selector.js";
+import { LoadBalancer } from "./load-balancer.js";
+import { TaskDecomposer } from "./task-decomposer.js";
 
 // ─── Coordinator Config ───────────────────────────────────────────────
 
@@ -165,10 +165,10 @@ export class MultiAgentCoordinator {
 
 // ─── Re-exports ───────────────────────────────────────────────────────
 
-export { TeamBuilder } from "./team-builder";
-export { ModelSelector } from "./model-selector";
-export { LoadBalancer } from "./load-balancer";
-export { TaskDecomposer } from "./task-decomposer";
+export { TeamBuilder } from "./team-builder.js";
+export { ModelSelector } from "./model-selector.js";
+export { LoadBalancer } from "./load-balancer.js";
+export { TaskDecomposer } from "./task-decomposer.js";
 export type {
   AgentTeam,
   TeamMember,
@@ -180,4 +180,4 @@ export type {
   CoordinationEvent,
   CoordinationEventHandler,
   CoordinationResult,
-} from "./types";
+} from "./types.js";

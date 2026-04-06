@@ -1,14 +1,14 @@
-import type { Workflow, WorkflowStep, WorkflowId, StepId } from "../types";
+import type { Workflow, WorkflowStep, WorkflowId, StepId } from "../types.js";
 import type {
   IndexedDocument,
   FTSResult,
   VectorSearchResult,
   IndexStats,
-} from "./types";
-import type { Embedding } from "./types";
-import type { Embedder } from "./embedder";
-import { serializeEmbedding, deserializeEmbedding, cosineSimilarity } from "./embedder";
-import type { RetrievalStore } from "./retriever";
+} from "./types.js";
+import type { Embedding } from "./types.js";
+import type { Embedder } from "./embedder.js";
+import { serializeEmbedding, deserializeEmbedding, cosineSimilarity } from "./embedder.js";
+import type { RetrievalStore } from "./retriever.js";
 
 interface StoredRow {
   id: string;

@@ -1,5 +1,5 @@
-import type { MarketplaceItem, SearchResult, SearchFilters } from "./types";
-import { LocalRegistry } from "./registry";
+import type { MarketplaceItem, SearchResult, SearchFilters } from "./types.js";
+import { LocalRegistry } from "./registry.js";
 
 export class DiscoveryService {
   private registry: LocalRegistry;

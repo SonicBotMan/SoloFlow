@@ -1,7 +1,7 @@
-import type { AgentDiscipline, DAG, StepId, WorkflowStep } from "../types";
-import type { AgentTeam, TeamConfig, TeamMember, TeamYaml } from "./types";
-import { DISCIPLINE_CONFIGS } from "../agents/discipline";
-import { ModelSelector } from "./model-selector";
+import type { AgentDiscipline, DAG, StepId, WorkflowStep } from "../types.js";
+import type { AgentTeam, TeamConfig, TeamMember, TeamYaml } from "./types.js";
+import { DISCIPLINE_CONFIGS } from "../agents/discipline.js";
+import { ModelSelector } from "./model-selector.js";
 
 // ─── Defaults ─────────────────────────────────────────────────────────
 

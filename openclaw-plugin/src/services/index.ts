@@ -3,6 +3,6 @@ export type {
   SchedulerService,
   StateService,
   WorkflowService,
-} from "../types";
+} from "../types.js";
 
-export { TemplateRegistry } from "./template-registry";
+export { TemplateRegistry } from "./template-registry.js";

@@ -1,5 +1,5 @@
-import type { Tenant, TenantId, UserId, Role, TenantSettings } from "./types";
-import { asTenantId } from "./types";
+import type { Tenant, TenantId, UserId, Role, TenantSettings } from "./types.js";
+import { asTenantId } from "./types.js";
 
 const DEFAULT_SETTINGS: TenantSettings = {
   maxWorkflows: 100,

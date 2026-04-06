@@ -5,7 +5,7 @@
  * Follows oh-my-openagent patterns: register handlers per event, emit sync or async.
  */
 
-import type { OpenClawApi, Workflow, WorkflowStep } from "../types";
+import type { OpenClawApi, Workflow, WorkflowStep } from "../types.js";
 
 // ─── Hook Event Types ──────────────────────────────────────────────
 

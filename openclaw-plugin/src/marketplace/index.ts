@@ -6,13 +6,13 @@ import type {
   RatingSummary,
   SearchFilters,
   SearchResult,
-} from "./types";
-import type { ItemMetadata } from "./types";
-import type { WorkflowTemplate } from "../types";
-import { LocalRegistry } from "./registry";
-import { TemplatePublisher } from "./publisher";
-import { DiscoveryService } from "./discovery";
-import { RatingService } from "./ratings";
+} from "./types.js";
+import type { ItemMetadata } from "./types.js";
+import type { WorkflowTemplate } from "../types.js";
+import { LocalRegistry } from "./registry.js";
+import { TemplatePublisher } from "./publisher.js";
+import { DiscoveryService } from "./discovery.js";
+import { RatingService } from "./ratings.js";
 
 export interface MarketplaceSystemConfig {
   dbPath?: string;
@@ -160,10 +160,10 @@ export class MarketplaceSystem {
   }
 }
 
-export { LocalRegistry } from "./registry";
-export { TemplatePublisher } from "./publisher";
-export { DiscoveryService } from "./discovery";
-export { RatingService } from "./ratings";
+export { LocalRegistry } from "./registry.js";
+export { TemplatePublisher } from "./publisher.js";
+export { DiscoveryService } from "./discovery.js";
+export { RatingService } from "./ratings.js";
 export type {
   MarketplaceItem,
   TemplateListing,
@@ -179,4 +179,4 @@ export type {
   VersionInfo,
   MarketplaceEvent,
   MarketplaceItemKind,
-} from "./types";
+} from "./types.js";

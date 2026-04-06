@@ -10,9 +10,9 @@ import type {
   StepId,
   StateEvent,
   DAG,
-} from "../types";
-import { WORKFLOW_TRANSITIONS } from "../types";
-import { buildDAG, topologicalSort, getReadySteps } from "../core/dag";
+} from "../types.js";
+import { WORKFLOW_TRANSITIONS } from "../types.js";
+import { buildDAG, topologicalSort, getReadySteps } from "../core/dag.js";
 
 // ─── Filter ────────────────────────────────────────────────────────────
 

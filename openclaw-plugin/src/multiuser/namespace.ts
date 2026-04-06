@@ -1,4 +1,4 @@
-import type { UserId, TenantId, NamespacedKey } from "./types";
+import type { UserId, TenantId, NamespacedKey } from "./types.js";
 
 const NAMESPACE_SEPARATOR = ":";
 

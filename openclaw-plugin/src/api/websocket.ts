@@ -5,8 +5,8 @@
  * Supports per-workflow subscriptions, heartbeat, and broadcast.
  */
 
-import type { WorkflowId, StateEvent } from "../types";
-import type { WebSocketConnection, WsClientMessage, WsServerMessage } from "./types";
+import type { WorkflowId, StateEvent } from "../types.js";
+import type { WebSocketConnection, WsClientMessage, WsServerMessage } from "./types.js";
 
 export class WebSocketServer {
   private readonly connections = new Map<string, WebSocketConnection>();
@@ -14,7 +14,7 @@ export class WebSocketServer {
   private eventListener: (() => void) | null = null;
   private nextId = 0;
 
-  constructor(private readonly workflowService: import("../services/workflow-service").WorkflowService) {}
+  constructor(private readonly workflowService: import("../services/workflow-service.js").WorkflowService) {}
 
   init(): void {
     this.eventListener = this.workflowService.subscribe((event: StateEvent) => {
