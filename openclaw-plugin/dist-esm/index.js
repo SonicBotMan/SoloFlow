@@ -216,23 +216,45 @@ var init_discipline = __esm({
             message: prompt,
             model: this.config.defaultModel || void 0
           });
-          const result = await runtime.subagent.waitForRun({
+          const runResult = await runtime.subagent.waitForRun({
             runId,
             timeoutMs: this.config.stepTimeoutMs
           });
-          if (result?.error) {
+          if (runResult?.error) {
             return {
               stepId: step2.id,
               discipline: this.discipline,
               output: null,
               durationMs: Date.now() - startedAt,
-              error: result.error
+              error: runResult.error
             };
+          }
+          let output = null;
+          try {
+            const { messages } = await runtime.subagent.getSessionMessages({
+              sessionKey,
+              limit: 5
+            });
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const msg = messages[i];
+              if (!msg || msg.role !== "assistant") continue;
+              const content = msg.content;
+              if (typeof content === "string") {
+                output = content;
+              } else if (Array.isArray(content)) {
+                const textParts = content.filter((block) => block.type === "text").map((block) => block.text).filter(Boolean);
+                if (textParts.length > 0) {
+                  output = textParts.join("\n");
+                }
+              }
+              if (output) break;
+            }
+          } catch {
           }
           return {
             stepId: step2.id,
             discipline: this.discipline,
-            output: result?.result ?? null,
+            output,
             durationMs: Date.now() - startedAt
           };
         } catch (err) {

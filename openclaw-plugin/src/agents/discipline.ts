@@ -207,7 +207,10 @@ export class DisciplineAgent {
       const runtime = api.runtime as unknown as {
         subagent: {
           run: (opts: Record<string, unknown>) => Promise<{ runId: string }>;
-          waitForRun: (opts: Record<string, unknown>) => Promise<{ result?: string; error?: string }>;
+          waitForRun: (opts: Record<string, unknown>) => Promise<{ error?: string }>;
+          getSessionMessages: (opts: Record<string, unknown>) => Promise<{
+            messages: Array<{ role: string; content: string | Array<{ type: string; text?: string }> }>;
+          }>;
         };
       };
 
@@ -230,25 +233,56 @@ export class DisciplineAgent {
       });
 
       // Wait for completion
-      const result = await runtime.subagent.waitForRun({
+      const runResult = await runtime.subagent.waitForRun({
         runId,
         timeoutMs: this.config.stepTimeoutMs,
       });
 
-      if (result?.error) {
+      if (runResult?.error) {
         return {
           stepId: step.id,
           discipline: this.discipline,
           output: null,
           durationMs: Date.now() - startedAt,
-          error: result.error,
+          error: runResult.error,
         };
+      }
+
+      // Read the subagent's actual messages to get the final output
+      let output: string | null = null;
+      try {
+        const { messages } = await runtime.subagent.getSessionMessages({
+          sessionKey,
+          limit: 5,
+        });
+
+        // Find the last assistant message with text content
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          if (!msg || msg.role !== "assistant") continue;
+            const content = msg.content;
+            if (typeof content === "string") {
+              output = content;
+            } else if (Array.isArray(content)) {
+              // Extract text blocks, skip tool calls
+              const textParts = content
+                .filter((block: { type: string }) => block.type === "text")
+                .map((block: { text?: string }) => block.text)
+                .filter(Boolean);
+              if (textParts.length > 0) {
+                output = textParts.join("\n");
+              }
+            }
+            if (output) break;
+        }
+      } catch {
+        // getSessionMessages may fail — that's ok, return null output
       }
 
       return {
         stepId: step.id,
         discipline: this.discipline,
-        output: result?.result ?? null,
+        output,
         durationMs: Date.now() - startedAt,
       };
     } catch (err) {
