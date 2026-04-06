@@ -37,159 +37,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// src/types.ts
-var AGENT_DISCIPLINES, WORKFLOW_TRANSITIONS;
-var init_types = __esm({
-  "src/types.ts"() {
-    "use strict";
-    AGENT_DISCIPLINES = ["deep", "quick", "visual", "ultrabrain"];
-    WORKFLOW_TRANSITIONS = {
-      idle: ["queued"],
-      queued: ["running", "cancelled"],
-      running: ["paused", "completed", "failed", "cancelled"],
-      paused: ["running", "cancelled"],
-      completed: [],
-      failed: ["queued"],
-      cancelled: ["queued"]
-    };
-  }
-});
-
-// src/agents/llm-client.ts
-function resolveApiKey(input) {
-  if (!input) return void 0;
-  if (typeof input === "string") return input;
-  if (input.source === "env") return process.env[input.id];
-  return void 0;
-}
-function buildHeaders(provider) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...provider.headers
-  };
-  if (provider.apiKey) {
-    headers["Authorization"] = `Bearer ${provider.apiKey}`;
-  }
-  return headers;
-}
-function normalizeEndpoint(baseUrl, suffix) {
-  const base = baseUrl.replace(/\/+$/, "");
-  if (base.endsWith(suffix)) return base;
-  return `${base}${suffix}`;
-}
-function pickCompletionProvider(providers) {
-  const entries = Object.entries(providers).filter(([, p]) => p.models?.length > 0);
-  if (entries.length === 0) return void 0;
-  entries.sort(([, a], [, b]) => {
-    const aScore = (a.api === "openai-completions" ? 2 : 0) + (resolveApiKey(a.apiKey) ? 1 : 0);
-    const bScore = (b.api === "openai-completions" ? 2 : 0) + (resolveApiKey(b.apiKey) ? 1 : 0);
-    return bScore - aScore;
-  });
-  const first = entries[0];
-  if (!first) return void 0;
-  const [name, provider] = first;
-  return {
-    name,
-    baseUrl: provider.baseUrl,
-    apiKey: resolveApiKey(provider.apiKey),
-    api: provider.api,
-    headers: provider.headers,
-    model: provider.models[0]?.id ?? provider.models[0]?.name ?? "unknown"
-  };
-}
-function findModelProvider(providers, modelId) {
-  for (const entry of Object.entries(providers)) {
-    const name = entry[0];
-    const provider = entry[1];
-    const found = provider.models.find((m) => m.id === modelId);
-    if (found) {
-      return {
-        name,
-        baseUrl: provider.baseUrl,
-        apiKey: resolveApiKey(provider.apiKey),
-        api: provider.api,
-        headers: provider.headers,
-        model: found.id
-      };
-    }
-  }
-  const allEntries = Object.entries(providers);
-  for (let i = 0; i < allEntries.length; i++) {
-    const entry = allEntries[i];
-    if (!entry) continue;
-    const name = entry[0];
-    const provider = entry[1];
-    const found = provider.models.find((m) => m.id.endsWith(modelId) || m.name === modelId);
-    if (found) {
-      return {
-        name,
-        baseUrl: provider.baseUrl,
-        apiKey: resolveApiKey(provider.apiKey),
-        api: provider.api,
-        headers: provider.headers,
-        model: found.id
-      };
-    }
-  }
-  return void 0;
-}
-async function completeLLM(prompt, hostModels, options = {}) {
-  if (!hostModels?.providers) {
-    throw new Error(
-      "No LLM providers configured. Set up model providers in OpenClaw config."
-    );
-  }
-  const providers = hostModels.providers;
-  let provider;
-  if (options.model) {
-    provider = findModelProvider(providers, options.model);
-  }
-  if (!provider) {
-    provider = pickCompletionProvider(providers);
-  }
-  if (!provider) {
-    throw new Error(
-      "No suitable completion provider found. Ensure at least one provider has models configured."
-    );
-  }
-  const model = options.model ? provider.model : provider.model;
-  const endpoint = normalizeEndpoint(provider.baseUrl, "/chat/completions");
-  const messages = [];
-  if (options.systemPrompt) {
-    messages.push({ role: "system", content: options.systemPrompt });
-  }
-  messages.push({ role: "user", content: prompt });
-  const body = {
-    model,
-    messages,
-    temperature: options.temperature ?? 0.5
-  };
-  if (options.maxTokens) {
-    body["max_tokens"] = options.maxTokens;
-  }
-  const timeoutMs = options.timeoutMs ?? 6e4;
-  const resp = await fetch(endpoint, {
-    method: "POST",
-    headers: buildHeaders(provider),
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs)
-  });
-  if (!resp.ok) {
-    const respBody = await resp.text();
-    throw new Error(
-      `LLM request failed (${provider.name} ${resp.status}): ${respBody.slice(0, 500)}`
-    );
-  }
-  const json = await resp.json();
-  const text = json.choices?.[0]?.message?.content ?? "";
-  return { text, model, provider: provider.name };
-}
-var init_llm_client = __esm({
-  "src/agents/llm-client.ts"() {
-    "use strict";
-  }
-});
-
 // src/agents/discipline.ts
 var discipline_exports = {};
 __export(discipline_exports, {
@@ -217,6 +64,44 @@ function routeToDiscipline(task) {
   }
   return best;
 }
+function buildStepPrompt(step2, upstreamResults) {
+  const action = step2.config?.["prompt"] ?? step2.name;
+  const deps = step2.config?.["dependencies"];
+  if (deps && deps.length > 0) {
+    const contextParts = [];
+    for (const depId of deps) {
+      const result = upstreamResults.get(depId);
+      if (result?.output) {
+        const depStep = step2.config?.["__depNames"];
+        const depName = depStep?.[depId] ?? depId;
+        contextParts.push(`### Output from step "${depName}" (${depId}):
+${result.output}`);
+      }
+    }
+    if (contextParts.length > 0) {
+      return `## Context from previous steps
+
+${contextParts.join("\n\n")}
+
+---
+
+## Your task
+
+${action}`;
+    }
+  }
+  return action;
+}
+function buildSystemPrompt(config, step2, workflowName) {
+  return [
+    config.systemPrompt,
+    "",
+    `You are executing step "${step2.name}" (${step2.id}) of the SoloFlow workflow "${workflowName}".`,
+    "You have access to all OpenClaw tools. Use them to complete your task.",
+    "When done, provide a concise summary of what you accomplished.",
+    "Include any important results, file paths, or data that downstream steps may need."
+  ].join("\n");
+}
 function getAgent(discipline) {
   let agent = agentCache.get(discipline);
   if (!agent) {
@@ -227,7 +112,7 @@ function getAgent(discipline) {
 }
 function allAgents() {
   const map = /* @__PURE__ */ new Map();
-  for (const d of AGENT_DISCIPLINES) {
+  for (const d of ["deep", "quick", "visual", "ultrabrain"]) {
     map.set(d, getAgent(d));
   }
   return map;
@@ -236,36 +121,34 @@ var DISCIPLINE_CONFIGS, KEYWORD_MAP, DisciplineAgent, agentCache;
 var init_discipline = __esm({
   "src/agents/discipline.ts"() {
     "use strict";
-    init_types();
-    init_llm_client();
     DISCIPLINE_CONFIGS = {
       deep: {
         defaultModel: "",
         maxTokens: 8192,
         temperature: 0.3,
         stepTimeoutMs: 12e4,
-        systemPrompt: "You are a deep-reasoning agent. Perform thorough research, multi-step analysis, and produce well-structured, detailed output. Prefer correctness over speed."
+        systemPrompt: "You are a deep-reasoning agent. Perform thorough research, multi-step analysis, and produce well-structured, detailed output. Prefer correctness over speed. Use tools when needed to complete your task."
       },
       quick: {
         defaultModel: "",
         maxTokens: 2048,
         temperature: 0.5,
         stepTimeoutMs: 6e4,
-        systemPrompt: "You are a fast-response agent. Complete the task quickly with a concise answer. Optimise for speed and brevity."
+        systemPrompt: "You are a fast-response agent. Complete the task quickly with a concise answer. Optimise for speed and brevity. Use tools when needed."
       },
       visual: {
         defaultModel: "",
         maxTokens: 4096,
         temperature: 0.6,
         stepTimeoutMs: 12e4,
-        systemPrompt: "You are a visual/frontend agent. Focus on UI design, frontend code, image generation, and visual quality. Produce pixel-perfect output."
+        systemPrompt: "You are a visual/frontend agent. Focus on UI design, frontend code, image generation, and visual quality. Produce pixel-perfect output. Use tools when needed."
       },
       ultrabrain: {
         defaultModel: "",
         maxTokens: 16384,
         temperature: 0.2,
         stepTimeoutMs: 3e5,
-        systemPrompt: "You are an ultrabrain agent. Solve hard logic, algorithms, and architecture problems. Use chain-of-thought reasoning. Prioritise rigour and correctness."
+        systemPrompt: "You are an ultrabrain agent. Solve hard logic, algorithms, and architecture problems. Use chain-of-thought reasoning. Prioritise rigour and correctness. Use tools when needed."
       }
     };
     KEYWORD_MAP = [
@@ -299,9 +182,12 @@ var init_discipline = __esm({
         return routeToDiscipline(input);
       }
       /**
-       * Execute a workflow step via direct HTTP LLM call.
+       * Execute a workflow step via OpenClaw subagent.
+       *
+       * The subagent gets its own session with full tool access.
+       * Upstream step results are injected as context in the prompt.
        */
-      async execute(step2, api) {
+      async execute(step2, api, upstreamResults, workflowName) {
         if (!api) {
           return {
             stepId: step2.id,
@@ -312,28 +198,42 @@ var init_discipline = __esm({
         }
         const startedAt = Date.now();
         this.currentWorkflow = step2.id;
-        const prompt = step2.config["prompt"] ?? step2.name;
-        const systemPrompt = [
-          this.config.systemPrompt,
-          "",
-          `You are executing step "${step2.name}" (${step2.id}) of a SoloFlow workflow.`,
-          "Complete the task described below.",
-          "Return your final result as a concise summary of what you accomplished."
-        ].join("\n");
+        const prompt = buildStepPrompt(step2, upstreamResults ?? /* @__PURE__ */ new Map());
+        buildSystemPrompt(this.config, step2, workflowName ?? "unknown");
         try {
-          const hostModels = api.hostModels;
-          const modelOverride = this.config.defaultModel || void 0;
-          const result = await completeLLM(prompt, hostModels, {
-            model: modelOverride || void 0,
-            maxTokens: this.config.maxTokens,
-            temperature: this.config.temperature,
-            systemPrompt,
+          const runtime = api.runtime;
+          if (!runtime?.subagent?.run) {
+            return {
+              stepId: step2.id,
+              discipline: this.discipline,
+              output: null,
+              error: "api.runtime.subagent not available \u2014 plugin may need subagent permission"
+            };
+          }
+          const sessionKey = `agent:main:subagent:soloflow:${step2.id}:${Date.now()}`;
+          const { runId } = await runtime.subagent.run({
+            sessionKey,
+            message: prompt
+            // model and provider overrides require plugin config opt-in
+            // (plugins.entries.<id>.subagent.allowModelOverride: true)
+          });
+          const result = await runtime.subagent.waitForRun({
+            runId,
             timeoutMs: this.config.stepTimeoutMs
           });
+          if (result?.error) {
+            return {
+              stepId: step2.id,
+              discipline: this.discipline,
+              output: null,
+              durationMs: Date.now() - startedAt,
+              error: result.error
+            };
+          }
           return {
             stepId: step2.id,
             discipline: this.discipline,
-            output: result.text,
+            output: result?.result ?? null,
             durationMs: Date.now() - startedAt
           };
         } catch (err) {
@@ -1273,7 +1173,7 @@ var init_memory = __esm({
 
 // src/vector/types.ts
 var DEFAULT_SEARCH_OPTIONS;
-var init_types2 = __esm({
+var init_types = __esm({
   "src/vector/types.ts"() {
     "use strict";
     DEFAULT_SEARCH_OPTIONS = {
@@ -1448,7 +1348,7 @@ var HybridRetriever;
 var init_retriever = __esm({
   "src/vector/retriever.ts"() {
     "use strict";
-    init_types2();
+    init_types();
     init_embedder();
     HybridRetriever = class {
       constructor(embedder, store, options) {
@@ -1904,7 +1804,7 @@ var VectorSearchSystem;
 var init_vector = __esm({
   "src/vector/index.ts"() {
     "use strict";
-    init_types2();
+    init_types();
     init_embedder();
     init_retriever();
     init_indexer();
@@ -10156,8 +10056,16 @@ var init_api = __esm({
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "@sinclair/typebox";
 
-// src/services/workflow-service.ts
-init_types();
+// src/types.ts
+var WORKFLOW_TRANSITIONS = {
+  idle: ["queued"],
+  queued: ["running", "cancelled"],
+  running: ["paused", "completed", "failed", "cancelled"],
+  paused: ["running", "cancelled"],
+  completed: [],
+  failed: ["queued"],
+  cancelled: ["queued"]
+};
 
 // src/core/dag.ts
 function buildDAG(steps) {
@@ -10384,7 +10292,6 @@ var WorkflowService = class {
 };
 
 // src/agents/index.ts
-init_types();
 var disciplineDefaults = {
   deep: { maxTokens: 8192, temperature: 0.3 },
   quick: { maxTokens: 2048, temperature: 0.5 },
@@ -10394,13 +10301,17 @@ var disciplineDefaults = {
 function getDefaultConfig(discipline) {
   return disciplineDefaults[discipline] ?? {};
 }
-async function executeAgentStep(step2, api, override) {
+async function executeAgentStep(step2, ctx, override) {
   const defaults = getDefaultConfig(step2.discipline);
-  const config = { ...defaults, ...override, discipline: step2.discipline };
-  void config;
+  void { ...defaults, ...override, discipline: step2.discipline };
   const { DisciplineAgent: DisciplineAgent2 } = await Promise.resolve().then(() => (init_discipline(), discipline_exports));
   const agent = new DisciplineAgent2(step2.discipline);
-  return agent.execute(step2, api);
+  return agent.execute(
+    step2,
+    ctx.api,
+    ctx.upstreamResults,
+    ctx.workflowName
+  );
 }
 
 // src/services/scheduler.ts
@@ -10513,6 +10424,7 @@ var Scheduler = class {
     const completed = /* @__PURE__ */ new Set();
     const failed = [];
     const running = /* @__PURE__ */ new Set();
+    const stepResultsMap = /* @__PURE__ */ new Map();
     const status = {
       workflowId,
       state: "running",
@@ -10527,7 +10439,7 @@ var Scheduler = class {
     const workflowTimeoutMs = this.opts.stepTimeoutMs * totalSteps * DEFAULT_WORKFLOW_TIMEOUT_FACTOR;
     try {
       await withTimeout(
-        this.runLoop(workflow, api, completed, failed, running, status),
+        this.runLoop(workflow, api, completed, failed, running, status, stepResultsMap),
         workflowTimeoutMs,
         `Workflow ${workflowId} timed out after ${workflowTimeoutMs}ms`
       );
@@ -10559,12 +10471,13 @@ var Scheduler = class {
     if (!found) {
       throw new Error(`Step not found: ${stepId}`);
     }
-    const { step: step2 } = found;
-    api.logger.debug(`[scheduler] Executing step ${stepId} (${step2.discipline})`);
+    const { step: step2, workflow } = found;
+    api.logger.debug?.(`[scheduler] Executing step ${stepId} (${step2.discipline})`);
     this.opts.onStepStart?.(stepId);
+    const stepResultsMap = /* @__PURE__ */ new Map();
     const result = await withRetry(
       () => withTimeout(
-        this.runAgentStep(step2, api),
+        this.runAgentStep(step2, api, stepResultsMap, workflow.name),
         this.opts.stepTimeoutMs,
         `Step ${stepId} timed out after ${this.opts.stepTimeoutMs}ms`
       ),
@@ -10602,7 +10515,7 @@ var Scheduler = class {
    * Core loop: repeatedly resolves ready steps and runs each wave in
    * parallel via `Promise.allSettled`, bounded by the semaphore.
    */
-  async runLoop(workflow, api, completed, failed, running, status) {
+  async runLoop(workflow, api, completed, failed, running, status, stepResultsMap) {
     const semaphore = new Semaphore(this.opts.maxConcurrency);
     const failedStepIds = /* @__PURE__ */ new Set();
     while (true) {
@@ -10635,7 +10548,8 @@ var Scheduler = class {
           failedStepIds,
           running,
           semaphore,
-          status
+          status,
+          stepResultsMap
         )
       );
       await Promise.allSettled(promises);
@@ -10647,7 +10561,7 @@ var Scheduler = class {
    * Execute a single step within the managed workflow context.
    * Handles semaphore, retry, timeout, state updates, and callbacks.
    */
-  async runManagedStep(workflow, stepId, api, completed, failed, failedStepIds, running, semaphore, status) {
+  async runManagedStep(workflow, stepId, api, completed, failed, failedStepIds, running, semaphore, status, stepResultsMap) {
     await semaphore.acquire();
     running.add(stepId);
     status.runningSteps = Array.from(running);
@@ -10664,7 +10578,7 @@ var Scheduler = class {
     try {
       const result = await withRetry(
         () => withTimeout(
-          this.runAgentStep(step2, api),
+          this.runAgentStep(step2, api, stepResultsMap, workflow.name),
           this.opts.stepTimeoutMs,
           `Step ${stepId} timed out after ${this.opts.stepTimeoutMs}ms`
         ),
@@ -10674,6 +10588,7 @@ var Scheduler = class {
       step2.state = "completed";
       step2.result = result.output;
       step2.completedAt = Date.now();
+      stepResultsMap.set(stepId, result);
       completed.add(stepId);
       status.completedSteps = Array.from(completed);
       status.progress = workflow.steps.size > 0 ? completed.size / workflow.steps.size : 1;
@@ -10703,8 +10618,8 @@ var Scheduler = class {
   }
   // ── Internal: Agent Execution ───────────────────────────────────────
   /** Delegate to the agent discipline executor. */
-  async runAgentStep(step2, api) {
-    return executeAgentStep(step2, api);
+  async runAgentStep(step2, api, upstreamResults, workflowName) {
+    return executeAgentStep(step2, { api, upstreamResults, workflowName });
   }
   // ── Internal: Step Lookup ───────────────────────────────────────────
   /** Find a step by ID across all managed workflows. */
@@ -11353,12 +11268,7 @@ var index_default = definePluginEntry({
               };
             }
             workflowService.start(wfId);
-            const hostModels = api.config?.["models"];
-            const execApi = {
-              logger: log,
-              hostModels
-            };
-            scheduler.execute(wfId, execApi).catch(
+            scheduler.execute(wfId, api).catch(
               (e) => log.error(`schedule error: ${e}`)
             );
             return {

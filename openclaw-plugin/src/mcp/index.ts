@@ -19,7 +19,7 @@ export function createMCPServer(services: MCPServerServices): {
   registerWithOpenClaw: (api: OpenClawApi) => () => void;
 } {
   const executeWorkflow = services.api
-    ? async (workflowId: WorkflowId) => services.scheduler.execute(workflowId, services.api!)
+    ? async (workflowId: WorkflowId) => services.scheduler.execute(workflowId, services.api! as any)
     : undefined;
 
   const toolServices: SoloFlowMCPToolServices = {

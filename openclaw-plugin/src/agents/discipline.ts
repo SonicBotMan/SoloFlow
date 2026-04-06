@@ -1,18 +1,17 @@
 /**
  * SoloFlow — Discipline Agent
  *
- * Executes workflow steps via direct HTTP LLM calls (OpenAI-compatible API).
- * No dependency on api.runtime.subagent.
+ * Executes workflow steps via OpenClaw subagent (api.runtime.subagent).
+ * Each step gets its own subagent session with full tool access.
+ * Upstream step outputs are injected as context.
  */
 
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type {
   AgentDiscipline,
   AgentResult,
-  OpenClawApi,
   WorkflowStep,
-} from "../types.js";
-import { AGENT_DISCIPLINES } from "../types.js";
-import { completeLLM } from "./llm-client.js";
+} from "../types.js"
 
 // ─── Discipline Configuration ─────────────────────────────────────────
 
@@ -31,7 +30,7 @@ export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConf
     temperature: 0.3,
     stepTimeoutMs: 120_000,
     systemPrompt:
-      "You are a deep-reasoning agent. Perform thorough research, multi-step analysis, and produce well-structured, detailed output. Prefer correctness over speed.",
+      "You are a deep-reasoning agent. Perform thorough research, multi-step analysis, and produce well-structured, detailed output. Prefer correctness over speed. Use tools when needed to complete your task.",
   },
 
   quick: {
@@ -40,7 +39,7 @@ export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConf
     temperature: 0.5,
     stepTimeoutMs: 60_000,
     systemPrompt:
-      "You are a fast-response agent. Complete the task quickly with a concise answer. Optimise for speed and brevity.",
+      "You are a fast-response agent. Complete the task quickly with a concise answer. Optimise for speed and brevity. Use tools when needed.",
   },
 
   visual: {
@@ -49,7 +48,7 @@ export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConf
     temperature: 0.6,
     stepTimeoutMs: 120_000,
     systemPrompt:
-      "You are a visual/frontend agent. Focus on UI design, frontend code, image generation, and visual quality. Produce pixel-perfect output.",
+      "You are a visual/frontend agent. Focus on UI design, frontend code, image generation, and visual quality. Produce pixel-perfect output. Use tools when needed.",
   },
 
   ultrabrain: {
@@ -58,7 +57,7 @@ export const DISCIPLINE_CONFIGS: Readonly<Record<AgentDiscipline, DisciplineConf
     temperature: 0.2,
     stepTimeoutMs: 300_000,
     systemPrompt:
-      "You are an ultrabrain agent. Solve hard logic, algorithms, and architecture problems. Use chain-of-thought reasoning. Prioritise rigour and correctness.",
+      "You are an ultrabrain agent. Solve hard logic, algorithms, and architecture problems. Use chain-of-thought reasoning. Prioritise rigour and correctness. Use tools when needed.",
   },
 };
 
@@ -108,6 +107,57 @@ export function routeToDiscipline(task: string): AgentDiscipline {
   return best;
 }
 
+// ─── Prompt Builder ───────────────────────────────────────────────────
+
+/**
+ * Build the task prompt for a step, injecting upstream results as context.
+ */
+function buildStepPrompt(
+  step: WorkflowStep,
+  upstreamResults: ReadonlyMap<string, AgentResult>,
+): string {
+  const action = (step.config?.["prompt"] as string) ?? step.name;
+
+  // Collect outputs from dependency steps
+  const deps = step.config?.["dependencies"] as string[] | undefined;
+  if (deps && deps.length > 0) {
+    const contextParts: string[] = [];
+
+    for (const depId of deps) {
+      const result = upstreamResults.get(depId);
+      if (result?.output) {
+        const depStep = step.config?.["__depNames"] as Record<string, string> | undefined;
+        const depName = depStep?.[depId] ?? depId;
+        contextParts.push(`### Output from step "${depName}" (${depId}):\n${result.output}`);
+      }
+    }
+
+    if (contextParts.length > 0) {
+      return `## Context from previous steps\n\n${contextParts.join("\n\n")}\n\n---\n\n## Your task\n\n${action}`;
+    }
+  }
+
+  return action;
+}
+
+/**
+ * Build the system prompt for a discipline agent executing a specific step.
+ */
+function buildSystemPrompt(
+  config: DisciplineConfig,
+  step: WorkflowStep,
+  workflowName: string,
+): string {
+  return [
+    config.systemPrompt,
+    "",
+    `You are executing step "${step.name}" (${step.id}) of the SoloFlow workflow "${workflowName}".`,
+    "You have access to all OpenClaw tools. Use them to complete your task.",
+    "When done, provide a concise summary of what you accomplished.",
+    "Include any important results, file paths, or data that downstream steps may need.",
+  ].join("\n");
+}
+
 // ─── DisciplineAgent ──────────────────────────────────────────────────
 
 export class DisciplineAgent {
@@ -126,11 +176,16 @@ export class DisciplineAgent {
   }
 
   /**
-   * Execute a workflow step via direct HTTP LLM call.
+   * Execute a workflow step via OpenClaw subagent.
+   *
+   * The subagent gets its own session with full tool access.
+   * Upstream step results are injected as context in the prompt.
    */
   async execute(
     step: WorkflowStep,
-    api?: OpenClawApi,
+    api?: OpenClawPluginApi,
+    upstreamResults?: ReadonlyMap<string, AgentResult>,
+    workflowName?: string,
   ): Promise<AgentResult> {
     if (!api) {
       return {
@@ -144,32 +199,57 @@ export class DisciplineAgent {
     const startedAt = Date.now();
     this.currentWorkflow = step.id as unknown as string;
 
-    const prompt = (step.config["prompt"] as string) ?? step.name;
-
-    const systemPrompt = [
-      this.config.systemPrompt,
-      "",
-      `You are executing step "${step.name}" (${step.id}) of a SoloFlow workflow.`,
-      "Complete the task described below.",
-      "Return your final result as a concise summary of what you accomplished.",
-    ].join("\n");
+    const prompt = buildStepPrompt(step, upstreamResults ?? new Map());
+    // systemPrompt is built for reference/logging but subagent uses its own prompt
+    buildSystemPrompt(this.config, step, workflowName ?? "unknown");
 
     try {
-      const hostModels = api.hostModels;
-      const modelOverride = this.config.defaultModel || undefined;
+      const runtime = api.runtime as unknown as {
+        subagent: {
+          run: (opts: Record<string, unknown>) => Promise<{ runId: string }>;
+          waitForRun: (opts: Record<string, unknown>) => Promise<{ result?: string; error?: string }>;
+        };
+      };
 
-      const result = await completeLLM(prompt, hostModels, {
-        model: modelOverride || undefined,
-        maxTokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-        systemPrompt,
+      if (!runtime?.subagent?.run) {
+        return {
+          stepId: step.id,
+          discipline: this.discipline,
+          output: null,
+          error: "api.runtime.subagent not available — plugin may need subagent permission",
+        };
+      }
+
+      // Spawn a subagent session for this step
+      const sessionKey = `agent:main:subagent:soloflow:${step.id as string}:${Date.now()}`;
+
+      const { runId } = await runtime.subagent.run({
+        sessionKey,
+        message: prompt,
+        // model and provider overrides require plugin config opt-in
+        // (plugins.entries.<id>.subagent.allowModelOverride: true)
+      });
+
+      // Wait for completion
+      const result = await runtime.subagent.waitForRun({
+        runId,
         timeoutMs: this.config.stepTimeoutMs,
       });
+
+      if (result?.error) {
+        return {
+          stepId: step.id,
+          discipline: this.discipline,
+          output: null,
+          durationMs: Date.now() - startedAt,
+          error: result.error,
+        };
+      }
 
       return {
         stepId: step.id,
         discipline: this.discipline,
-        output: result.text,
+        output: result?.result ?? null,
         durationMs: Date.now() - startedAt,
       };
     } catch (err) {
@@ -203,7 +283,7 @@ export function getAgent(discipline: AgentDiscipline): DisciplineAgent {
 /** Create agents for all supported disciplines. */
 export function allAgents(): ReadonlyMap<AgentDiscipline, DisciplineAgent> {
   const map = new Map<AgentDiscipline, DisciplineAgent>();
-  for (const d of AGENT_DISCIPLINES) {
+  for (const d of ["deep", "quick", "visual", "ultrabrain"] as const) {
     map.set(d, getAgent(d));
   }
   return map;

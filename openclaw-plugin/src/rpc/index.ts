@@ -356,7 +356,7 @@ export class RPCRouter {
         this.workflowService.start(id);
 
         this.scheduler
-          .execute(id, api)
+          .execute(id, api as any)
           .then((result) => {
             api.logger.info(`[rpc] Workflow ${id} execution completed`, result);
             const wf = this.workflowService.get(id);
@@ -496,7 +496,7 @@ export class RPCRouter {
         this.workflowService.resume(id);
 
         this.scheduler
-          .execute(id, api)
+          .execute(id, api as any)
           .catch((err: unknown) => {
             api.logger.error(`[rpc] Workflow ${id} resume execution failed: ${err}`);
           });

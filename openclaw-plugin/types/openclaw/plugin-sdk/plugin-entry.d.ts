@@ -22,7 +22,36 @@ export interface OpenClawPluginApi {
   logger: PluginLogger;
   config: Record<string, unknown>;
   pluginConfig?: Record<string, unknown>;
-  runtime: unknown;
+  runtime: {
+    subagent: {
+      run: (opts: {
+        sessionKey: string;
+        message: string;
+        provider?: string;
+        model?: string;
+        deliver?: boolean;
+        timeoutMs?: number;
+      }) => Promise<{ runId: string }>;
+      waitForRun: (opts: {
+        runId: string;
+        timeoutMs?: number;
+      }) => Promise<{ result?: string; error?: string }>;
+      getSessionMessages: (opts: {
+        sessionKey: string;
+        limit?: number;
+      }) => Promise<{ messages: Array<{ role: string; content: string }> }>;
+      deleteSession: (opts: { sessionKey: string }) => Promise<void>;
+    };
+    agent: {
+      defaults: {
+        model: string;
+        provider: string;
+      };
+    };
+  };
+  /** Host model provider config for direct LLM calls. */
+  hostModels?: Record<string, unknown>;
+  config: Record<string, unknown>;
   registerTool(tool: unknown, opts?: { optional?: boolean }): void;
   registerHook(events: string | string[], handler: unknown, opts?: unknown): void;
   registerHttpRoute(params: unknown): void;

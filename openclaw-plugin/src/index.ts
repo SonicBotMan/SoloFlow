@@ -230,13 +230,8 @@ export default definePluginEntry({
             workflowService.start(wfId);
 
             // Fire-and-forget execution (non-blocking)
-            // Pass host model config so steps can call LLM directly via HTTP
-            const hostModels = api.config?.["models"] as Record<string, unknown> | undefined;
-            const execApi = {
-              logger: log,
-              hostModels: hostModels as import("./types.js").HostModelsConfig | undefined,
-            };
-            scheduler.execute(wfId, execApi as never).catch((e: unknown) =>
+            // Pass the real plugin API so subagents have full tool access
+            scheduler.execute(wfId, api as never).catch((e: unknown) =>
               log.error(`schedule error: ${e}`),
             );
 

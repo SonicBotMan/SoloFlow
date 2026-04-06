@@ -8,7 +8,6 @@
 
 import type {
   AgentResult,
-  OpenClawApi,
   SchedulerOptions,
   SchedulerResult,
   StepId,
@@ -16,6 +15,7 @@ import type {
   WorkflowId,
   WorkflowStep,
 } from "../types.js";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { getReadySteps, topologicalSort } from "../core/dag.js";
 import { executeAgentStep } from "../agents/index.js";
 import { WorkflowService } from "./workflow-service.js";
@@ -159,7 +159,7 @@ export class Scheduler {
    */
   async execute(
     workflowId: WorkflowId,
-    api: OpenClawApi,
+    api: OpenClawPluginApi,
   ): Promise<SchedulerResult> {
     // 1. Retrieve workflow
     const workflow = this.workflowService.get(workflowId);
@@ -196,6 +196,7 @@ export class Scheduler {
     const completed = new Set<StepId>();
     const failed: Array<{ stepId: StepId; error: string }> = [];
     const running = new Set<StepId>();
+    const stepResultsMap = new Map<string, AgentResult>();
 
     const status: WorkflowExecutionStatus = {
       workflowId,
@@ -215,7 +216,7 @@ export class Scheduler {
 
     try {
       await withTimeout(
-        this.runLoop(workflow, api, completed, failed, running, status),
+        this.runLoop(workflow, api, completed, failed, running, status, stepResultsMap),
         workflowTimeoutMs,
         `Workflow ${workflowId} timed out after ${workflowTimeoutMs}ms`,
       );
@@ -249,23 +250,25 @@ export class Scheduler {
    */
   async executeStep(
     stepId: StepId,
-    api: OpenClawApi,
+    api: OpenClawPluginApi,
   ): Promise<AgentResult> {
     const found = this.findStep(stepId);
     if (!found) {
       throw new Error(`Step not found: ${stepId}`);
     }
 
-    const { step } = found;
+    const { step, workflow } = found;
 
-    api.logger.debug(`[scheduler] Executing step ${stepId} (${step.discipline})`);
+    api.logger.debug?.(`[scheduler] Executing step ${stepId} (${step.discipline})`);
 
     this.opts.onStepStart?.(stepId);
+
+    const stepResultsMap = new Map<string, AgentResult>();
 
     const result = await withRetry(
       () =>
         withTimeout(
-          this.runAgentStep(step, api),
+          this.runAgentStep(step, api, stepResultsMap, workflow.name),
           this.opts.stepTimeoutMs,
           `Step ${stepId} timed out after ${this.opts.stepTimeoutMs}ms`,
         ),
@@ -311,11 +314,12 @@ export class Scheduler {
    */
   private async runLoop(
     workflow: Workflow,
-    api: OpenClawApi,
+    api: OpenClawPluginApi,
     completed: Set<StepId>,
     failed: Array<{ stepId: StepId; error: string }>,
     running: Set<StepId>,
     status: WorkflowExecutionStatus,
+    stepResultsMap: Map<string, AgentResult>,
   ): Promise<void> {
     const semaphore = new Semaphore(this.opts.maxConcurrency);
     const failedStepIds = new Set<StepId>();
@@ -363,6 +367,7 @@ export class Scheduler {
           running,
           semaphore,
           status,
+          stepResultsMap,
         ),
       );
 
@@ -383,13 +388,14 @@ export class Scheduler {
   private async runManagedStep(
     workflow: Workflow,
     stepId: StepId,
-    api: OpenClawApi,
+    api: OpenClawPluginApi,
     completed: Set<StepId>,
     failed: Array<{ stepId: StepId; error: string }>,
     failedStepIds: Set<StepId>,
     running: Set<StepId>,
     semaphore: Semaphore,
     status: WorkflowExecutionStatus,
+    stepResultsMap: Map<string, AgentResult>,
   ): Promise<void> {
     // ── Acquire concurrency slot ──
     await semaphore.acquire();
@@ -414,7 +420,7 @@ export class Scheduler {
       const result = await withRetry(
         () =>
           withTimeout(
-            this.runAgentStep(step, api),
+            this.runAgentStep(step, api, stepResultsMap, workflow.name),
             this.opts.stepTimeoutMs,
             `Step ${stepId} timed out after ${this.opts.stepTimeoutMs}ms`,
           ),
@@ -426,6 +432,9 @@ export class Scheduler {
       step.state = "completed";
       step.result = result.output;
       step.completedAt = Date.now();
+
+      // Store result for downstream steps
+      stepResultsMap.set(stepId as string, result);
 
       completed.add(stepId);
       status.completedSteps = Array.from(completed);
@@ -465,8 +474,13 @@ export class Scheduler {
   // ── Internal: Agent Execution ───────────────────────────────────────
 
   /** Delegate to the agent discipline executor. */
-  private async runAgentStep(step: WorkflowStep, api: OpenClawApi): Promise<AgentResult> {
-    return executeAgentStep(step, api);
+  private async runAgentStep(
+    step: WorkflowStep,
+    api: OpenClawPluginApi,
+    upstreamResults: ReadonlyMap<string, AgentResult>,
+    workflowName: string,
+  ): Promise<AgentResult> {
+    return executeAgentStep(step, { api, upstreamResults, workflowName });
   }
 
   // ── Internal: Step Lookup ───────────────────────────────────────────
