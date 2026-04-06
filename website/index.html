@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoloFlow — Open Source AI Workflow Orchestration Engine</title>
+  <meta name="description" content="SoloFlow is an open-source AI workflow orchestration engine with cognitive memory, discipline-aware routing, and DAG+FSM hybrid architecture. Lightweight (~0.27MB dist), 175 tests, minimal runtime deps (jose, yaml, better-sqlite3).">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://soloflow.pmparker.net/">
+  
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="SoloFlow — Open Source AI Workflow Orchestration Engine">
+  <meta property="og:description" content="Open-source AI workflow orchestration with cognitive memory, discipline-aware routing, and DAG+FSM hybrid. 175 tests, ~0.27MB bundle, MCP tools, OpenClaw plugin.">
+  <meta property="og:url" content="https://soloflow.pmparker.net/">
+  <meta property="og:site_name" content="SoloFlow">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="zh_CN">
+  <meta property="og:image" content="https://raw.githubusercontent.com/SonicBotMan/SoloFlow/main/docs/readme/website-hero.png">
+  <meta property="og:image:alt" content="SoloFlow — AI workflow orchestration overview">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@SonicBotMan">
+  <meta name="twitter:title" content="SoloFlow — Open Source AI Workflow Orchestration Engine">
+  <meta name="twitter:description" content="Open-source AI workflow orchestration with cognitive memory, discipline-aware routing, and DAG+FSM hybrid. Free & lightweight.">
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/SonicBotMan/SoloFlow/main/docs/readme/website-hero.png">
+  <meta name="theme-color" content="#0a0c14">
+  
+  <!-- DNS Prefetch for Performance -->
+  <link rel="dns-prefetch" href="https://raw.githubusercontent.com">
+  <link rel="dns-prefetch" href="https://api.github.com">
+  
+  <!-- Preload Critical CSS -->
+  <link rel="preload" href="styles/main.css" as="style">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SoloFlow",
+    "description": "Open-source AI workflow orchestration engine with cognitive memory, discipline-aware routing, and DAG+FSM hybrid architecture.",
+    "url": "https://soloflow.pmparker.net/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "OpenClaw",
+      "url": "https://github.com/SonicBotMan"
+    },
+    "codeRepository": "https://github.com/SonicBotMan/SoloFlow",
+    "programmingLanguage": "TypeScript",
+    "keywords": "AI workflow, orchestration, cognitive memory, LangChain alternative, open source, MCP tools, DAG, FSM"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
+  <!-- Ambient background -->
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="gradient-orb orb-1"></div>
+    <div class="gradient-orb orb-2"></div>
+    <div class="gradient-orb orb-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="nav" id="nav" role="navigation" aria-label="Main navigation">
+    <div class="nav-inner container">
+      <a href="#" class="nav-logo" aria-label="SoloFlow Home">
+        <svg class="logo-icon" width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 14h4l2-4 3 8 2-4h3" stroke="url(#logo-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="logo-grad" x1="8" y1="14" x2="22" y2="14"><stop stop-color="#6EE7B7"/><stop offset="1" stop-color="#3B82F6"/></linearGradient></defs>
+        </svg>
+        <span class="logo-text">SoloFlow</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#features" data-i18n="nav.features">Features</a>
+        <a href="#architecture" data-i18n="nav.architecture">Architecture</a>
+        <a href="#memory" data-i18n="nav.memory">Memory</a>
+        <a href="#lobster" data-i18n="nav.lobster">lobster-press</a>
+        <a href="#comparison" data-i18n="nav.comparison">Comparison</a>
+        <a href="#getting-started" data-i18n="nav.getStarted">Get Started</a>
+      </div>
+      <div class="nav-actions">
+        <button class="lang-toggle" id="langToggle" aria-label="Toggle language">
+          <span class="lang-en active">EN</span>
+          <span class="lang-sep">/</span>
+          <span class="lang-zh">中文</span>
+        </button>
+        <a href="https://github.com/SonicBotMan/SoloFlow" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="#getting-started" class="btn btn-primary btn-sm" data-i18n="nav.getStarted">Get Started</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobileMenu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile menu -->
+  <div class="mobile-menu" id="mobileMenu" role="navigation" aria-label="Mobile navigation">
+    <a href="#features" data-i18n="nav.features">Features</a>
+    <a href="#architecture" data-i18n="nav.architecture">Architecture</a>
+    <a href="#memory" data-i18n="nav.memory">Memory</a>
+    <a href="#lobster" data-i18n="nav.lobster">lobster-press</a>
+    <a href="#comparison" data-i18n="nav.comparison">Comparison</a>
+    <a href="#getting-started" data-i18n="nav.getStarted">Get Started</a>
+    <a href="https://github.com/SonicBotMan/SoloFlow" class="btn btn-primary" target="_blank" rel="noopener" data-i18n="hero.viewGithub">View on GitHub</a>
+  </div>
+
+  <main id="main">
+    <!-- ==================== HERO ==================== -->
+    <section class="hero" id="hero" aria-labelledby="hero-title">
+      <div class="container hero-inner">
+        <div class="hero-badge reveal">
+          <span class="badge-dot"></span>
+          <span data-i18n="hero.badge">AI Workflow Orchestration</span>
+        </div>
+        <h1 class="hero-title reveal" id="hero-title" data-i18n="hero.title">
+          The <span class="gradient-text">brain</span> behind<br>
+          AI workflow orchestration
+        </h1>
+        <p class="hero-subtitle reveal" data-i18n="hero.subtitle">
+          Turn chaotic multi-step AI tasks into structured, observable,<br class="hide-mobile"> retryable workflows — with cognitive memory and discipline-aware routing.
+        </p>
+        <div class="hero-actions reveal">
+          <a href="#getting-started" class="btn btn-primary btn-lg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <span data-i18n="hero.getStarted">Quick Start</span>
+          </a>
+          <a href="#architecture" class="btn btn-ghost btn-lg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8m-4-4h8"/></svg>
+            <span data-i18n="hero.learnMore">See Architecture</span>
+          </a>
+        </div>
+
+        <!-- Hero Visual: Animated flow diagram -->
+        <div class="hero-visual reveal" id="heroVisual">
+          <svg class="flow-svg" viewBox="0 0 800 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Connection lines -->
+            <g class="flow-lines" stroke="url(#line-grad)" stroke-width="2" stroke-dasharray="8 4" opacity="0.8">
+              <line x1="170" y1="140" x2="300" y2="80" class="flow-line"/>
+              <line x1="170" y1="160" x2="300" y2="240" class="flow-line"/>
+              <line x1="420" y1="80" x2="460" y2="160" class="flow-line"/>
+              <line x1="420" y1="240" x2="460" y2="160" class="flow-line"/>
+              <line x1="580" y1="160" x2="690" y2="160" class="flow-line"/>
+            </g>
+            <!-- Nodes -->
+            <g class="flow-nodes">
+              <!-- Input -->
+              <g class="node node-input" transform="translate(120,140)">
+                <rect x="-50" y="-30" width="100" height="60" rx="12" fill="#1a1d2e" stroke="#6EE7B7" stroke-width="2"/>
+                <text y="-4" text-anchor="middle" fill="#6EE7B7" font-size="11" font-family="var(--font-mono)" font-weight="600">INPUT</text>
+                <text y="14" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="9" font-family="var(--font-mono)">Task Definition</text>
+              </g>
+              <!-- Router -->
+              <g class="node node-router" transform="translate(360,80)">
+                <rect x="-60" y="-30" width="120" height="60" rx="12" fill="#1a1d2e" stroke="#60A5FA" stroke-width="2"/>
+                <text y="-4" text-anchor="middle" fill="#60A5FA" font-size="11" font-family="var(--font-mono)" font-weight="600">DISCIPLINE</text>
+                <text y="14" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="9" font-family="var(--font-mono)">Quick / Deep / Visual</text>
+              </g>
+              <!-- Memory -->
+              <g class="node node-memory" transform="translate(360,240)">
+                <rect x="-60" y="-30" width="120" height="60" rx="12" fill="#1a1d2e" stroke="#C084FC" stroke-width="2"/>
+                <text y="-4" text-anchor="middle" fill="#C084FC" font-size="11" font-family="var(--font-mono)" font-weight="600">MEMORY</text>
+                <text y="14" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="9" font-family="var(--font-mono)">Semantic · Episodic</text>
+              </g>
+              <!-- DAG Engine -->
+              <g class="node node-dag" transform="translate(520,160)">
+                <rect x="-60" y="-30" width="120" height="60" rx="12" fill="#1a1d2e" stroke="#FBBF24" stroke-width="2"/>
+                <text y="-4" text-anchor="middle" fill="#FBBF24" font-size="11" font-family="var(--font-mono)" font-weight="600">DAG ENGINE</text>
+                <text y="14" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="9" font-family="var(--font-mono)">Execute · Retry</text>
+              </g>
+              <!-- Output -->
+              <g class="node node-output" transform="translate(720,160)">
+                <rect x="-30" y="-20" width="60" height="40" rx="10" fill="#1a1d2e" stroke="#6EE7B7" stroke-width="2"/>
+                <text y="5" text-anchor="middle" fill="#6EE7B7" font-size="11" font-family="var(--font-mono)" font-weight="600">OUT</text>
+              </g>
+            </g>
+            <!-- Flow particles -->
+            <g class="flow-particles">
+              <circle r="6" fill="#6EE7B7" class="particle p1"/>
+              <circle r="6" fill="#60A5FA" class="particle p2"/>
+              <circle r="5" fill="#C084FC" class="particle p3"/>
+            </g>
+            <defs>
+              <linearGradient id="line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="rgba(110,231,183,0.6)"/>
+                <stop offset="50%" stop-color="rgba(59,130,246,0.6)"/>
+                <stop offset="100%" stop-color="rgba(168,85,247,0.6)"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        <!-- Hero Stats -->
+        <div class="hero-stats reveal">
+          <div class="stat">
+            <span class="stat-value" data-target="175">0</span>
+            <span class="stat-label" data-i18n="hero.stats.tests">Tests Passing</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" data-target="180" data-suffix="+">0</span>
+            <span class="stat-label" data-i18n="hero.stats.modules">Modules</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</span>
+            <span class="stat-label" data-i18n="hero.stats.bundle">Bundle Size</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" data-target="3">0</span>
+            <span class="stat-label" data-i18n="hero.stats.deps">Runtime Deps</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== PROBLEM / SOLUTION ==================== -->
+    <section class="section section-problem" id="problem" aria-labelledby="problem-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-tag" data-i18n="problem.tag">The Problem</span>
+          <h2 class="section-title" id="problem-title" data-i18n="problem.title">Multi-step AI workflows are <span class="gradient-text-alt">chaos</span></h2>
+          <p class="section-desc" data-i18n="problem.desc">Existing tools force you to choose between flexibility and reliability. You get either spaghetti prompt chains or rigid pipelines that break at scale.</p>
+        </div>
+
+        <div class="problem-grid">
+          <div class="problem-card glass-card reveal" style="--delay:0">
+            <div class="problem-icon icon-broken">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <h3 data-i18n="problem.items.chaos.title">No Observability</h3>
+            <p data-i18n="problem.items.chaos.desc">When an 8-step agent chain fails at step 5, you're left guessing. No traces, no state snapshots, no way to resume.</p>
+          </div>
+          <div class="problem-card glass-card reveal" style="--delay:1">
+            <div class="problem-icon icon-memory">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <h3 data-i18n="problem.items.memory.title">Amnesiac Agents</h3>
+            <p data-i18n="problem.items.memory.desc">Every invocation starts from zero. No episodic memory, no learned patterns, no cognitive decay modeling.</p>
+          </div>
+          <div class="problem-card glass-card reveal" style="--delay:2">
+            <div class="problem-icon icon-route">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9.5-9.5h4m14 0h4M5.64 5.64l2.83 2.83m7.07 7.07l2.83 2.83M5.64 18.36l2.83-2.83m7.07-7.07l2.83-2.83"/></svg>
+            </div>
+            <h3 data-i18n="problem.items.routing.title">One-Size-Fits-All</h3>
+            <p data-i18n="problem.items.routing.desc">Quick tasks waste deep reasoning. Complex tasks get shallow treatment. No discipline-aware routing.</p>
+          </div>
+          <div class="problem-card glass-card reveal" style="--delay:3">
+            <div class="problem-icon icon-skill">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 14a1 1 0 01-.78-1.63l9.9-10.2a.5.5 0 01.86.46l-1.92 6.02A1 1 0 0013 10h7a1 1 0 01.78 1.63l-9.9 10.2a.5.5 0 01-.86-.46l1.92-6.02A1 1 0 0011 14H4z"/></svg>
+            </div>
+            <h3 data-i18n="problem.items.evolution.title">No Learning</h3>
+            <p data-i18n="problem.items.evolution.desc">Repeated patterns stay manual. Teams copy-paste prompts instead of evolving reusable skills automatically.</p>
+          </div>
+        </div>
+
+        <div class="solution-bridge reveal">
+          <div class="bridge-line"></div>
+          <div class="bridge-label">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <span data-i18n="problem.solution">SoloFlow solves all of this</span>
+          </div>
+          <div class="bridge-line"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CORE FEATURES ==================== -->
+    <section class="section section-features" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-tag" data-i18n="features.tag">Core Features</span>
+          <h2 class="section-title" id="features-title" data-i18n="features.title">Built different, by <span class="gradient-text">design</span></h2>
+          <p class="section-desc" data-i18n="features.desc">Four pillars that make SoloFlow the most advanced open-source AI orchestration engine.</p>
+        </div>
+
+        <div class="features-stack">
+          <!-- Feature 1: Cognitive Memory -->
+          <div class="feature-row glass-card reveal" style="--delay:0">
+            <div class="feature-visual">
+              <svg class="feature-svg" viewBox="0 0 300 200" fill="none">
+                <!-- Memory tiers -->
+                <g class="memory-tiers">
+                  <rect x="20" y="20" width="260" height="45" rx="8" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="1">
+                    <animate attributeName="stroke-opacity" values="0.3;0.6;0.3" dur="3s" repeatCount="indefinite"/>
+                  </rect>
+                  <text x="150" y="38" text-anchor="middle" fill="#6EE7B7" font-size="11" font-family="var(--font-mono)">Working Memory</text>
+                  <text x="150" y="54" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">Current task context · 7±2 items</text>
+
+                  <rect x="40" y="80" width="220" height="45" rx="8" fill="rgba(59,130,246,0.1)" stroke="rgba(59,130,246,0.3)" stroke-width="1">
+                    <animate attributeName="stroke-opacity" values="0.3;0.6;0.3" dur="3s" begin="0.5s" repeatCount="indefinite"/>
+                  </rect>
+                  <text x="150" y="98" text-anchor="middle" fill="#60A5FA" font-size="11" font-family="var(--font-mono)">Episodic Memory</text>
+                  <text x="150" y="114" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">Past experiences · Time-stamped</text>
+
+                  <rect x="60" y="140" width="180" height="45" rx="8" fill="rgba(168,85,247,0.1)" stroke="rgba(168,85,247,0.3)" stroke-width="1">
+                    <animate attributeName="stroke-opacity" values="0.3;0.6;0.3" dur="3s" begin="1s" repeatCount="indefinite"/>
+                  </rect>
+                  <text x="150" y="158" text-anchor="middle" fill="#C084FC" font-size="11" font-family="var(--font-mono)">Semantic Memory</text>
+                  <text x="150" y="174" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">Abstracted knowledge · Persistent</text>
+                </g>
+              </svg>
+            </div>
+            <div class="feature-content">
+              <div class="feature-number">01</div>
+              <h3 data-i18n="features.memory.title">Cognitive Memory System</h3>
+              <p data-i18n="features.memory.desc">Three-tier memory architecture inspired by human cognition. Working memory holds active context, episodic memory stores experiences, and semantic memory accumulates abstracted knowledge — all governed by the Ebbinghaus forgetting curve.</p>
+              <div class="feature-formula glass-chip">
+                <code>R(t) = base × e<sup>(-t / stability)</sup></code>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature 2: Discipline-Aware Routing -->
+          <div class="feature-row feature-row-reverse glass-card reveal" style="--delay:1">
+            <div class="feature-visual">
+              <svg class="feature-svg" viewBox="0 0 300 200" fill="none">
+                <g class="routing-diagram">
+                  <!-- Central node -->
+                  <circle cx="150" cy="40" r="22" fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.5)" stroke-width="1.5"/>
+                  <text x="150" y="37" text-anchor="middle" fill="#FBBF24" font-size="8" font-family="var(--font-mono)">TASK</text>
+                  <text x="150" y="47" text-anchor="middle" fill="rgba(251,191,36,0.7)" font-size="7" font-family="var(--font-mono)">IN</text>
+
+                  <!-- Route lines -->
+                  <line x1="130" y1="58" x2="55" y2="100" stroke="rgba(110,231,183,0.4)" stroke-width="1.5" stroke-dasharray="4 2">
+                    <animate attributeName="stroke-dashoffset" from="0" to="-12" dur="1.5s" repeatCount="indefinite"/>
+                  </line>
+                  <line x1="150" y1="62" x2="150" y2="100" stroke="rgba(59,130,246,0.4)" stroke-width="1.5" stroke-dasharray="4 2">
+                    <animate attributeName="stroke-dashoffset" from="0" to="-12" dur="1.5s" begin="0.3s" repeatCount="indefinite"/>
+                  </line>
+                  <line x1="170" y1="58" x2="245" y2="100" stroke="rgba(168,85,247,0.4)" stroke-width="1.5" stroke-dasharray="4 2">
+                    <animate attributeName="stroke-dashoffset" from="0" to="-12" dur="1.5s" begin="0.6s" repeatCount="indefinite"/>
+                  </line>
+
+                  <!-- Agent cards -->
+                  <rect x="15" y="100" width="80" height="70" rx="8" fill="rgba(110,231,183,0.08)" stroke="rgba(110,231,183,0.3)" stroke-width="1"/>
+                  <text x="55" y="122" text-anchor="middle" fill="#6EE7B7" font-size="10" font-family="var(--font-mono)">quick</text>
+                  <text x="55" y="140" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">~2s response</text>
+                  <text x="55" y="155" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Simple tasks</text>
+
+                  <rect x="110" y="100" width="80" height="70" rx="8" fill="rgba(59,130,246,0.08)" stroke="rgba(59,130,246,0.3)" stroke-width="1"/>
+                  <text x="150" y="122" text-anchor="middle" fill="#60A5FA" font-size="10" font-family="var(--font-mono)">deep</text>
+                  <text x="150" y="140" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">~30s reasoning</text>
+                  <text x="150" y="155" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Complex analysis</text>
+
+                  <rect x="205" y="100" width="80" height="70" rx="8" fill="rgba(168,85,247,0.08)" stroke="rgba(168,85,247,0.3)" stroke-width="1"/>
+                  <text x="245" y="122" text-anchor="middle" fill="#C084FC" font-size="10" font-family="var(--font-mono)">ultrabrain</text>
+                  <text x="245" y="140" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">Multi-agent</text>
+                  <text x="245" y="155" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Architecture tasks</text>
+                </g>
+              </svg>
+            </div>
+            <div class="feature-content">
+              <div class="feature-number">02</div>
+              <h3 data-i18n="features.routing.title">Discipline-Aware Routing</h3>
+              <p data-i18n="features.routing.desc">Not all tasks are equal. SoloFlow automatically classifies incoming tasks by complexity and routes them to the right agent discipline — from quick single-shot responses to multi-agent deep reasoning sessions. No manual configuration needed.</p>
+              <div class="feature-tags">
+                <span class="tag tag-quick">quick</span>
+                <span class="tag tag-deep">deep</span>
+                <span class="tag tag-visual">visual</span>
+                <span class="tag tag-ultra">ultrabrain</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature 3: DAG + FSM Hybrid -->
+          <div class="feature-row glass-card reveal" style="--delay:2">
+            <div class="feature-visual">
+              <svg class="feature-svg" viewBox="0 0 300 200" fill="none">
+                <g class="dag-fsm-diagram">
+                  <!-- DAG side -->
+                  <text x="75" y="20" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="10" font-family="var(--font-mono)">DAG</text>
+                  <circle cx="75" cy="50" r="12" fill="rgba(110,231,183,0.15)" stroke="#6EE7B7" stroke-width="1"/>
+                  <text x="75" y="54" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">A</text>
+                  <circle cx="45" cy="90" r="12" fill="rgba(59,130,246,0.15)" stroke="#60A5FA" stroke-width="1"/>
+                  <text x="45" y="94" text-anchor="middle" fill="#60A5FA" font-size="9" font-family="var(--font-mono)">B</text>
+                  <circle cx="105" cy="90" r="12" fill="rgba(59,130,246,0.15)" stroke="#60A5FA" stroke-width="1"/>
+                  <text x="105" y="94" text-anchor="middle" fill="#60A5FA" font-size="9" font-family="var(--font-mono)">C</text>
+                  <circle cx="75" cy="130" r="12" fill="rgba(168,85,247,0.15)" stroke="#C084FC" stroke-width="1"/>
+                  <text x="75" y="134" text-anchor="middle" fill="#C084FC" font-size="9" font-family="var(--font-mono)">D</text>
+                  <line x1="68" y1="60" x2="50" y2="80" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                  <line x1="82" y1="60" x2="100" y2="80" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                  <line x1="50" y1="100" x2="68" y2="120" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                  <line x1="100" y1="100" x2="82" y2="120" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                  <text x="75" y="160" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Parallel · Expressive</text>
+
+                  <!-- Plus sign -->
+                  <text x="150" y="95" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="24" font-weight="300">+</text>
+
+                  <!-- FSM side -->
+                  <text x="225" y="20" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="10" font-family="var(--font-mono)">FSM</text>
+                  <circle cx="195" cy="60" r="14" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.4)" stroke-width="1"/>
+                  <text x="195" y="64" text-anchor="middle" fill="#6EE7B7" font-size="8" font-family="var(--font-mono)">idle</text>
+                  <circle cx="255" cy="60" r="14" fill="rgba(251,191,36,0.1)" stroke="rgba(251,191,36,0.4)" stroke-width="1"/>
+                  <text x="255" y="64" text-anchor="middle" fill="#FBBF24" font-size="8" font-family="var(--font-mono)">run</text>
+                  <circle cx="255" cy="120" r="14" fill="rgba(59,130,246,0.1)" stroke="rgba(59,130,246,0.4)" stroke-width="1"/>
+                  <text x="255" y="124" text-anchor="middle" fill="#60A5FA" font-size="8" font-family="var(--font-mono)">retry</text>
+                  <circle cx="195" cy="120" r="14" fill="rgba(168,85,247,0.1)" stroke="rgba(168,85,247,0.4)" stroke-width="1"/>
+                  <text x="195" y="124" text-anchor="middle" fill="#C084FC" font-size="8" font-family="var(--font-mono)">done</text>
+
+                  <path d="M208 55 L242 55" stroke="rgba(255,255,255,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+                  <path d="M265 72 L265 108" stroke="rgba(255,255,255,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+                  <path d="M242 125 L208 125" stroke="rgba(255,255,255,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+                  <path d="M185 108 L185 72" stroke="rgba(255,255,255,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+                  <text x="225" y="160" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Rigorous · Observable</text>
+                </g>
+                <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(255,255,255,0.3)"/></marker></defs>
+              </svg>
+            </div>
+            <div class="feature-content">
+              <div class="feature-number">03</div>
+              <h3 data-i18n="features.architecture.title">DAG + FSM Hybrid Architecture</h3>
+              <p data-i18n="features.architecture.desc">Why choose between workflow graphs and state machines? SoloFlow gives you both — the expressiveness of DAGs for defining task relationships, combined with the rigor of finite state machines for execution guarantees. Retry, pause, resume, branch — all first-class.</p>
+              <div class="feature-formula glass-chip">
+                <code>expressiveness(DAG) + rigor(FSM) = reliability</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature 4: Skill Auto-Evolution -->
+          <div class="feature-row feature-row-reverse glass-card reveal" style="--delay:3">
+            <div class="feature-visual">
+              <svg class="feature-svg" viewBox="0 0 300 200" fill="none">
+                <g class="evolution-diagram">
+                  <!-- Raw patterns -->
+                  <g opacity="0.5">
+                    <rect x="20" y="30" width="60" height="20" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+                    <text x="50" y="44" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-family="var(--font-mono)">pattern A</text>
+                    <rect x="20" y="60" width="60" height="20" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+                    <text x="50" y="74" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-family="var(--font-mono)">pattern A</text>
+                    <rect x="20" y="90" width="60" height="20" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+                    <text x="50" y="104" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-family="var(--font-mono)">pattern A</text>
+                    <text x="50" y="135" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="8" font-family="var(--font-mono)">Detected ×3</text>
+                  </g>
+
+                  <!-- Arrow -->
+                  <line x1="110" y1="80" x2="150" y2="80" stroke="rgba(251,191,36,0.4)" stroke-width="1.5" stroke-dasharray="4 2">
+                    <animate attributeName="stroke-dashoffset" from="0" to="-12" dur="1.5s" repeatCount="indefinite"/>
+                  </line>
+                  <text x="130" y="70" text-anchor="middle" fill="rgba(251,191,36,0.5)" font-size="8" font-family="var(--font-mono)">evolve</text>
+
+                  <!-- Packaged skill -->
+                  <rect x="160" y="40" width="120" height="90" rx="10" fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.4)" stroke-width="1.5">
+                    <animate attributeName="stroke-opacity" values="0.4;0.7;0.4" dur="2s" repeatCount="indefinite"/>
+                  </rect>
+                  <text x="220" y="65" text-anchor="middle" fill="#FBBF24" font-size="10" font-family="var(--font-mono)">✦ SKILL</text>
+                  <text x="220" y="82" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="8" font-family="var(--font-mono)">Auto-packaged</text>
+                  <text x="220" y="96" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">Versioned · Reusable</text>
+                  <text x="220" y="115" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">→ MCP tool exposed</text>
+                </g>
+              </svg>
+            </div>
+            <div class="feature-content">
+              <div class="feature-number">04</div>
+              <h3 data-i18n="features.evolution.title">Skill Auto-Evolution</h3>
+              <p data-i18n="features.evolution.desc">Stop reinventing workflows. SoloFlow detects repeated patterns across your agent runs and automatically packages them into versioned, reusable skills — which can be exposed as MCP tools for other agents to consume. Your workflows literally improve themselves.</p>
+              <div class="feature-formula glass-chip">
+                <code>pattern → detect → package → skill → MCP tool</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ARCHITECTURE ==================== -->
+    <section class="section section-architecture" id="architecture" aria-labelledby="architecture-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-tag" data-i18n="architecture.tag">Architecture</span>
+          <h2 class="section-title" id="architecture-title" data-i18n="architecture.title">How the <span class="gradient-text">orchestration</span> works</h2>
+          <p class="section-desc" data-i18n="architecture.desc">A deep dive into the DAG + FSM hybrid engine that powers every SoloFlow workflow.</p>
+        </div>
+
+        <div class="architecture-visual glass-card reveal">
+          <svg class="arch-svg" viewBox="0 0 900 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background grid -->
+            <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+              <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>
+            </pattern>
+            <rect width="900" height="500" fill="url(#grid)"/>
+
+            <!-- Layer 1: MCP Interface -->
+            <g class="arch-layer" transform="translate(0,10)">
+              <rect x="40" y="10" width="820" height="70" rx="10" fill="rgba(110,231,183,0.04)" stroke="rgba(110,231,183,0.2)" stroke-width="1" stroke-dasharray="4 2"/>
+              <text x="60" y="35" fill="#6EE7B7" font-size="12" font-family="var(--font-mono)" font-weight="600">MCP TOOL LAYER</text>
+              <g transform="translate(60,45)">
+                <rect width="120" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="60" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_run</text>
+              </g>
+              <g transform="translate(200,45)">
+                <rect width="130" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="65" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_status</text>
+              </g>
+              <g transform="translate(350,45)">
+                <rect width="120" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="60" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_list</text>
+              </g>
+              <g transform="translate(490,45)">
+                <rect width="130" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="65" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_cancel</text>
+              </g>
+              <g transform="translate(640,45)">
+                <rect width="130" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="65" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_create</text>
+              </g>
+            </g>
+
+            <!-- Layer 2: Orchestration Engine -->
+            <g class="arch-layer" transform="translate(0,90)">
+              <rect x="40" y="10" width="400" height="180" rx="10" fill="rgba(59,130,246,0.04)" stroke="rgba(59,130,246,0.2)" stroke-width="1"/>
+              <text x="60" y="35" fill="#60A5FA" font-size="12" font-family="var(--font-mono)" font-weight="600">ORCHESTRATION ENGINE</text>
+
+              <!-- DAG sub -->
+              <rect x="60" y="48" width="170" height="125" rx="8" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.15)" stroke-width="0.8"/>
+              <text x="145" y="68" text-anchor="middle" fill="#60A5FA" font-size="10" font-family="var(--font-mono)">DAG Builder</text>
+              <text x="145" y="85" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Define task graph</text>
+              <text x="145" y="100" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Topological sort</text>
+              <text x="145" y="115" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Parallel execution</text>
+              <text x="145" y="130" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Dependency resolution</text>
+              <text x="145" y="150" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Conditional branching</text>
+              <text x="145" y="165" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Error handling</text>
+
+              <!-- FSM sub -->
+              <rect x="250" y="48" width="170" height="125" rx="8" fill="rgba(251,191,36,0.06)" stroke="rgba(251,191,36,0.15)" stroke-width="0.8"/>
+              <text x="335" y="68" text-anchor="middle" fill="#FBBF24" font-size="10" font-family="var(--font-mono)">FSM Controller</text>
+              <text x="335" y="85" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">State management</text>
+              <text x="335" y="100" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Transition guards</text>
+              <text x="335" y="115" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Retry policies</text>
+              <text x="335" y="130" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Pause / Resume</text>
+              <text x="335" y="150" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Rollback support</text>
+              <text x="335" y="165" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Event sourcing</text>
+            </g>
+
+            <!-- Layer 3: Memory & Intelligence -->
+            <g class="arch-layer" transform="translate(460,90)">
+              <rect x="40" y="10" width="360" height="180" rx="10" fill="rgba(168,85,247,0.04)" stroke="rgba(168,85,247,0.2)" stroke-width="1"/>
+              <text x="60" y="35" fill="#C084FC" font-size="12" font-family="var(--font-mono)" font-weight="600">MEMORY &amp; INTELLIGENCE</text>
+
+              <rect x="60" y="48" width="150" height="125" rx="8" fill="rgba(168,85,247,0.06)" stroke="rgba(168,85,247,0.15)" stroke-width="0.8"/>
+              <text x="135" y="68" text-anchor="middle" fill="#C084FC" font-size="10" font-family="var(--font-mono)">Cognitive Memory</text>
+              <text x="135" y="88" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Working (7±2)</text>
+              <text x="135" y="103" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Episodic (timestamped)</text>
+              <text x="135" y="118" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Semantic (persistent)</text>
+              <text x="135" y="140" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="8" font-family="var(--font-mono)">Ebbinghaus decay</text>
+              <text x="135" y="155" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="8" font-family="var(--font-mono)">Consolidation cycle</text>
+
+              <rect x="230" y="48" width="150" height="125" rx="8" fill="rgba(251,191,36,0.06)" stroke="rgba(251,191,36,0.15)" stroke-width="0.8"/>
+              <text x="305" y="68" text-anchor="middle" fill="#FBBF24" font-size="10" font-family="var(--font-mono)">Skill Evolution</text>
+              <text x="305" y="88" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Pattern detection</text>
+              <text x="305" y="103" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Auto-packaging</text>
+              <text x="305" y="118" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Version control</text>
+              <text x="305" y="140" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="8" font-family="var(--font-mono)">MCP tool generation</text>
+              <text x="305" y="155" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="8" font-family="var(--font-mono)">Quality scoring</text>
+            </g>
+
+            <!-- Layer 4: Agent Pool -->
+            <g class="arch-layer" transform="translate(0,280)">
+              <rect x="40" y="10" width="820" height="90" rx="10" fill="rgba(244,114,182,0.04)" stroke="rgba(244,114,182,0.2)" stroke-width="1"/>
+              <text x="60" y="35" fill="#F472B6" font-size="12" font-family="var(--font-mono)" font-weight="600">AGENT DISCIPLINE POOL</text>
+
+              <g transform="translate(60,48)">
+                <rect width="140" height="42" rx="8" fill="rgba(110,231,183,0.08)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="70" y="18" text-anchor="middle" fill="#6EE7B7" font-size="10" font-family="var(--font-mono)" font-weight="600">quick</text>
+                <text x="70" y="33" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8" font-family="var(--font-mono)">Fast single-shot</text>
+              </g>
+              <g transform="translate(220,48)">
+                <rect width="140" height="42" rx="8" fill="rgba(59,130,246,0.08)" stroke="rgba(59,130,246,0.3)" stroke-width="0.8"/>
+                <text x="70" y="18" text-anchor="middle" fill="#60A5FA" font-size="10" font-family="var(--font-mono)" font-weight="600">deep</text>
+                <text x="70" y="33" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8" font-family="var(--font-mono)">Extended reasoning</text>
+              </g>
+              <g transform="translate(380,48)">
+                <rect width="140" height="42" rx="8" fill="rgba(168,85,247,0.08)" stroke="rgba(168,85,247,0.3)" stroke-width="0.8"/>
+                <text x="70" y="18" text-anchor="middle" fill="#C084FC" font-size="10" font-family="var(--font-mono)" font-weight="600">visual</text>
+                <text x="70" y="33" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8" font-family="var(--font-mono)">UI & image tasks</text>
+              </g>
+              <g transform="translate(540,48)">
+                <rect width="140" height="42" rx="8" fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.3)" stroke-width="0.8"/>
+                <text x="70" y="18" text-anchor="middle" fill="#FBBF24" font-size="10" font-family="var(--font-mono)" font-weight="600">ultrabrain</text>
+                <text x="70" y="33" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8" font-family="var(--font-mono)">Multi-agent complex</text>
+              </g>
+              <g transform="translate(700,48)">
+                <rect width="140" height="42" rx="8" fill="rgba(244,114,182,0.08)" stroke="rgba(244,114,182,0.3)" stroke-width="0.8"/>
+                <text x="70" y="18" text-anchor="middle" fill="#F472B6" font-size="10" font-family="var(--font-mono)" font-weight="600">explore</text>
+                <text x="70" y="33" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8" font-family="var(--font-mono)">Research & search</text>
+              </g>
+            </g>
+
+            <!-- Layer 5: Runtime -->
+            <g class="arch-layer" transform="translate(0,385)">
+              <rect x="40" y="10" width="820" height="65" rx="10" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+              <text x="60" y="35" fill="rgba(255,255,255,0.5)" font-size="12" font-family="var(--font-mono)" font-weight="600">RUNTIME</text>
+              <g transform="translate(60,42)">
+                <rect width="90" height="24" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+                <text x="45" y="16" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">TypeScript</text>
+              </g>
+              <g transform="translate(165,42)">
+                <rect width="70" height="24" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+                <text x="35" y="16" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">Bun</text>
+              </g>
+              <g transform="translate(250,42)">
+                <rect width="70" height="24" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+                <text x="35" y="16" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">0.27MB</text>
+              </g>
+              <g transform="translate(335,42)">
+                <rect width="100" height="24" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+                <text x="50" y="16" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">Strict Mode</text>
+              </g>
+              <g transform="translate(450,42)">
+                <rect width="100" height="24" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+                <text x="50" y="16" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">175 Tests ✓</text>
+              </g>
+            </g>
+
+            <!-- Vertical connections -->
+            <line x1="240" y1="80" x2="240" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3 3"/>
+            <line x1="660" y1="80" x2="660" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3 3"/>
+            <line x1="450" y1="280" x2="450" y2="295" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3 3"/>
+            <line x1="450" y1="380" x2="450" y2="395" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3 3"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MEMORY SYSTEM ==================== -->
+    <section class="section section-memory" id="memory" aria-labelledby="memory-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-tag" data-i18n="memory.tag">Research Foundation</span>
+          <h2 class="section-title" id="memory-title" data-i18n="memory.title">Grounded in <span class="gradient-text-alt">cognitive science</span></h2>
+          <p class="section-desc" data-i18n="memory.desc">SoloFlow's memory system is modeled after human memory research, featuring the Ebbinghaus forgetting curve for realistic memory decay. Built on <a href="https://github.com/SonicBotMan/lobster-press" target="_blank" rel="noopener" style="color: var(--color-accent-green);">lobster-press</a> cognitive memory engine.</p>
+        </div>
+
+        <!-- Forgetting curve - full width row -->
+        <div class="memory-curve glass-card reveal">
+          <h3 class="memory-curve-title" data-i18n="memory.curve">Ebbinghaus Forgetting Curve</h3>
+          <div class="curve-chart" id="forgettingCurve">
+            <canvas id="curveCanvas"></canvas>
+          </div>
+          <div class="curve-formula">
+            <code>R(t) = base × e<sup>-t/stability</sup></code>
+          </div>
+        </div>
+
+        <!-- Memory tiers row -->
+        <div class="memory-tiers-grid">
+            <div class="memory-tier-card glass-card reveal" style="--delay:0">
+              <div class="tier-icon tier-working">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6m-6 3h6m-6 3h4"/></svg>
+              </div>
+              <h4 data-i18n="memory.tiers.working.title">Working Memory</h4>
+              <p data-i18n="memory.tiers.working.desc">Active task context. Holds 7±2 items in focus. Fast access, short-lived. Cleared after task completion.</p>
+              <div class="tier-meta">
+                <span class="tier-badge" data-i18n="memory.tiers.working.badge">Volatile</span>
+                <span class="tier-capacity">7±2 items</span>
+              </div>
+            </div>
+            <div class="memory-tier-card glass-card reveal" style="--delay:1">
+              <div class="tier-icon tier-episodic">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <h4 data-i18n="memory.tiers.episodic.title">Episodic Memory</h4>
+              <p data-i18n="memory.tiers.episodic.desc">Time-stamped experiences from past runs. Enables "remember when" reasoning. Decays via Ebbinghaus curve with periodic consolidation.</p>
+              <div class="tier-meta">
+                <span class="tier-badge" data-i18n="memory.tiers.episodic.badge">Decaying</span>
+                <span class="tier-capacity">Time-stamped</span>
+              </div>
+            </div>
+            <div class="memory-tier-card glass-card reveal" style="--delay:2">
+              <div class="tier-icon tier-semantic">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              </div>
+              <h4 data-i18n="memory.tiers.semantic.title">Semantic Memory</h4>
+              <p data-i18n="memory.tiers.semantic.desc">Abstracted, persistent knowledge. Patterns distilled from episodic experience. Survives sessions. Forms the foundation of skill evolution.</p>
+              <div class="tier-meta">
+                <span class="tier-badge" data-i18n="memory.tiers.semantic.badge">Persistent</span>
+                <span class="tier-capacity">Unlimited</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== LOBSTER-PRESS ==================== -->
+    <section class="section section-lobster" id="lobster" aria-labelledby="lobster-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-tag" data-i18n="lobsterPress.tag">Underlying Engine</span>
+          <h2 class="section-title" id="lobster-title" data-i18n="lobsterPress.title">Powered by <span class="gradient-text">lobster-press</span></h2>
+          <p class="section-desc" data-i18n="lobsterPress.desc">lobster-press is SoloFlow's cognitive memory engine, built on cognitive science with DAG lossless compression, adaptive forgetting curve, and semantic memory capabilities.</p>
+        </div>
+
+        <div class="lobster-content">
+          <div class="lobster-meta glass-card reveal">
+            <div class="lobster-meta-item">
+              <span class="meta-label" data-i18n="lobsterPress.npm">NPM Package</span>
+              <code>@sonicbotman/lobster-press</code>
+            </div>
+            <div class="lobster-meta-item">
+              <span class="meta-label" data-i18n="lobsterPress.stars">GitHub Stars</span>
+              <span class="lobster-star-badge" id="lobster-star-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                <span id="lobster-star-count">--</span>
+              </span>
+            </div>
+            <div class="lobster-meta-item">
+              <span class="meta-label">GitHub</span>
+              <a href="https://github.com/SonicBotMan/lobster-press" target="_blank" rel="noopener" class="github-link" aria-label="View lobster-press on GitHub">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                <span data-i18n="lobsterPress.link">GitHub Repository</span>
+              </a>
+            </div>
+          </div>
+
+          <h3 class="lobster-modules-title reveal" data-i18n="lobsterPress.modules">Core Modules</h3>
+          <div class="lobster-modules-grid">
+            <div class="lobster-module-card glass-card reveal" style="--delay:0">
+              <div class="module-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <h4 data-i18n="lobsterPress.moduleList.cmv.name">CMV Triple-Pass Lossless</h4>
+              <p data-i18n="lobsterPress.moduleList.cmv.desc">Three-verification mechanism ensures zero loss in memory compression</p>
+            </div>
+            <div class="lobster-module-card glass-card reveal" style="--delay:1">
+              <div class="module-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </div>
+              <h4 data-i18n="lobsterPress.moduleList.chlr.name">C-HLR+ Adaptive Forgetting</h4>
+              <p data-i18n="lobsterPress.moduleList.chlr.desc">Intelligently regulates memory decay based on Ebbinghaus curve</p>
+            </div>
+            <div class="lobster-module-card glass-card reveal" style="--delay:2">
+              <div class="module-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <h4 data-i18n="lobsterPress.moduleList.focus.name">Focus Active Compression</h4>
+              <p data-i18n="lobsterPress.moduleList.focus.desc">Smart detection and triggering of memory compression timing</p>
+            </div>
+            <div class="lobster-module-card glass-card reveal" style="--delay:3">
+              <div class="module-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              </div>
+              <h4 data-i18n="lobsterPress.moduleList.r3mem.name">R³Mem Reversible 3-Layer</h4>
+              <p data-i18n="lobsterPress.moduleList.r3mem.desc">Working → Episodic → Semantic memory compression</p>
+            </div>
+            <div class="lobster-module-card glass-card reveal" style="--delay:4">
+              <div class="module-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+              </div>
+              <h4 data-i18n="lobsterPress.moduleList.wmr.name">WMR Tool Framework</h4>
+              <p data-i18n="lobsterPress.moduleList.wmr.desc">Modular tool registration and invocation framework</p>
+            </div>
+          </div>
+
+          <div class="lobster-cta reveal">
+            <a href="https://github.com/SonicBotMan/lobster-press" target="_blank" rel="noopener" class="btn btn-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              <span data-i18n="lobsterPress.cta">Explore lobster-press</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== COMPARISON ==================== -->
+    <section class="section section-comparison" id="comparison" aria-labelledby="comparison-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-tag" data-i18n="comparison.tag">Competitive Analysis</span>
+          <h2 class="section-title" id="comparison-title" data-i18n="comparison.title">How we <span class="gradient-text">compare</span></h2>
+          <p class="section-desc" data-i18n="comparison.desc">A feature-by-feature comparison with the most popular AI orchestration tools.</p>
+        </div>
+
+        <div class="comparison-table-wrap glass-card reveal">
+          <div class="comparison-table-scroll">
+            <table class="comparison-table" aria-label="Feature comparison table">
+              <caption class="sr-only">Feature comparison between SoloFlow and other AI orchestration tools</caption>
+              <thead>
+                <tr>
+                  <th class="feature-col" scope="col">Feature</th>
+                  <th class="highlight-col" scope="col">
+                    <span class="col-logo">⚡</span> SoloFlow
+                  </th>
+                  <th scope="col">CrewAI</th>
+                  <th scope="col">LangGraph</th>
+                  <th scope="col">AutoGPT</th>
+                  <th scope="col">n8n</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-i18n="comparison.features.discipline">Discipline-Aware Routing</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                </tr>
+                <tr>
+                  <td data-i18n="comparison.features.cognitive">Cognitive Memory System</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                </tr>
+                <tr>
+                  <td data-i18n="comparison.features.evolution">Skill Auto-Evolution</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                </tr>
+                <tr>
+                  <td data-i18n="comparison.features.dagFsm">DAG + FSM Hybrid</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="partial">Partial</td>
+                  <td class="check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                </tr>
+                <tr>
+                  <td data-i18n="comparison.features.visual">Visual Builder</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                </tr>
+                <tr>
+                  <td data-i18n="comparison.features.multiUser">Multi-user / RBAC</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                </tr>
+                <tr>
+                  <td data-i18n="comparison.features.mcp">MCP Tool Interface</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                </tr>
+                <tr>
+                  <td data-i18n="comparison.features.leanDeps">Lean runtime dependencies</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== METRICS ==================== -->
+    <section class="section section-metrics" id="metrics" aria-labelledby="metrics-title">
+      <div class="container">
+        <div class="metrics-grid">
+          <div class="metric-card glass-card reveal" style="--delay:0">
+            <div class="metric-value" data-target="175" data-suffix="">0</div>
+            <div class="metric-label" data-i18n="metrics.tests.label">TypeScript Tests</div>
+            <div class="metric-desc" data-i18n="metrics.tests.desc">All passing, strict mode</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
+          </div>
+          <div class="metric-card glass-card reveal" style="--delay:1">
+            <div class="metric-value" data-target="180" data-suffix="+">0</div>
+            <div class="metric-label" data-i18n="metrics.modules.label">Modules</div>
+            <div class="metric-desc" data-i18n="metrics.modules.desc">Clean, modular architecture</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:90%"></div></div>
+          </div>
+          <div class="metric-card glass-card reveal" style="--delay:2">
+            <div class="metric-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</div>
+            <div class="metric-label" data-i18n="metrics.bundle.label">Bundle Size</div>
+            <div class="metric-desc" data-i18n="metrics.bundle.desc">Incredibly lightweight</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:3%"></div></div>
+          </div>
+          <div class="metric-card glass-card reveal" style="--delay:3">
+            <div class="metric-value" data-target="5" data-suffix="">0</div>
+            <div class="metric-label" data-i18n="metrics.mcp.label">MCP Tools</div>
+            <div class="metric-desc" data-i18n="metrics.mcp.desc">Exposed interface</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
+          </div>
+          <div class="metric-card glass-card reveal" style="--delay:4">
+            <div class="metric-value" data-target="3" data-suffix="">0</div>
+            <div class="metric-label" data-i18n="metrics.deps.label">Runtime Deps</div>
+            <div class="metric-desc" data-i18n="metrics.deps.desc">jose, yaml, better-sqlite3</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:8%"></div></div>
+          </div>
+          <div class="metric-card glass-card reveal" style="--delay:5">
+            <div class="metric-value">MIT</div>
+            <div class="metric-label" data-i18n="metrics.license.label">License</div>
+            <div class="metric-desc" data-i18n="metrics.license.desc">Fully open source</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== GETTING STARTED ==================== -->
+    <section class="section section-started" id="getting-started" aria-labelledby="getting-started-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-tag" data-i18n="started.tag">Quick Start</span>
+          <h2 class="section-title" id="getting-started-title" data-i18n="started.title">Up and running in <span class="gradient-text">seconds</span></h2>
+          <p class="section-desc" data-i18n="started.desc">Install SoloFlow, define your first workflow, and watch it orchestrate. It's that simple.</p>
+        </div>
+
+        <div class="code-showcase glass-card reveal">
+          <div class="code-tabs">
+            <button class="code-tab active" data-tab="install" data-i18n="started.tabs.install">Install</button>
+            <button class="code-tab" data-tab="workflow" data-i18n="started.tabs.workflow">Create Workflow</button>
+            <button class="code-tab" data-tab="run" data-i18n="started.tabs.run">Run & Monitor</button>
+          </div>
+          <div class="code-panels">
+            <div class="code-panel active" id="panel-install">
+              <div class="code-header">
+                <span class="code-dots"><i></i><i></i><i></i></span>
+                <span class="code-filename">Terminal</span>
+                <button class="code-copy" data-copy="install" aria-label="Copy to clipboard">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              </div>
+              <pre class="code-block"><code class="lang-bash"><span class="code-comment"># Clone SoloFlow into your OpenClaw plugins directory</span>
+<span class="code-cmd">git</span> clone https://github.com/SonicBotMan/SoloFlow.git
+<span class="code-cmd">cd</span> SoloFlow/openclaw-plugin
+
+<span class="code-comment"># Install dependencies with Bun</span>
+<span class="code-cmd">bun</span> install
+
+<span class="code-comment"># Build the plugin</span>
+<span class="code-cmd">bun</span> run build
+
+<span class="code-comment"># Verify - 175 tests passing ✓</span>
+<span class="code-cmd">bun</span> test
+<span class="code-output"># → 175 passing tests ✓</span></code></pre>
+            </div>
+            <div class="code-panel" id="panel-workflow">
+              <div class="code-header">
+                <span class="code-dots"><i></i><i></i><i></i></span>
+                <span class="code-filename">workflow.ts</span>
+                <button class="code-copy" data-copy="workflow" aria-label="Copy to clipboard">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              </div>
+              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Create a workflow via RPC</span>
+<span class="code-keyword">const</span> { id } = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.create"</span>, {
+  <span class="code-prop">steps</span>: [
+    { <span class="code-prop">id</span>: <span class="code-string">"research"</span>,  <span class="code-prop">name</span>: <span class="code-string">"Research topic"</span>,        <span class="code-prop">discipline</span>: <span class="code-string">"deep"</span>,       <span class="code-prop">dependencies</span>: [],           <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Research AI agent frameworks"</span> } },
+    { <span class="code-prop">id</span>: <span class="code-string">"analyze"</span>,   <span class="code-prop">name</span>: <span class="code-string">"Analyze findings"</span>,      <span class="code-prop">discipline</span>: <span class="code-string">"ultrabrain"</span>, <span class="code-prop">dependencies</span>: [<span class="code-string">"research"</span>], <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Compare and rank by features"</span> } },
+    { <span class="code-prop">id</span>: <span class="code-string">"visualize"</span>, <span class="code-prop">name</span>: <span class="code-string">"Create chart"</span>,         <span class="code-prop">discipline</span>: <span class="code-string">"visual"</span>,    <span class="code-prop">dependencies</span>: [<span class="code-string">"analyze"</span>],  <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Generate comparison table"</span> } },
+  ],
+});
+
+<span class="code-comment">// Start the workflow</span>
+<span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.start"</span>, { id });
+<span class="code-output">// → Workflow queued, DAG execution begins</span></code></pre>
+            </div>
+            <div class="code-panel" id="panel-run">
+              <div class="code-header">
+                <span class="code-dots"><i></i><i></i><i></i></span>
+                <span class="code-filename">run.ts</span>
+                <button class="code-copy" data-copy="run" aria-label="Copy to clipboard">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              </div>
+              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Check workflow status via MCP tool</span>
+<span class="code-keyword">const</span> status = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.status"</span>, { 
+  <span class="code-prop">id</span>, 
+  <span class="code-prop">verbose</span>: <span class="code-bool">true</span> 
+});
+console.<span class="code-fn">log</span>(status.steps);
+
+<span class="code-comment">// FSM states: idle → queued → running → completed/failed/retry</span>
+<span class="code-comment">// Steps execute in parallel where possible with automatic retry</span>
+<span class="code-output">// → { state: 'running', steps: 3, memory: { working: [...], episodic: [...] } }</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CTA ==================== -->
+    <section class="section section-cta" aria-labelledby="cta-title">
+      <div class="container">
+        <div class="cta-inner glass-card reveal">
+          <div class="cta-glow"></div>
+          <h2 id="cta-title" data-i18n="cta.title">Ready to orchestrate <span class="gradient-text">intelligently</span>?</h2>
+          <p data-i18n="cta.desc">Join developers building the next generation of AI-powered tools with SoloFlow.</p>
+          <div class="cta-actions">
+<a href="https://github.com/SonicBotMan/SoloFlow" class="btn btn-primary btn-lg" target="_blank" rel="noopener" aria-label="View SoloFlow on GitHub">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              <span data-i18n="cta.github">View on GitHub</span>
+            </a>
+            <a href="https://github.com/SonicBotMan/SoloFlow#readme" class="btn btn-ghost btn-lg" target="_blank" rel="noopener" data-i18n="cta.docs">Read the Docs</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <a href="#" class="nav-logo">
+          <svg class="logo-icon" width="24" height="24" viewBox="0 0 28 28" fill="none">
+            <rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 14h4l2-4 3 8 2-4h3" stroke="url(#logo-grad2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="logo-grad2" x1="8" y1="14" x2="22" y2="14"><stop stop-color="#6EE7B7"/><stop offset="1" stop-color="#3B82F6"/></linearGradient></defs>
+          </svg>
+          <span class="logo-text">SoloFlow</span>
+        </a>
+        <p class="footer-tagline"><span data-i18n="footer.tagline">AI workflow orchestration by</span> <a href="https://github.com/SonicBotMan" target="_blank" rel="noopener">OpenClaw</a></p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4 data-i18n="footer.product">Product</h4>
+          <a href="#features" data-i18n="footer.links.features">Features</a>
+          <a href="#architecture" data-i18n="footer.links.architecture">Architecture</a>
+          <a href="#memory" data-i18n="footer.links.memory">Memory System</a>
+          <a href="#lobster" data-i18n="footer.links.lobster">lobster-press</a>
+          <a href="#comparison" data-i18n="footer.links.comparison">Comparison</a>
+        </div>
+        <div class="footer-col">
+          <h4 data-i18n="footer.resources">Resources</h4>
+          <a href="#getting-started" data-i18n="footer.links.gettingStarted">Getting Started</a>
+          <a href="https://github.com/SonicBotMan/SoloFlow" target="_blank" rel="noopener" data-i18n="footer.links.github">GitHub</a>
+          <a href="https://github.com/SonicBotMan/SoloFlow#readme" target="_blank" rel="noopener" data-i18n="footer.links.documentation">Documentation</a>
+          <a href="https://github.com/SonicBotMan/SoloFlow/releases" target="_blank" rel="noopener" data-i18n="footer.links.changelog">Changelog</a>
+        </div>
+        <div class="footer-col">
+          <h4 data-i18n="footer.friends">Friends</h4>
+          <a href="https://xagent.icu/" target="_blank" rel="noopener">ClawICU</a>
+          <a href="https://agent.pmparker.net/" target="_blank" rel="noopener">AI Benchmark</a>
+          <a href="https://wen.pmparker.net/" target="_blank" rel="noopener">AI Digital Human</a>
+          <a href="https://github.com/SonicBotMan/SoloFlow" target="_blank" rel="noopener" data-i18n="footer.links.license">License (MIT)</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom container">
+      <p data-i18n="footer.copyright">&copy; 2026 OpenClaw. All rights reserved. Built with ❤️ for the AI-native era.</p>
+    </div>
+  </footer>
+
+  <script src="scripts/main.js" async defer></script>
+</body>
+</html>

@@ -14,6 +14,7 @@ SoloFlow 是 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 的工
 | 资源 | 链接 |
 |------|------|
 | **产品官网（特性 / 架构 / 对比 / 快速上手）** | [soloflow.pmparker.net](https://soloflow.pmparker.net/) |
+| **官网静态源码** | [website/](./website/)（部署该目录到静态托管即可） |
 | **本仓库** | [github.com/SonicBotMan/SoloFlow](https://github.com/SonicBotMan/SoloFlow) |
 | **发行说明** | [Releases](https://github.com/SonicBotMan/SoloFlow/releases)（例如 **v2.0.0**，2026-04） |
 | **插件详细文档（英文长文）** | [openclaw-plugin/README.md](./openclaw-plugin/README.md) |
