@@ -1,0 +1,11 @@
+{
+  "name": "soloflow-readme-screenshots",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.3.0"
+  }
+}

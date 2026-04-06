@@ -20,6 +20,30 @@ SoloFlow 是 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 的工
 
 ---
 
+## 官网模块预览
+
+以下截图来自 [soloflow.pmparker.net](https://soloflow.pmparker.net/)，便于快速对照产品与文档（点击图片可在新标签打开大图）。
+
+| 首页与流程示意 | 问题陈述 |
+|:---:|:---:|
+| [![Hero](./docs/readme/website-hero.png)](./docs/readme/website-hero.png) | [![Problem](./docs/readme/website-problem.png)](./docs/readme/website-problem.png) |
+
+| 四大核心能力 | 编排架构 |
+|:---:|:---:|
+| [![Features](./docs/readme/website-features.png)](./docs/readme/website-features.png) | [![Architecture](./docs/readme/website-architecture.png)](./docs/readme/website-architecture.png) |
+
+| 记忆与遗忘曲线 | 能力对比 |
+|:---:|:---:|
+| [![Memory](./docs/readme/website-memory.png)](./docs/readme/website-memory.png) | [![Comparison](./docs/readme/website-comparison.png)](./docs/readme/website-comparison.png) |
+
+| 快速上手（安装与示例代码） |
+|:---:|
+| [![Quick start](./docs/readme/website-quickstart.png)](./docs/readme/website-quickstart.png) |
+
+如需在本地重新导出 PNG，可在仓库内执行：`cd scripts/readme-screenshots && npm install && npm run capture`（默认使用 macOS 上的 Google Chrome；其他系统请设置环境变量 `PUPPETEER_EXECUTABLE_PATH`）。
+
+---
+
 ## 核心特性
 
 ### 🧠 认知记忆系统

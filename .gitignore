@@ -40,3 +40,6 @@ htmlcov/
 .coverage
 .pytest_cache/
 __pycache__/
+
+# Screenshot tooling (see scripts/readme-screenshots/)
+scripts/readme-screenshots/node_modules/
