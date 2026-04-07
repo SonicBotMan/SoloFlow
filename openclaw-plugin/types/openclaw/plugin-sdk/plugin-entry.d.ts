@@ -31,6 +31,7 @@ export interface OpenClawPluginApi {
         model?: string;
         deliver?: boolean;
         timeoutMs?: number;
+        idempotencyKey?: string;
       }) => Promise<{ runId: string }>;
       waitForRun: (opts: {
         runId: string;

@@ -9838,7 +9838,8 @@ Output ONLY valid JSON (no markdown, no explanation):
           const { runId } = await this.api.runtime.subagent.run({
             sessionKey,
             message: prompt,
-            timeoutMs: 12e4
+            timeoutMs: 12e4,
+            idempotencyKey: `evo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
           });
           const result = await this.api.runtime.subagent.waitForRun({
             runId,

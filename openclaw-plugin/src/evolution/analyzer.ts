@@ -98,6 +98,7 @@ Output ONLY valid JSON (no markdown, no explanation):
         sessionKey,
         message: prompt,
         timeoutMs: 120_000,
+        idempotencyKey: `evo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       });
 
       const result = await this.api.runtime.subagent.waitForRun({
