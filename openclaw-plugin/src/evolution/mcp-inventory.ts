@@ -24,42 +24,82 @@ export class MCPInventory {
     this.api = api;
   }
 
-  /** Scan MCP servers from api.config and update inventory */
+  /** Scan MCP servers from config and update inventory */
   scan(): { added: number; updated: number } {
-    const config = (this.api.config ?? {}) as any;
-    const mcpServers = config.mcpServers ?? {};
     const now = Date.now();
-
     let added = 0, updated = 0;
 
-    for (const [serverId, serverConfig] of Object.entries(mcpServers)) {
-      const cfg = serverConfig as any;
-      const name = cfg.name ?? serverId;
-      const location = cfg.command ?? cfg.url ?? serverId;
-      const tools: string[] = Array.isArray(cfg.tools)
-        ? cfg.tools.map((t: any) => typeof t === "string" ? t : (t.name ?? "unknown"))
-        : [];
+    // Try multiple config sources
+    const sources = this.getMCPConfigSources();
 
-      // Try to get description from config
-      const description = cfg.description ?? `MCP server: ${name}`;
+    for (const source of sources) {
+      for (const [serverId, serverConfig] of Object.entries(source)) {
+        const cfg = serverConfig as any;
+        const name = cfg.name ?? serverId;
+        const location = [cfg.command, ...(cfg.args ?? [])].filter(Boolean).join(" ") || cfg.url || serverId;
+        const tools: string[] = Array.isArray(cfg.tools)
+          ? cfg.tools.map((t: any) => typeof t === "string" ? t : (t.name ?? "unknown"))
+          : [];
+        const description = cfg.description ?? `MCP server: ${name}`;
 
-      const existing = this.db.prepare("SELECT id FROM mcp_servers WHERE id=?").get(serverId);
-      if (!existing) {
-        this.db.prepare(`
-          INSERT INTO mcp_servers (id, name, description, location, tools, enabled, last_seen_at, discovered_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(serverId, name, description, location, JSON.stringify(tools), 1, now, now);
-        added++;
-      } else {
-        this.db.prepare(`
-          UPDATE mcp_servers SET name=?, description=?, location=?, tools=?, last_seen_at=?
-          WHERE id=?
-        `).run(name, description, location, JSON.stringify(tools), now, serverId);
-        updated++;
+        const existing = this.db.prepare("SELECT id FROM mcp_servers WHERE id=?").get(serverId);
+        if (!existing) {
+          this.db.prepare(`
+            INSERT INTO mcp_servers (id, name, description, location, tools, enabled, last_seen_at, discovered_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(serverId, name, description, location, JSON.stringify(tools), 1, now, now);
+          added++;
+        } else {
+          this.db.prepare(`
+            UPDATE mcp_servers SET name=?, description=?, location=?, tools=?, last_seen_at=?
+            WHERE id=?
+          `).run(name, description, location, JSON.stringify(tools), now, serverId);
+          updated++;
+        }
       }
     }
 
     return { added, updated };
+  }
+
+  /** Read MCP server configs from multiple possible locations */
+  private getMCPConfigSources(): Record<string, any>[] {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const path = require("node:path") as typeof import("node:path");
+    const os = require("node:os") as typeof import("node:os");
+    const sources: Record<string, any>[] = [];
+
+    // 1. api.config.mcpServers (if available)
+    const config = (this.api.config ?? {}) as any;
+    if (config.mcpServers && Object.keys(config.mcpServers).length > 0) {
+      sources.push(config.mcpServers);
+    }
+
+    // 2. mcporter.json (primary MCP config)
+    const mcporterPaths = [
+      path.join(os.homedir(), ".openclaw", "workspace", "config", "mcporter.json"),
+      path.join(os.homedir(), ".openclaw", "config", "mcporter.json"),
+    ];
+    for (const p of mcporterPaths) {
+      try {
+        const raw = fs.readFileSync(p, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
+          sources.push(parsed.mcpServers);
+        }
+      } catch { /* not found or invalid */ }
+    }
+
+    // 3. openclaw.json top-level mcpServers
+    try {
+      const raw = fs.readFileSync(path.join(os.homedir(), ".openclaw", "openclaw.json"), "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
+        sources.push(parsed.mcpServers);
+      }
+    } catch { /* not found */ }
+
+    return sources;
   }
 
   /** Record a tool call against an MCP server */

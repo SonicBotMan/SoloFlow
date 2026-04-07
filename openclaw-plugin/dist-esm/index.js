@@ -10647,34 +10647,69 @@ var init_mcp_inventory = __esm({
         this.db = db;
         this.api = api;
       }
-      /** Scan MCP servers from api.config and update inventory */
+      /** Scan MCP servers from config and update inventory */
       scan() {
-        const config = this.api.config ?? {};
-        const mcpServers = config.mcpServers ?? {};
         const now2 = Date.now();
         let added = 0, updated = 0;
-        for (const [serverId, serverConfig] of Object.entries(mcpServers)) {
-          const cfg = serverConfig;
-          const name = cfg.name ?? serverId;
-          const location = cfg.command ?? cfg.url ?? serverId;
-          const tools = Array.isArray(cfg.tools) ? cfg.tools.map((t) => typeof t === "string" ? t : t.name ?? "unknown") : [];
-          const description = cfg.description ?? `MCP server: ${name}`;
-          const existing = this.db.prepare("SELECT id FROM mcp_servers WHERE id=?").get(serverId);
-          if (!existing) {
-            this.db.prepare(`
-          INSERT INTO mcp_servers (id, name, description, location, tools, enabled, last_seen_at, discovered_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(serverId, name, description, location, JSON.stringify(tools), 1, now2, now2);
-            added++;
-          } else {
-            this.db.prepare(`
-          UPDATE mcp_servers SET name=?, description=?, location=?, tools=?, last_seen_at=?
-          WHERE id=?
-        `).run(name, description, location, JSON.stringify(tools), now2, serverId);
-            updated++;
+        const sources = this.getMCPConfigSources();
+        for (const source of sources) {
+          for (const [serverId, serverConfig] of Object.entries(source)) {
+            const cfg = serverConfig;
+            const name = cfg.name ?? serverId;
+            const location = [cfg.command, ...cfg.args ?? []].filter(Boolean).join(" ") || cfg.url || serverId;
+            const tools = Array.isArray(cfg.tools) ? cfg.tools.map((t) => typeof t === "string" ? t : t.name ?? "unknown") : [];
+            const description = cfg.description ?? `MCP server: ${name}`;
+            const existing = this.db.prepare("SELECT id FROM mcp_servers WHERE id=?").get(serverId);
+            if (!existing) {
+              this.db.prepare(`
+            INSERT INTO mcp_servers (id, name, description, location, tools, enabled, last_seen_at, discovered_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(serverId, name, description, location, JSON.stringify(tools), 1, now2, now2);
+              added++;
+            } else {
+              this.db.prepare(`
+            UPDATE mcp_servers SET name=?, description=?, location=?, tools=?, last_seen_at=?
+            WHERE id=?
+          `).run(name, description, location, JSON.stringify(tools), now2, serverId);
+              updated++;
+            }
           }
         }
         return { added, updated };
+      }
+      /** Read MCP server configs from multiple possible locations */
+      getMCPConfigSources() {
+        const fs3 = __require("node:fs");
+        const path4 = __require("node:path");
+        const os3 = __require("node:os");
+        const sources = [];
+        const config = this.api.config ?? {};
+        if (config.mcpServers && Object.keys(config.mcpServers).length > 0) {
+          sources.push(config.mcpServers);
+        }
+        const mcporterPaths = [
+          path4.join(os3.homedir(), ".openclaw", "workspace", "config", "mcporter.json"),
+          path4.join(os3.homedir(), ".openclaw", "config", "mcporter.json")
+        ];
+        for (const p of mcporterPaths) {
+          try {
+            const raw = fs3.readFileSync(p, "utf-8");
+            const parsed = JSON.parse(raw);
+            if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
+              sources.push(parsed.mcpServers);
+            }
+          } catch {
+          }
+        }
+        try {
+          const raw = fs3.readFileSync(path4.join(os3.homedir(), ".openclaw", "openclaw.json"), "utf-8");
+          const parsed = JSON.parse(raw);
+          if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
+            sources.push(parsed.mcpServers);
+          }
+        } catch {
+        }
+        return sources;
       }
       /** Record a tool call against an MCP server */
       recordUsage(serverId, toolName, success, durationMs) {
