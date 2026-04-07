@@ -15,6 +15,7 @@ import { WorkingMemory } from "./working-memory.js";
 import { EpisodicMemory } from "./episodic-memory.js";
 import { SemanticMemory } from "./semantic-memory.js";
 import { LobsterPressBridge, InMemoryFallbackAdapter } from "./bridge.js";
+import { UnifiedRetriever } from "./unified-retriever.js";
 
 const DEFAULT_NAMESPACE = "default";
 
@@ -34,6 +35,7 @@ export class MemorySystem {
   readonly episodic: EpisodicMemory;
   readonly semantic: SemanticMemory;
 
+  private unifiedRetriever: UnifiedRetriever | null = null;
   private bridge: LobsterPressBridge | null = null;
   private fallback: InMemoryFallbackAdapter | null = null;
   private initialized = false;
@@ -78,6 +80,19 @@ export class MemorySystem {
     this.initialized = true;
   }
 
+  setUnifiedSources(opts: {
+    ftsSearch?: (query: string, limit: number) => string[];
+    vectorSearch?: (query: string, limit: number) => Promise<Array<{id: string; score: number}>>;
+    episodicLoader?: (id: string) => any | null;
+  }): void {
+    if (!this.unifiedRetriever) {
+      this.unifiedRetriever = new UnifiedRetriever();
+    }
+    if (opts.ftsSearch) this.unifiedRetriever.setFTSSearch(opts.ftsSearch);
+    if (opts.vectorSearch) this.unifiedRetriever.setVectorSearch(opts.vectorSearch);
+    if (opts.episodicLoader) this.unifiedRetriever.setEpisodicLoader(opts.episodicLoader);
+  }
+
   async query(query: MemoryQuery): Promise<MemoryResult> {
     const resolvedQuery = this.resolveQuery(query);
     const tiers = resolvedQuery.tiers ?? (["working", "episodic", "semantic"] as MemoryTier[]);
@@ -87,13 +102,28 @@ export class MemorySystem {
       allResults.push(...this.working.query(resolvedQuery));
     }
 
+    let episodicResults: MemoryResultEntry[] = [];
+    let semanticResults: MemoryResultEntry[] = [];
+
     if (tiers.includes("episodic")) {
-      allResults.push(...this.episodic.searchExecutions(resolvedQuery));
+      episodicResults = this.episodic.searchExecutions(resolvedQuery);
     }
 
     if (tiers.includes("semantic")) {
-      const semanticResults = await this.semantic.getFacts(resolvedQuery);
-      allResults.push(...semanticResults);
+      semanticResults = await this.semantic.getFacts(resolvedQuery);
+    }
+
+    // Use unified retriever when available and query has text
+    if (this.unifiedRetriever && resolvedQuery.text) {
+      const unified = await this.unifiedRetriever.search(
+        resolvedQuery.text,
+        episodicResults,
+        semanticResults,
+        resolvedQuery.limit,
+      );
+      allResults.push(...unified);
+    } else {
+      allResults.push(...episodicResults, ...semanticResults);
     }
 
     allResults.sort((a, b) => b.score - a.score);
@@ -175,6 +205,7 @@ export {
   SemanticMemory,
   LobsterPressBridge,
   InMemoryFallbackAdapter,
+  UnifiedRetriever,
 };
 
 export type {

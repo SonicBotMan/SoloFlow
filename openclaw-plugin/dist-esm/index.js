@@ -1162,6 +1162,111 @@ var init_bridge = __esm({
   }
 });
 
+// src/memory/unified-retriever.ts
+var UnifiedRetriever;
+var init_unified_retriever = __esm({
+  "src/memory/unified-retriever.ts"() {
+    "use strict";
+    UnifiedRetriever = class {
+      config;
+      ftsSearchFn = null;
+      vectorSearchFn = null;
+      loadEpisodicByIdFn = null;
+      constructor(config) {
+        this.config = {
+          rrfK: 60,
+          episodicWeight: 0.4,
+          vectorWeight: 0.3,
+          semanticWeight: 0.3,
+          ...config
+        };
+      }
+      setFTSSearch(fn) {
+        this.ftsSearchFn = fn;
+      }
+      setVectorSearch(fn) {
+        this.vectorSearchFn = fn;
+      }
+      setEpisodicLoader(fn) {
+        this.loadEpisodicByIdFn = fn;
+      }
+      async search(queryText, episodicResults, semanticResults, limit = 10) {
+        const allCandidates = [];
+        const prefetchLimit = limit * 4;
+        const seenIds = /* @__PURE__ */ new Set();
+        for (const r of episodicResults) {
+          seenIds.add(r.entry.id);
+          allCandidates.push({ id: r.entry.id, tier: "episodic", score: r.score, entry: r.entry });
+        }
+        if (this.ftsSearchFn) {
+          try {
+            const ftsIds = this.ftsSearchFn(queryText, prefetchLimit);
+            for (const id of ftsIds) {
+              if (seenIds.has(id)) continue;
+              const entry = this.loadEpisodicByIdFn?.(id);
+              if (entry) {
+                seenIds.add(id);
+                allCandidates.push({ id, tier: "episodic", score: 0.6, entry });
+              }
+            }
+          } catch {
+          }
+        }
+        if (this.vectorSearchFn) {
+          try {
+            const vectorResults = await this.vectorSearchFn(queryText, prefetchLimit);
+            for (const vr of vectorResults) {
+              if (seenIds.has(vr.id)) {
+                const existing = allCandidates.find((c) => c.id === vr.id);
+                if (existing) existing.score *= 1 + vr.score;
+              } else {
+                seenIds.add(vr.id);
+                allCandidates.push({
+                  id: vr.id,
+                  tier: "episodic",
+                  score: vr.score,
+                  entry: {
+                    id: vr.id,
+                    workflowId: vr.id.replace(/^(wf_|step_)/, "").split("_")[0],
+                    workflowName: vr.id
+                  }
+                });
+              }
+            }
+          } catch {
+          }
+        }
+        for (const r of semanticResults) {
+          if (seenIds.has(r.entry.id)) continue;
+          seenIds.add(r.entry.id);
+          allCandidates.push({ id: r.entry.id, tier: "semantic", score: r.score * 1.2, entry: r.entry });
+        }
+        const rrfScores = this.reciprocalRankFusion(allCandidates);
+        const results = [];
+        for (const [id, rrfScore] of rrfScores) {
+          const candidate = allCandidates.find((c) => c.id === id);
+          if (!candidate) continue;
+          results.push({ tier: candidate.tier, entry: candidate.entry, score: rrfScore });
+        }
+        results.sort((a, b) => b.score - a.score);
+        return results.slice(0, limit);
+      }
+      reciprocalRankFusion(candidates) {
+        const { rrfK } = this.config;
+        const scores = /* @__PURE__ */ new Map();
+        const ranked = [...candidates].sort((a, b) => b.score - a.score);
+        for (let rank = 0; rank < ranked.length; rank++) {
+          const c = ranked[rank];
+          const weight = c.tier === "semantic" ? this.config.semanticWeight : this.config.episodicWeight;
+          const rrf = weight / (rrfK + rank + 1);
+          scores.set(c.id, (scores.get(c.id) ?? 0) + rrf);
+        }
+        return scores;
+      }
+    };
+  }
+});
+
 // src/memory/index.ts
 var memory_exports = {};
 __export(memory_exports, {
@@ -1170,6 +1275,7 @@ __export(memory_exports, {
   LobsterPressBridge: () => LobsterPressBridge,
   MemorySystem: () => MemorySystem,
   SemanticMemory: () => SemanticMemory,
+  UnifiedRetriever: () => UnifiedRetriever,
   WorkingMemory: () => WorkingMemory
 });
 var DEFAULT_NAMESPACE, MemorySystem;
@@ -1180,11 +1286,13 @@ var init_memory = __esm({
     init_episodic_memory();
     init_semantic_memory();
     init_bridge();
+    init_unified_retriever();
     DEFAULT_NAMESPACE = "default";
     MemorySystem = class {
       working;
       episodic;
       semantic;
+      unifiedRetriever = null;
       bridge = null;
       fallback = null;
       initialized = false;
@@ -1220,6 +1328,14 @@ var init_memory = __esm({
         }
         this.initialized = true;
       }
+      setUnifiedSources(opts) {
+        if (!this.unifiedRetriever) {
+          this.unifiedRetriever = new UnifiedRetriever();
+        }
+        if (opts.ftsSearch) this.unifiedRetriever.setFTSSearch(opts.ftsSearch);
+        if (opts.vectorSearch) this.unifiedRetriever.setVectorSearch(opts.vectorSearch);
+        if (opts.episodicLoader) this.unifiedRetriever.setEpisodicLoader(opts.episodicLoader);
+      }
       async query(query) {
         const resolvedQuery = this.resolveQuery(query);
         const tiers = resolvedQuery.tiers ?? ["working", "episodic", "semantic"];
@@ -1227,12 +1343,24 @@ var init_memory = __esm({
         if (tiers.includes("working")) {
           allResults.push(...this.working.query(resolvedQuery));
         }
+        let episodicResults = [];
+        let semanticResults = [];
         if (tiers.includes("episodic")) {
-          allResults.push(...this.episodic.searchExecutions(resolvedQuery));
+          episodicResults = this.episodic.searchExecutions(resolvedQuery);
         }
         if (tiers.includes("semantic")) {
-          const semanticResults = await this.semantic.getFacts(resolvedQuery);
-          allResults.push(...semanticResults);
+          semanticResults = await this.semantic.getFacts(resolvedQuery);
+        }
+        if (this.unifiedRetriever && resolvedQuery.text) {
+          const unified = await this.unifiedRetriever.search(
+            resolvedQuery.text,
+            episodicResults,
+            semanticResults,
+            resolvedQuery.limit
+          );
+          allResults.push(...unified);
+        } else {
+          allResults.push(...episodicResults, ...semanticResults);
         }
         allResults.sort((a, b) => b.score - a.score);
         const limit = resolvedQuery.limit ?? 10;
@@ -12855,6 +12983,29 @@ var index_default = definePluginEntry({
         if (memorySystem) {
           vectorSystem.setSemanticMemory(memorySystem.semantic);
           vectorSystem.setEpisodicMemory(memorySystem.episodic);
+          memorySystem.setUnifiedSources({
+            ftsSearch: (query, limit) => {
+              try {
+                return sqliteStore.searchEpisodicFTS(query, limit);
+              } catch {
+                return [];
+              }
+            },
+            vectorSearch: async (query, limit) => {
+              try {
+                const results = await vectorSystem.retriever.search(query, limit);
+                return results.map((r) => ({ id: r.id, score: r.score }));
+              } catch {
+                return [];
+              }
+            },
+            episodicLoader: (id) => {
+              for (const entry of memorySystem.episodic.all()) {
+                if (entry.id === id) return entry;
+              }
+              return null;
+            }
+          });
         }
       } catch (e) {
         log.warn(`vector search disabled: ${e}`);

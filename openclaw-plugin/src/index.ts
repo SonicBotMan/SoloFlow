@@ -197,6 +197,25 @@ export default definePluginEntry({
         if (memorySystem) {
           vectorSystem.setSemanticMemory(memorySystem.semantic);
           vectorSystem.setEpisodicMemory(memorySystem.episodic);
+
+          // Wire unified hybrid retrieval
+          memorySystem.setUnifiedSources({
+            ftsSearch: (query: string, limit: number) => {
+              try { return sqliteStore.searchEpisodicFTS(query, limit); } catch { return []; }
+            },
+            vectorSearch: async (query: string, limit: number) => {
+              try {
+                const results = await vectorSystem.retriever.search(query, limit);
+                return results.map((r: any) => ({ id: r.id, score: r.score }));
+              } catch { return []; }
+            },
+            episodicLoader: (id: string) => {
+              for (const entry of memorySystem.episodic.all()) {
+                if (entry.id === id) return entry;
+              }
+              return null;
+            },
+          });
         }
       } catch (e) {
         log.warn(`vector search disabled: ${e}`);
