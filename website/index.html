@@ -700,7 +700,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6m-6 3h6m-6 3h4"/></svg>
               </div>
               <h4 data-i18n="memory.tiers.working.title">Working Memory</h4>
-              <p data-i18n="memory.tiers.working.desc">Active task context. Holds 7±2 items in focus. Fast access, short-lived. Cleared after task completion.</p>
+              <p data-i18n="memory.tiers.working.desc">Active task context. Holds 7±2 items in focus. Backed by InMemory adapter with instant access. Cleared after task completion — nothing leaks between sessions.</p>
               <div class="tier-meta">
                 <span class="tier-badge" data-i18n="memory.tiers.working.badge">Volatile</span>
                 <span class="tier-capacity">7±2 items</span>
@@ -711,7 +711,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
               <h4 data-i18n="memory.tiers.episodic.title">Episodic Memory</h4>
-              <p data-i18n="memory.tiers.episodic.desc">Time-stamped experiences from past runs. Enables "remember when" reasoning. Decays via Ebbinghaus curve with periodic consolidation.</p>
+              <p data-i18n="memory.tiers.episodic.desc">Time-stamped experiences persisted in SQLite. Enables "remember when" reasoning. Decays via C-HLR+ forgetting curve with per-type half-lives (chitchat 3d → config 120d). Periodic consolidation prevents knowledge loss.</p>
               <div class="tier-meta">
                 <span class="tier-badge" data-i18n="memory.tiers.episodic.badge">Decaying</span>
                 <span class="tier-capacity">Time-stamped</span>
@@ -722,7 +722,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
               </div>
               <h4 data-i18n="memory.tiers.semantic.title">Semantic Memory</h4>
-              <p data-i18n="memory.tiers.semantic.desc">Abstracted, persistent knowledge. Patterns distilled from episodic experience. Survives sessions. Forms the foundation of skill evolution.</p>
+              <p data-i18n="memory.tiers.semantic.desc">LLM-extracted facts from conversations, stored as stable notes. Survives sessions. Hybrid retrieval via FTS5 + Vector + RRF fusion + MMR diversification. The foundation of skill auto-evolution.</p>
               <div class="tier-meta">
                 <span class="tier-badge" data-i18n="memory.tiers.semantic.badge">Persistent</span>
                 <span class="tier-capacity">Unlimited</span>
@@ -770,29 +770,29 @@
               <div class="module-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
               </div>
-              <h4 data-i18n="modules.sqlite.name">SQLite Persistence</h4>
-              <p data-i18n="modules.sqlite.desc">Workflow state, episodic memory, skill inventory, MCP inventory — all persisted in a single SQLite database with versioned migrations</p>
+              <h4>DAG Lossless Compression</h4>
+              <p>Messages are never deleted — only compressed. Tree-structured summaries (leaf → condensed) preserve every fact while reducing context by 90%. Rollback to any point in history.</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:1">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v4m0 12v4m-9.5-9.5h4m14 0h4M5.64 5.64l2.83 2.83m7.07 7.07l2.83 2.83M5.64 18.36l2.83-2.83m7.07-7.07l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>
               </div>
-              <h4 data-i18n="modules.skillInventory.name">Skill Inventory</h4>
-              <p data-i18n="modules.skillInventory.desc">Scans 100+ installed skills, tracks usage frequency, detects redundant/unused skills, discovers tool combinations</p>
+              <h4>C-HLR+ Adaptive Forgetting</h4>
+              <p>Per-type half-life decay: chitchat fades in 3 days, configuration lasts 120 days. Spaced repetition consolidates important memories. Inspired by the Ebbinghaus forgetting curve.</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:2">
               <div class="module-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
               </div>
-              <h4 data-i18n="modules.mcpInventory.name">MCP Inventory</h4>
-              <p data-i18n="modules.mcpInventory.desc">Tracks all registered MCP servers and their tools, monitors call frequency and success rates</p>
+              <h4>Hybrid Retrieval (FTS5 + Vector)</h4>
+              <p>Full-text search fused with semantic embeddings via Reciprocal Rank Fusion, then diversified with Maximal Marginal Relevance. 14-day time decay prevents stale results from surfacing.</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:3">
               <div class="module-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
               </div>
-              <h4 data-i18n="modules.evolution.name">Evolution Engine</h4>
-              <p data-i18n="modules.evolution.desc">GLM-5 powered pattern analysis, intelligent template merging (Jaccard ≥ 0.6), nightly auto-evolution cycle, quality scoring with auto-cleanup</p>
+              <h4>R³Mem Reversible 3-Layer Memory</h4>
+              <p>Working → Episodic → Semantic compression pipeline. Document-level facts are decomposed into paragraph entities, then abstracted into persistent semantic knowledge. Every layer is queryable independently.</p>
             </div>
           </div>
 
@@ -857,7 +857,15 @@
                   <td class="cross">✕</td>
                 </tr>
                 <tr>
-                  <td data-i18n="comparison.features.inventory">Skill &amp; MCP Inventory</td>
+                  <td>Skill &amp; MCP Inventory</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                </tr>
+                <tr>
+                  <td>Adaptive Forgetting (C-HLR+)</td>
                   <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
                   <td class="cross">✕</td>
                   <td class="cross">✕</td>
