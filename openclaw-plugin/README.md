@@ -95,7 +95,7 @@ await api.rpc.call("workflow.start", { id });  // retry, logging, memory all bui
 
 **Researcher running complex experiments.** Your workflow is a DAG: gather papers, extract claims, run analysis, synthesize findings. SoloFlow models that DAG natively, executes layers in parallel, and remembers what worked last time.
 
-**Team lead deploying AI agents at scale.** You need RBAC, audit trails, concurrent workflow limits, and a marketplace of reusable templates. SoloFlow ships all of that.
+**Team lead deploying AI agents at scale.** You need structured workflows, cognitive memory, and self-evolving skills. SoloFlow provides the workflow engine that makes agent systems reliable enough for production.
 
 **Investor evaluating the agent orchestration space.** The AI agent market is projected to hit $65B+ by 2030. SoloFlow occupies the infrastructure layer: the picks and shovels that every agent deployment needs. It's not another chatbot wrapper. It's the workflow engine that makes agent systems reliable enough for production.
 
@@ -132,9 +132,9 @@ The AI agent infrastructure market is growing fast. Gartner projects that by 202
 | Forgetting curve | Yes | No | No | No | No |
 | Skill auto-evolution | Yes | No | No | No | No |
 | Visual builder | ✅ | No | Yes (Studio) | No | Yes |
-| Agent marketplace | Phase 4 | No | No | No | Yes |
+| Agent marketplace | Future | No | No | No | Yes |
 | OpenClaw integration | Native | No | No | No | No |
-| Multi-user RBAC | Phase 4 | No | No | No | Yes |
+| Multi-user RBAC | Future | No | No | No | Yes |
 
 SoloFlow is the only solution that combines structured workflow execution with intelligent routing, cognitive memory, and self-evolving skills in a single package.
 
@@ -571,8 +571,8 @@ SVG-based visual workflow builder at `/soloflow/builder`, real-time execution vi
 
 - GitHub publishing (pending account recovery)
 - OpenClaw Skill Market listing
-- Multi-user RBAC
-- Plugin marketplace
+- Type safety improvements (reduce `any` usage)
+- Test suite
 
 ---
 
