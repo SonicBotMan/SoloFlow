@@ -9617,8 +9617,323 @@ var init_sqlite_store = __esm({
           updatedAt: row.updated_at
         }));
       }
+      /** Get the raw database connection (for sharing with other stores) */
+      get database() {
+        return this.db;
+      }
       close() {
         this.db.close();
+      }
+    };
+  }
+});
+
+// src/evolution/evolution-store.ts
+var evolution_store_exports = {};
+__export(evolution_store_exports, {
+  EvolutionStore: () => EvolutionStore
+});
+var EvolutionStore;
+var init_evolution_store = __esm({
+  "src/evolution/evolution-store.ts"() {
+    "use strict";
+    EvolutionStore = class {
+      db;
+      // better-sqlite3 Database
+      constructor(db) {
+        this.db = db;
+        this.migrate();
+      }
+      migrate() {
+        this.db.exec(`
+      CREATE TABLE IF NOT EXISTS evolved_templates (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK(type IN ('workflow', 'skill')),
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        steps TEXT,
+        pattern TEXT,
+        sources TEXT NOT NULL DEFAULT '[]',
+        use_count INTEGER NOT NULL DEFAULT 0,
+        success_count INTEGER NOT NULL DEFAULT 0,
+        fail_count INTEGER NOT NULL DEFAULT 0,
+        last_used_at INTEGER,
+        last_iterated_at INTEGER,
+        quality_score REAL NOT NULL DEFAULT 0.5,
+        version INTEGER NOT NULL DEFAULT 1,
+        tags TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_evolved_type ON evolved_templates(type);
+      CREATE INDEX IF NOT EXISTS idx_evolved_quality ON evolved_templates(quality_score);
+    `);
+      }
+      rowToTemplate(row) {
+        return {
+          id: row.id,
+          type: row.type,
+          name: row.name,
+          description: row.description,
+          steps: row.steps ? JSON.parse(row.steps) : void 0,
+          pattern: row.pattern ?? void 0,
+          sources: JSON.parse(row.sources),
+          useCount: row.use_count,
+          successCount: row.success_count,
+          failCount: row.fail_count,
+          lastUsedAt: row.last_used_at,
+          lastIteratedAt: row.last_iterated_at,
+          qualityScore: row.quality_score,
+          version: row.version,
+          tags: JSON.parse(row.tags),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        };
+      }
+      save(template) {
+        const now2 = Date.now();
+        this.db.prepare(`
+      INSERT OR REPLACE INTO evolved_templates
+      (id, type, name, description, steps, pattern, sources,
+       use_count, success_count, fail_count, last_used_at, last_iterated_at,
+       quality_score, version, tags, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+          template.id,
+          template.type,
+          template.name,
+          template.description,
+          template.steps ? JSON.stringify(template.steps) : null,
+          template.pattern ?? null,
+          JSON.stringify(template.sources),
+          template.useCount,
+          template.successCount,
+          template.failCount,
+          template.lastUsedAt,
+          template.lastIteratedAt,
+          template.qualityScore,
+          template.version,
+          JSON.stringify(template.tags),
+          template.createdAt,
+          now2
+        );
+      }
+      getById(id) {
+        const row = this.db.prepare("SELECT * FROM evolved_templates WHERE id = ?").get(id);
+        return row ? this.rowToTemplate(row) : null;
+      }
+      getAll(type) {
+        const rows = type ? this.db.prepare("SELECT * FROM evolved_templates WHERE type = ? ORDER BY quality_score DESC, created_at DESC").all(type) : this.db.prepare("SELECT * FROM evolved_templates ORDER BY quality_score DESC, created_at DESC").all();
+        return rows.map((r) => this.rowToTemplate(r));
+      }
+      search(query, type, limit = 20) {
+        const pattern = `%${query}%`;
+        let sql = "SELECT * FROM evolved_templates WHERE (name LIKE ? OR description LIKE ? OR tags LIKE ?)";
+        const params = [pattern, pattern, pattern];
+        if (type) {
+          sql += " AND type = ?";
+          params.push(type);
+        }
+        sql += " ORDER BY quality_score DESC, created_at DESC LIMIT ?";
+        params.push(limit);
+        return this.db.prepare(sql).all(...params).map((r) => this.rowToTemplate(r));
+      }
+      recordUsage(id, success) {
+        const t = this.getById(id);
+        if (!t) return;
+        const now2 = Date.now();
+        const useCount = t.useCount + 1;
+        const successCount = t.successCount + (success ? 1 : 0);
+        const failCount = t.failCount + (success ? 0 : 1);
+        const qualityScore = useCount > 0 ? successCount / useCount : 0.5;
+        this.db.prepare(`
+      UPDATE evolved_templates SET
+        use_count = ?, success_count = ?, fail_count = ?,
+        last_used_at = ?, quality_score = ?, updated_at = ?
+      WHERE id = ?
+    `).run(useCount, successCount, failCount, now2, qualityScore, now2, id);
+      }
+      delete(id) {
+        this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
+      }
+      count(type) {
+        const row = type ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type) : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
+        return row.cnt;
+      }
+    };
+  }
+});
+
+// src/evolution/analyzer.ts
+var analyzer_exports = {};
+__export(analyzer_exports, {
+  EvolutionAnalyzer: () => EvolutionAnalyzer
+});
+var EvolutionAnalyzer;
+var init_analyzer = __esm({
+  "src/evolution/analyzer.ts"() {
+    "use strict";
+    EvolutionAnalyzer = class {
+      api;
+      memorySystem;
+      evolutionStore;
+      onTemplateFound;
+      constructor(config) {
+        this.api = config.api;
+        this.memorySystem = config.memorySystem;
+        this.evolutionStore = config.evolutionStore;
+        this.onTemplateFound = config.onTemplateFound;
+      }
+      async analyze(filterType) {
+        const episodicEntries = [];
+        try {
+          const all = this.memorySystem.episodic.all();
+          for (const e of all) {
+            episodicEntries.push({
+              workflowId: e.workflowId,
+              workflowName: e.workflowName,
+              finalState: e.finalState,
+              stepSummary: e.stepSummary,
+              durationMs: e.durationMs,
+              tags: e.tags,
+              createdAt: e.createdAt
+            });
+          }
+        } catch {
+        }
+        const existingTemplates = [];
+        try {
+          const all = this.evolutionStore.getAll();
+          for (const t of all) {
+            existingTemplates.push({ id: t.id, name: t.name, type: t.type });
+          }
+        } catch {
+        }
+        if (episodicEntries.length === 0) {
+          return { templates: 0, skills: 0 };
+        }
+        const prompt = `You are a workflow pattern analyst. Analyze the following data and extract reusable patterns.
+
+## Past Workflow Executions (Episodic Memory)
+${JSON.stringify(episodicEntries.slice(0, 50), null, 2)}
+
+## Existing Templates (do NOT duplicate these)
+${JSON.stringify(existingTemplates, null, 2)}
+
+## Task
+Identify patterns that appear more than once or represent a complete useful workflow:
+
+1. **Workflow Templates**: Multi-step processes that could be reused. For each, provide:
+   - name (concise), description (what it does), steps array with: id, name, discipline (deep|quick|visual|ultrabrain), action (the prompt text), dependencies (array of step ids), tags
+
+2. **Skill Patterns**: Single-step reusable operations. For each, provide:
+   - name, description, pattern (the reusable prompt/action text), tags
+
+Only extract patterns that are genuinely reusable. Skip one-off workflows unless they represent a common archetype.
+
+Output ONLY valid JSON (no markdown, no explanation):
+{"workflows": [...], "skills": [...]}`;
+        const sessionKey = `evolution-${Date.now()}`;
+        try {
+          const { runId } = await this.api.runtime.subagent.run({
+            sessionKey,
+            message: prompt,
+            timeoutMs: 12e4
+          });
+          const result = await this.api.runtime.subagent.waitForRun({
+            runId,
+            timeoutMs: 13e4
+          });
+          await this.api.runtime.subagent.deleteSession({ sessionKey }).catch(() => {
+          });
+          if (result.error) {
+            throw new Error(result.error);
+          }
+          return this.parseAndSave(result.result ?? "", filterType);
+        } catch (e) {
+          await this.api.runtime.subagent.deleteSession({ sessionKey }).catch(() => {
+          });
+          throw e;
+        }
+      }
+      parseAndSave(responseText, filterType) {
+        let jsonStr = responseText.trim();
+        const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch && jsonMatch[1]) {
+          jsonStr = jsonMatch[1].trim();
+        }
+        const braceStart = jsonStr.indexOf("{");
+        const braceEnd = jsonStr.lastIndexOf("}");
+        if (braceStart === -1 || braceEnd === -1) {
+          return { templates: 0, skills: 0 };
+        }
+        jsonStr = jsonStr.slice(braceStart, braceEnd + 1);
+        let parsed;
+        try {
+          parsed = JSON.parse(jsonStr);
+        } catch (_e) {
+          return { templates: 0, skills: 0 };
+        }
+        let wfCount = 0;
+        let skCount = 0;
+        const now2 = Date.now();
+        if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
+          for (const wf of parsed.workflows) {
+            if (!wf.name) continue;
+            const template = {
+              id: `wf_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+              type: "workflow",
+              name: wf.name,
+              description: wf.description ?? "",
+              steps: wf.steps?.map((s, i) => ({
+                id: s.id ?? `step_${i + 1}`,
+                name: s.name ?? `Step ${i + 1}`,
+                discipline: s.discipline ?? "quick",
+                action: s.action ?? s.name ?? "",
+                dependencies: s.dependencies ?? []
+              })),
+              sources: wf.sources ?? [],
+              useCount: 0,
+              successCount: 0,
+              failCount: 0,
+              lastUsedAt: null,
+              lastIteratedAt: null,
+              qualityScore: 0.5,
+              version: 1,
+              tags: wf.tags ?? [],
+              createdAt: now2,
+              updatedAt: now2
+            };
+            void this.onTemplateFound(template);
+            wfCount++;
+          }
+        }
+        if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
+          for (const sk of parsed.skills) {
+            if (!sk.name) continue;
+            const template = {
+              id: `sk_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+              type: "skill",
+              name: sk.name,
+              description: sk.description ?? "",
+              pattern: sk.pattern ?? "",
+              sources: sk.sources ?? [],
+              useCount: 0,
+              successCount: 0,
+              failCount: 0,
+              lastUsedAt: null,
+              lastIteratedAt: null,
+              qualityScore: 0.5,
+              version: 1,
+              tags: sk.tags ?? [],
+              createdAt: now2,
+              updatedAt: now2
+            };
+            void this.onTemplateFound(template);
+            skCount++;
+          }
+        }
+        return { templates: wfCount, skills: skCount };
       }
     };
   }
@@ -11457,7 +11772,7 @@ function previewWorkflow(dag) {
 
 // src/index.ts
 var PLUGIN_NAME = "soloflow";
-var PLUGIN_VERSION = "0.7.0";
+var PLUGIN_VERSION = "0.8.0";
 var index_default = definePluginEntry({
   id: "workflow-orchestration",
   name: "SoloFlow",
@@ -11477,6 +11792,8 @@ var index_default = definePluginEntry({
     let sqliteStore = null;
     let memorySystem = null;
     let vectorSystem = null;
+    let evolutionStore = null;
+    let evolutionAnalyzer = null;
     let hookSystem2 = null;
     let unregisterBuiltinHooks = null;
     let workflowSubscription = null;
@@ -11500,6 +11817,30 @@ var index_default = definePluginEntry({
           store.deleteEpisodicByWorkflow(workflowId);
         });
         log.info(`memory system ready (episodic: ${entries.length} entries restored)`);
+        try {
+          const { EvolutionStore: EvolutionStore2 } = await Promise.resolve().then(() => (init_evolution_store(), evolution_store_exports));
+          const { EvolutionAnalyzer: EvolutionAnalyzer2 } = await Promise.resolve().then(() => (init_analyzer(), analyzer_exports));
+          evolutionStore = new EvolutionStore2(store.database);
+          evolutionAnalyzer = new EvolutionAnalyzer2({
+            api,
+            memorySystem,
+            evolutionStore,
+            async onTemplateFound(template) {
+              evolutionStore.save(template);
+            }
+          });
+          const wfCount = evolutionStore.count("workflow");
+          const skCount = evolutionStore.count("skill");
+          log.info(`evolution system ready (${wfCount} workflow templates, ${skCount} skill patterns)`);
+          if (wfCount === 0 && skCount === 0) {
+            log.info("first install detected \u2014 triggering auto-evolution scan");
+            void evolutionAnalyzer.analyze().catch((e) => {
+              log.warn(`auto-evolution scan failed: ${e}`);
+            });
+          }
+        } catch (e) {
+          log.warn(`evolution system disabled: ${e}`);
+        }
       } catch (e) {
         log.warn(`SQLite + memory system disabled: ${e}`);
       }
@@ -11934,6 +12275,77 @@ var index_default = definePluginEntry({
         }
       }
     );
+    api.registerTool(
+      {
+        name: "soloflow_evolve",
+        description: "Trigger Skill Auto-Evolution analysis. Scans workflow history and extracts reusable patterns into templates and skill patterns.",
+        label: "SoloFlow: Evolve Skills",
+        parameters: Type.Object({
+          type: Type.Optional(Type.String({ description: "Filter: 'workflow', 'skill', or omit for all" }))
+        }),
+        async execute(_toolCallId, params) {
+          if (!evolutionAnalyzer) {
+            return { content: [{ type: "text", text: "Evolution system not available" }], details: { error: true } };
+          }
+          try {
+            const result = await evolutionAnalyzer.analyze(params.type);
+            return {
+              content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+              details: { workflowsExtracted: result.templates, skillsExtracted: result.skills }
+            };
+          } catch (e) {
+            return {
+              content: [{ type: "text", text: `Evolution error: ${e instanceof Error ? e.message : String(e)}` }],
+              details: { error: true }
+            };
+          }
+        }
+      }
+    );
+    api.registerTool(
+      {
+        name: "soloflow_templates",
+        description: "List and search evolved workflow templates and skill patterns. Shows reusable patterns extracted from past workflow executions.",
+        label: "SoloFlow: List Templates",
+        parameters: Type.Object({
+          query: Type.Optional(Type.String({ description: "Search query (name/description/tags)" })),
+          type: Type.Optional(Type.String({ description: "Filter: 'workflow', 'skill', or omit for all" })),
+          limit: Type.Optional(Type.Integer({ description: "Max results (default: 20)" }))
+        }),
+        async execute(_toolCallId, params) {
+          if (!evolutionStore) {
+            return { content: [{ type: "text", text: "Evolution store not available" }], details: { error: true } };
+          }
+          try {
+            const templates = evolutionStore.search(
+              params.query,
+              params.type,
+              params.limit ?? 20
+            );
+            const formatted = templates.map((t) => ({
+              id: t.id,
+              type: t.type,
+              name: t.name,
+              description: t.description,
+              quality: t.qualityScore.toFixed(2),
+              uses: t.useCount,
+              version: t.version,
+              ...t.type === "workflow" ? { steps: t.steps?.length ?? 0 } : {},
+              tags: t.tags
+            }));
+            return {
+              content: [{ type: "text", text: JSON.stringify({ total: formatted.length, templates: formatted }, null, 2) }],
+              details: { count: formatted.length }
+            };
+          } catch (e) {
+            return {
+              content: [{ type: "text", text: `Template query error: ${e instanceof Error ? e.message : String(e)}` }],
+              details: { error: true }
+            };
+          }
+        }
+      }
+    );
     api.registerGatewayMethod("soloflow.metrics", async (opts) => {
       const wfs = workflowService.list();
       opts.respond(true, {
@@ -12026,7 +12438,7 @@ var index_default = definePluginEntry({
     } catch {
     }
     log.info(
-      `activated (v0.7) \u2014 8 tools registered, memory system active`
+      `activated (v0.8) \u2014 10 tools registered, memory + evolution active`
     );
   }
 });

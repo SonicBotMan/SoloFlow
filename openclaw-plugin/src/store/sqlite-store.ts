@@ -287,6 +287,11 @@ export class SqliteStore {
     }));
   }
 
+  /** Get the raw database connection (for sharing with other stores) */
+  get database(): any {
+    return this.db;
+  }
+
   close(): void {
     this.db.close();
   }

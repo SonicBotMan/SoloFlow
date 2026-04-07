@@ -33,7 +33,7 @@ import type {
 // ─── Plugin metadata ────────────────────────────────────────────────────
 
 const PLUGIN_NAME = "soloflow";
-const PLUGIN_VERSION = "0.7.0";
+const PLUGIN_VERSION = "0.8.0";
 
 // ─── Entry point ────────────────────────────────────────────────────────
 
@@ -70,6 +70,10 @@ export default definePluginEntry({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let vectorSystem: any = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let evolutionStore: any = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let evolutionAnalyzer: any = null;
     let hookSystem: any = null;
     let unregisterBuiltinHooks: (() => void) | null = null;
     let workflowSubscription: (() => void) | null = null;
@@ -102,6 +106,37 @@ export default definePluginEntry({
           store.deleteEpisodicByWorkflow(workflowId);
         });
         log.info(`memory system ready (episodic: ${entries.length} entries restored)`);
+
+        // 4. Initialize evolution system
+        try {
+          const { EvolutionStore } = await import("./evolution/evolution-store.js");
+          const { EvolutionAnalyzer } = await import("./evolution/analyzer.js");
+
+          evolutionStore = new EvolutionStore(store.database);
+
+          evolutionAnalyzer = new EvolutionAnalyzer({
+            api,
+            memorySystem,
+            evolutionStore,
+            async onTemplateFound(template) {
+              evolutionStore!.save(template);
+            },
+          });
+
+          const wfCount = evolutionStore.count("workflow");
+          const skCount = evolutionStore.count("skill");
+          log.info(`evolution system ready (${wfCount} workflow templates, ${skCount} skill patterns)`);
+
+          // First-install auto-analysis: if no templates exist, trigger background scan
+          if (wfCount === 0 && skCount === 0) {
+            log.info("first install detected — triggering auto-evolution scan");
+            void evolutionAnalyzer.analyze().catch((e: any) => {
+              log.warn(`auto-evolution scan failed: ${e}`);
+            });
+          }
+        } catch (e) {
+          log.warn(`evolution system disabled: ${e}`);
+        }
       } catch (e) {
         log.warn(`SQLite + memory system disabled: ${e}`);
       }
@@ -586,6 +621,81 @@ export default definePluginEntry({
       },
     );
 
+    // ── 3d. Evolution tools ──────────────────────────────────────
+
+    api.registerTool(
+      {
+        name: "soloflow_evolve",
+        description: "Trigger Skill Auto-Evolution analysis. Scans workflow history and extracts reusable patterns into templates and skill patterns.",
+        label: "SoloFlow: Evolve Skills",
+        parameters: Type.Object({
+          type: Type.Optional(Type.String({ description: "Filter: 'workflow', 'skill', or omit for all" })),
+        }),
+        async execute(_toolCallId: string, params: any) {
+          if (!evolutionAnalyzer) {
+            return { content: [{ type: "text" as const, text: "Evolution system not available" }], details: { error: true } };
+          }
+          try {
+            const result = await evolutionAnalyzer.analyze(params.type);
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+              details: { workflowsExtracted: result.templates, skillsExtracted: result.skills },
+            };
+          } catch (e) {
+            return {
+              content: [{ type: "text" as const, text: `Evolution error: ${e instanceof Error ? e.message : String(e)}` }],
+              details: { error: true },
+            };
+          }
+        },
+      },
+    );
+
+    api.registerTool(
+      {
+        name: "soloflow_templates",
+        description: "List and search evolved workflow templates and skill patterns. Shows reusable patterns extracted from past workflow executions.",
+        label: "SoloFlow: List Templates",
+        parameters: Type.Object({
+          query: Type.Optional(Type.String({ description: "Search query (name/description/tags)" })),
+          type: Type.Optional(Type.String({ description: "Filter: 'workflow', 'skill', or omit for all" })),
+          limit: Type.Optional(Type.Integer({ description: "Max results (default: 20)" })),
+        }),
+        async execute(_toolCallId: string, params: any) {
+          if (!evolutionStore) {
+            return { content: [{ type: "text" as const, text: "Evolution store not available" }], details: { error: true } };
+          }
+          try {
+            const templates = evolutionStore.search(
+              params.query,
+              params.type as any,
+              params.limit ?? 20,
+            );
+            const formatted = templates.map((t: any) => ({
+              id: t.id,
+              type: t.type,
+              name: t.name,
+              description: t.description,
+              quality: t.qualityScore.toFixed(2),
+              uses: t.useCount,
+              version: t.version,
+              ...(t.type === "workflow" ? { steps: t.steps?.length ?? 0 } : {}),
+              tags: t.tags,
+            }));
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify({ total: formatted.length, templates: formatted }, null, 2) }],
+              details: { count: formatted.length },
+            };
+          } catch (e) {
+            return {
+              content: [{ type: "text" as const, text: `Template query error: ${e instanceof Error ? e.message : String(e)}` }],
+              details: { error: true },
+            };
+          }
+        },
+      },
+    );
+
     // ── 4. Gateway methods (lightweight RPC) ────────────────────────
 
     api.registerGatewayMethod("soloflow.metrics", async (opts: { respond: (success: boolean, data: unknown) => void }) => {
@@ -696,7 +806,7 @@ export default definePluginEntry({
     }
 
     log.info(
-      `activated (v0.7) — 8 tools registered, memory system active`,
+      `activated (v0.8) — 10 tools registered, memory + evolution active`,
     );
   },
 });
