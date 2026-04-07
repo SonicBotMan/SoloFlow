@@ -33,7 +33,7 @@ import type {
 // ─── Plugin metadata ────────────────────────────────────────────────────
 
 const PLUGIN_NAME = "soloflow";
-const PLUGIN_VERSION = "0.5.0";
+const PLUGIN_VERSION = "0.6.0";
 
 // ─── Entry point ────────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ export default definePluginEntry({
     void (async () => {
       try {
         const mod = await import("./memory/index.js");
-        memorySystem = new mod.MemorySystem();
+        memorySystem = new mod.MemorySystem({ disableLobsterPress: true });
         await memorySystem.init();
         log.info("memory system ready");
       } catch (e) {
@@ -462,6 +462,18 @@ export default definePluginEntry({
 
           workflowService.update(wf);
 
+          // Store in episodic memory
+          if (memorySystem && !params.error) {
+            try {
+              const wfSnapshot = workflowService.get(wfId);
+              if (wfSnapshot) {
+                await memorySystem.storeWorkflowExecution(wfSnapshot);
+              }
+            } catch {
+              // memory store failure is non-critical
+            }
+          }
+
           const allSteps = Array.from(wf.steps.values());
           const allDone = allSteps.every(s => s.state === "completed" || s.state === "failed");
           const anyFailed = allSteps.some(s => s.state === "failed");
@@ -501,6 +513,69 @@ export default definePluginEntry({
         },
       },
       
+    );
+
+    // ── 3c. Memory query tool ────────────────────────────────────
+
+    api.registerTool(
+      {
+        name: "soloflow_memory",
+        description: "Query SoloFlow's cognitive memory (working, episodic, semantic). Search past workflow executions, stored facts, and patterns.",
+        label: "SoloFlow: Query Memory",
+        parameters: Type.Object({
+          query: Type.String({ description: "Search query text" }),
+          tier: Type.Optional(Type.String({ description: "Memory tier: working|episodic|semantic (default: all)" })),
+          limit: Type.Optional(Type.Integer({ description: "Max results (default: 10)" })),
+        }),
+        async execute(_toolCallId: string, params: any) {
+          if (!memorySystem) {
+            return {
+              content: [{ type: "text" as const, text: "Memory system not available" }],
+              details: { error: true },
+            };
+          }
+          try {
+            const result = await memorySystem.query({
+              text: params.query,
+              tiers: params.tier ? [params.tier] : undefined,
+              limit: params.limit ?? 10,
+            });
+            const entries = result.entries.map((e: any) => ({
+              tier: e.tier,
+              score: e.score.toFixed(3),
+              ...(e.tier === "episodic" ? {
+                workflowId: e.entry.workflowId,
+                workflowName: e.entry.workflowName,
+                finalState: e.entry.finalState,
+                durationMs: e.entry.durationMs,
+                steps: e.entry.stepSummary?.length ?? 0,
+              } : {}),
+              ...(e.tier === "semantic" ? {
+                key: e.entry.key,
+                category: e.entry.category,
+                importance: e.entry.importance,
+                retrievability: e.entry.retrievability?.toFixed(3),
+              } : {}),
+              ...(e.tier === "working" ? {
+                key: e.entry.key,
+                source: e.entry.source,
+              } : {}),
+            }));
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify({
+                totalMatches: result.totalMatches,
+                entries,
+              }, null, 2) }],
+              details: { count: entries.length },
+            };
+          } catch (e) {
+            return {
+              content: [{ type: "text" as const, text: `Memory query error: ${e instanceof Error ? e.message : String(e)}` }],
+              details: { error: true },
+            };
+          }
+        },
+      },
     );
 
     // ── 4. Gateway methods (lightweight RPC) ────────────────────────
@@ -613,7 +688,7 @@ export default definePluginEntry({
     }
 
     log.info(
-      `activated (v0.5) — 7 tools registered, subsystems loading async`,
+      `activated (v0.6) — 8 tools registered, memory system active`,
     );
   },
 });

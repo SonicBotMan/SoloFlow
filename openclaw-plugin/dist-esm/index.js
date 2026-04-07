@@ -11355,7 +11355,7 @@ function previewWorkflow(dag) {
 
 // src/index.ts
 var PLUGIN_NAME = "soloflow";
-var PLUGIN_VERSION = "0.5.0";
+var PLUGIN_VERSION = "0.6.0";
 var index_default = definePluginEntry({
   id: "workflow-orchestration",
   name: "SoloFlow",
@@ -11392,7 +11392,7 @@ var index_default = definePluginEntry({
     void (async () => {
       try {
         const mod = await Promise.resolve().then(() => (init_memory(), memory_exports));
-        memorySystem = new mod.MemorySystem();
+        memorySystem = new mod.MemorySystem({ disableLobsterPress: true });
         await memorySystem.init();
         log.info("memory system ready");
       } catch (e) {
@@ -11724,6 +11724,15 @@ var index_default = definePluginEntry({
           step2.error = params.error ?? void 0;
           step2.completedAt = Date.now();
           workflowService.update(wf);
+          if (memorySystem && !params.error) {
+            try {
+              const wfSnapshot = workflowService.get(wfId);
+              if (wfSnapshot) {
+                await memorySystem.storeWorkflowExecution(wfSnapshot);
+              }
+            } catch {
+            }
+          }
           const allSteps = Array.from(wf.steps.values());
           const allDone = allSteps.every((s) => s.state === "completed" || s.state === "failed");
           const anyFailed = allSteps.some((s) => s.state === "failed");
@@ -11757,6 +11766,66 @@ var index_default = definePluginEntry({
             }, null, 2) }],
             details: { workflowId: wfId, stepState: step2.state, workflowState: newState }
           };
+        }
+      }
+    );
+    api.registerTool(
+      {
+        name: "soloflow_memory",
+        description: "Query SoloFlow's cognitive memory (working, episodic, semantic). Search past workflow executions, stored facts, and patterns.",
+        label: "SoloFlow: Query Memory",
+        parameters: Type.Object({
+          query: Type.String({ description: "Search query text" }),
+          tier: Type.Optional(Type.String({ description: "Memory tier: working|episodic|semantic (default: all)" })),
+          limit: Type.Optional(Type.Integer({ description: "Max results (default: 10)" }))
+        }),
+        async execute(_toolCallId, params) {
+          if (!memorySystem) {
+            return {
+              content: [{ type: "text", text: "Memory system not available" }],
+              details: { error: true }
+            };
+          }
+          try {
+            const result = await memorySystem.query({
+              text: params.query,
+              tiers: params.tier ? [params.tier] : void 0,
+              limit: params.limit ?? 10
+            });
+            const entries = result.entries.map((e) => ({
+              tier: e.tier,
+              score: e.score.toFixed(3),
+              ...e.tier === "episodic" ? {
+                workflowId: e.entry.workflowId,
+                workflowName: e.entry.workflowName,
+                finalState: e.entry.finalState,
+                durationMs: e.entry.durationMs,
+                steps: e.entry.stepSummary?.length ?? 0
+              } : {},
+              ...e.tier === "semantic" ? {
+                key: e.entry.key,
+                category: e.entry.category,
+                importance: e.entry.importance,
+                retrievability: e.entry.retrievability?.toFixed(3)
+              } : {},
+              ...e.tier === "working" ? {
+                key: e.entry.key,
+                source: e.entry.source
+              } : {}
+            }));
+            return {
+              content: [{ type: "text", text: JSON.stringify({
+                totalMatches: result.totalMatches,
+                entries
+              }, null, 2) }],
+              details: { count: entries.length }
+            };
+          } catch (e) {
+            return {
+              content: [{ type: "text", text: `Memory query error: ${e instanceof Error ? e.message : String(e)}` }],
+              details: { error: true }
+            };
+          }
         }
       }
     );
@@ -11852,7 +11921,7 @@ var index_default = definePluginEntry({
     } catch {
     }
     log.info(
-      `activated (v0.5) \u2014 7 tools registered, subsystems loading async`
+      `activated (v0.6) \u2014 8 tools registered, memory system active`
     );
   }
 });
