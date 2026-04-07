@@ -74,6 +74,10 @@ export default definePluginEntry({
     let evolutionStore: any = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let evolutionAnalyzer: any = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let skillInventory: any = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let skillAnalyzer: any = null;
     let hookSystem: any = null;
     let unregisterBuiltinHooks: (() => void) | null = null;
     let workflowSubscription: (() => void) | null = null;
@@ -130,6 +134,18 @@ export default definePluginEntry({
           // First-install hint: call soloflow_evolve tool or set up a cron job to trigger analysis
           if (wfCount === 0 && skCount === 0) {
             log.info("no templates yet — run soloflow_evolve to start analysis, or set up a cron at 02:00 Beijing");
+          }
+
+          // Initialize skill inventory + analyzer
+          try {
+            const { SkillInventory } = await import("./evolution/skill-inventory.js");
+            const { SkillAnalyzer } = await import("./evolution/skill-analyzer.js");
+            skillInventory = new SkillInventory(store.database);
+            skillAnalyzer = new SkillAnalyzer(skillInventory, store.database, { logger: log });
+            const scanResult = skillInventory.scan();
+            log.info(`skill inventory: ${scanResult.added + scanResult.updated} skills scanned`);
+          } catch (e) {
+            log.warn(`skill inventory disabled: ${e}`);
           }
 
           // Auto-evolution: schedule daily at 02:00 Beijing time (18:00 UTC)
@@ -741,6 +757,70 @@ export default definePluginEntry({
       },
     );
 
+    // ── 3e. Skill inventory tools ───────────────────────────────
+
+    api.registerTool(
+      {
+        name: "skills_list",
+        description: "List all SoloFlow managed skills from inventory.",
+        label: "SoloFlow: List Skills",
+        parameters: Type.Object({}),
+        async execute(_toolCallId: string, _params: any) {
+          if (!skillInventory) {
+            return { content: [{ type: "text" as const, text: "Skill inventory not available" }], details: { error: true } };
+          }
+          try {
+            const skills = skillInventory.getAll();
+            return { content: [{ type: "text" as const, text: JSON.stringify({ total: skills.length, skills }, null, 2) }] };
+          } catch (e) {
+            return { content: [{ type: "text" as const, text: `Error: ${e}` }], details: { error: true } };
+          }
+        },
+      },
+    );
+
+    api.registerTool(
+      {
+        name: "skills_usage",
+        description: "Get skill usage analytics: insights, recent usage, and combination patterns.",
+        label: "SoloFlow: Skill Usage",
+        parameters: Type.Object({}),
+        async execute(_toolCallId: string, _params: any) {
+          if (!skillAnalyzer || !skillInventory) {
+            return { content: [{ type: "text" as const, text: "Skill system not available" }], details: { error: true } };
+          }
+          try {
+            const insights = skillAnalyzer.getInsights(20);
+            const recent = skillInventory.getRecentlyUsed(10);
+            const combinations = skillInventory.getCombinationPatterns().slice(0, 5);
+            return { content: [{ type: "text" as const, text: JSON.stringify({ insights, recent, combinations }, null, 2) }] };
+          } catch (e) {
+            return { content: [{ type: "text" as const, text: `Error: ${e}` }], details: { error: true } };
+          }
+        },
+      },
+    );
+
+    api.registerTool(
+      {
+        name: "skills_scan",
+        description: "Scan installed skills and update the SoloFlow inventory.",
+        label: "SoloFlow: Scan Skills",
+        parameters: Type.Object({}),
+        async execute(_toolCallId: string, _params: any) {
+          if (!skillInventory) {
+            return { content: [{ type: "text" as const, text: "Skill inventory not available" }], details: { error: true } };
+          }
+          try {
+            const result = skillInventory.scan();
+            return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+          } catch (e) {
+            return { content: [{ type: "text" as const, text: `Error: ${e}` }], details: { error: true } };
+          }
+        },
+      },
+    );
+
     // ── 4. Gateway methods (lightweight RPC) ────────────────────────
 
     api.registerGatewayMethod("soloflow.metrics", async (opts: { respond: (success: boolean, data: unknown) => void }) => {
@@ -851,8 +931,35 @@ export default definePluginEntry({
     }
 
     log.info(
-      `activated (v0.8) — 10 tools registered, memory + evolution active`,
+      `activated (v0.8) — 13 tools registered, memory + evolution + skills active`,
     );
+
+    // ── 6b. Skill usage tracking wrapper ───────────────────────────
+    if (skillInventory) {
+      const originalExecute = (api as any).executeTool?.bind(api);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (api as any).executeTool = async (toolName: string, params: any) => {
+        const startTime = Date.now();
+        try {
+          const result = originalExecute ? await originalExecute(toolName, params) : null;
+          try {
+            const allSkills = skillInventory.getAll();
+            const normalized = toolName.replace(/_/g, " ").toLowerCase();
+            const matched = allSkills.find((s: any) =>
+              s.tools?.includes(toolName) || s.name.toLowerCase().includes(normalized)
+            );
+            skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, Date.now() - startTime);
+          } catch { /* non-critical */ }
+          return result;
+        } catch (e) {
+          try {
+            skillInventory.recordUsage(toolName, toolName, false, Date.now() - startTime);
+          } catch { /* non-critical */ }
+          throw e;
+        }
+      };
+      log.info("skill usage tracking enabled");
+    }
   },
 });
 

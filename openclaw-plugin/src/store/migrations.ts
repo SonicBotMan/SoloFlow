@@ -3,7 +3,7 @@
  * Versioned schema migration system for the workflows database.
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
 
 export function runMigrations(db: any, logger?: { warn: (msg: string) => void }): void {
   const log = logger ?? { warn: (msg: string) => console.warn(`[migrations] ${msg}`) };
@@ -138,6 +138,56 @@ export function runMigrations(db: any, logger?: { warn: (msg: string) => void })
           }
         }
         db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(2, Date.now());
+      }
+    },
+    {
+      version: 3,
+      up: (db) => {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS skills_inventory (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            location TEXT NOT NULL,
+            triggers TEXT NOT NULL DEFAULT '[]',
+            tools TEXT NOT NULL DEFAULT '[]',
+            examples TEXT NOT NULL DEFAULT '[]',
+            tags TEXT NOT NULL DEFAULT '[]',
+            last_scanned_at INTEGER NOT NULL,
+            version TEXT NOT NULL DEFAULT '1.0.0',
+            installed_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS skill_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            skill_id TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 1,
+            duration_ms INTEGER,
+            called_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_skill_usage_skill ON skill_usage(skill_id);
+          CREATE INDEX IF NOT EXISTS idx_skill_usage_time ON skill_usage(called_at);
+        `);
+        db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(3, Date.now());
+      }
+    },
+    {
+      version: 4,
+      up: (db) => {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS skill_insights (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            skill_a TEXT,
+            skill_b TEXT,
+            confidence REAL NOT NULL DEFAULT 0.5,
+            description TEXT NOT NULL DEFAULT '',
+            recommendation TEXT NOT NULL DEFAULT '',
+            discovered_at INTEGER NOT NULL
+          );
+        `);
+        db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(4, Date.now());
       }
     }
   ];

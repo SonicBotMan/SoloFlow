@@ -2110,17 +2110,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path3) {
-      const ctrl = callVisitor(key, node, visitor, path3);
+    function visit_(key, node, visitor, path4) {
+      const ctrl = callVisitor(key, node, visitor, path4);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path3, ctrl);
-        return visit_(key, ctrl, visitor, path3);
+        replaceNode(key, path4, ctrl);
+        return visit_(key, ctrl, visitor, path4);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path3 = Object.freeze(path3.concat(node));
+          path4 = Object.freeze(path4.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path3);
+            const ci = visit_(i, node.items[i], visitor, path4);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -2131,13 +2131,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path3 = Object.freeze(path3.concat(node));
-          const ck = visit_("key", node.key, visitor, path3);
+          path4 = Object.freeze(path4.concat(node));
+          const ck = visit_("key", node.key, visitor, path4);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path3);
+          const cv = visit_("value", node.value, visitor, path4);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -2158,17 +2158,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path3) {
-      const ctrl = await callVisitor(key, node, visitor, path3);
+    async function visitAsync_(key, node, visitor, path4) {
+      const ctrl = await callVisitor(key, node, visitor, path4);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path3, ctrl);
-        return visitAsync_(key, ctrl, visitor, path3);
+        replaceNode(key, path4, ctrl);
+        return visitAsync_(key, ctrl, visitor, path4);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path3 = Object.freeze(path3.concat(node));
+          path4 = Object.freeze(path4.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path3);
+            const ci = await visitAsync_(i, node.items[i], visitor, path4);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -2179,13 +2179,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path3 = Object.freeze(path3.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path3);
+          path4 = Object.freeze(path4.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path4);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path3);
+          const cv = await visitAsync_("value", node.value, visitor, path4);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -2212,23 +2212,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path3) {
+    function callVisitor(key, node, visitor, path4) {
       if (typeof visitor === "function")
-        return visitor(key, node, path3);
+        return visitor(key, node, path4);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path3);
+        return visitor.Map?.(key, node, path4);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path3);
+        return visitor.Seq?.(key, node, path4);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path3);
+        return visitor.Pair?.(key, node, path4);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path3);
+        return visitor.Scalar?.(key, node, path4);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path3);
+        return visitor.Alias?.(key, node, path4);
       return void 0;
     }
-    function replaceNode(key, path3, node) {
-      const parent = path3[path3.length - 1];
+    function replaceNode(key, path4, node) {
+      const parent = path4[path4.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -2836,10 +2836,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path3, value) {
+    function collectionFromPath(schema, path4, value) {
       let v = value;
-      for (let i = path3.length - 1; i >= 0; --i) {
-        const k = path3[i];
+      for (let i = path4.length - 1; i >= 0; --i) {
+        const k = path4[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -2858,7 +2858,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path3) => path3 == null || typeof path3 === "object" && !!path3[Symbol.iterator]().next().done;
+    var isEmptyPath = (path4) => path4 == null || typeof path4 === "object" && !!path4[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -2888,11 +2888,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path3, value) {
-        if (isEmptyPath(path3))
+      addIn(path4, value) {
+        if (isEmptyPath(path4))
           this.add(value);
         else {
-          const [key, ...rest] = path3;
+          const [key, ...rest] = path4;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -2906,8 +2906,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path3) {
-        const [key, ...rest] = path3;
+      deleteIn(path4) {
+        const [key, ...rest] = path4;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -2921,8 +2921,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path3, keepScalar) {
-        const [key, ...rest] = path3;
+      getIn(path4, keepScalar) {
+        const [key, ...rest] = path4;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -2940,8 +2940,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path3) {
-        const [key, ...rest] = path3;
+      hasIn(path4) {
+        const [key, ...rest] = path4;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -2951,8 +2951,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path3, value) {
-        const [key, ...rest] = path3;
+      setIn(path4, value) {
+        const [key, ...rest] = path4;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -5464,9 +5464,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path3, value) {
+      addIn(path4, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path3, value);
+          this.contents.addIn(path4, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -5541,14 +5541,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path3) {
-        if (Collection.isEmptyPath(path3)) {
+      deleteIn(path4) {
+        if (Collection.isEmptyPath(path4)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path3) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path4) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -5563,10 +5563,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path3, keepScalar) {
-        if (Collection.isEmptyPath(path3))
+      getIn(path4, keepScalar) {
+        if (Collection.isEmptyPath(path4))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path3, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path4, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -5577,10 +5577,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path3) {
-        if (Collection.isEmptyPath(path3))
+      hasIn(path4) {
+        if (Collection.isEmptyPath(path4))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path3) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path4) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -5597,13 +5597,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path3, value) {
-        if (Collection.isEmptyPath(path3)) {
+      setIn(path4, value) {
+        if (Collection.isEmptyPath(path4)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path3), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path4), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path3, value);
+          this.contents.setIn(path4, value);
         }
       }
       /**
@@ -7560,9 +7560,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path3) => {
+    visit.itemAtPath = (cst, path4) => {
       let item = cst;
-      for (const [field, index] of path3) {
+      for (const [field, index] of path4) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -7571,23 +7571,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path3) => {
-      const parent = visit.itemAtPath(cst, path3.slice(0, -1));
-      const field = path3[path3.length - 1][0];
+    visit.parentCollection = (cst, path4) => {
+      const parent = visit.itemAtPath(cst, path4.slice(0, -1));
+      const field = path4[path4.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path3, item, visitor) {
-      let ctrl = visitor(item, path3);
+    function _visit(path4, item, visitor) {
+      let ctrl = visitor(item, path4);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path3.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path4.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -7598,10 +7598,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path3);
+            ctrl = ctrl(item, path4);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path3) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path4) : ctrl;
     }
     exports.visit = visit;
   }
@@ -8886,14 +8886,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs2 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs2, sep: [] });
+                map.items.push({ start, key: fs3, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs2);
+                this.stack.push(fs3);
               } else {
-                Object.assign(it, { key: fs2, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -9021,13 +9021,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs2 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs2, sep: [] });
+                fc.items.push({ start: [], key: fs3, sep: [] });
               else if (it.sep)
-                this.stack.push(fs2);
+                this.stack.push(fs3);
               else
-                Object.assign(it, { key: fs2, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -9465,6 +9465,56 @@ function runMigrations(db, logger) {
           }
         }
         db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(2, Date.now());
+      }
+    },
+    {
+      version: 3,
+      up: (db2) => {
+        db2.exec(`
+          CREATE TABLE IF NOT EXISTS skills_inventory (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            location TEXT NOT NULL,
+            triggers TEXT NOT NULL DEFAULT '[]',
+            tools TEXT NOT NULL DEFAULT '[]',
+            examples TEXT NOT NULL DEFAULT '[]',
+            tags TEXT NOT NULL DEFAULT '[]',
+            last_scanned_at INTEGER NOT NULL,
+            version TEXT NOT NULL DEFAULT '1.0.0',
+            installed_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS skill_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            skill_id TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 1,
+            duration_ms INTEGER,
+            called_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_skill_usage_skill ON skill_usage(skill_id);
+          CREATE INDEX IF NOT EXISTS idx_skill_usage_time ON skill_usage(called_at);
+        `);
+        db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(3, Date.now());
+      }
+    },
+    {
+      version: 4,
+      up: (db2) => {
+        db2.exec(`
+          CREATE TABLE IF NOT EXISTS skill_insights (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            skill_a TEXT,
+            skill_b TEXT,
+            confidence REAL NOT NULL DEFAULT 0.5,
+            description TEXT NOT NULL DEFAULT '',
+            recommendation TEXT NOT NULL DEFAULT '',
+            discovered_at INTEGER NOT NULL
+          );
+        `);
+        db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(4, Date.now());
       }
     }
   ];
@@ -10069,11 +10119,11 @@ Output ONLY valid JSON (no markdown, no explanation):
       getProviderConfig() {
         if (_EvolutionAnalyzer.providerConfig) return _EvolutionAnalyzer.providerConfig;
         try {
-          const fs2 = __require("node:fs");
-          const path3 = __require("node:path");
-          const os2 = __require("node:os");
-          const configPath = path3.join(os2.homedir(), ".openclaw", "openclaw.json");
-          const raw = fs2.readFileSync(configPath, "utf-8");
+          const fs3 = __require("node:fs");
+          const path4 = __require("node:path");
+          const os3 = __require("node:os");
+          const configPath = path4.join(os3.homedir(), ".openclaw", "openclaw.json");
+          const raw = fs3.readFileSync(configPath, "utf-8");
           const config = JSON.parse(raw);
           _EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
         } catch {
@@ -10242,10 +10292,321 @@ Output ONLY valid JSON (no markdown, no explanation):
   }
 });
 
+// src/evolution/skill-inventory.ts
+var skill_inventory_exports = {};
+__export(skill_inventory_exports, {
+  SkillInventory: () => SkillInventory
+});
+import * as fs2 from "node:fs";
+import * as path2 from "node:path";
+import * as os from "node:os";
+var SkillInventory;
+var init_skill_inventory = __esm({
+  "src/evolution/skill-inventory.ts"() {
+    "use strict";
+    SkillInventory = class {
+      db;
+      skillDirs;
+      constructor(db) {
+        this.db = db;
+        this.skillDirs = [
+          path2.join(os.homedir(), ".openclaw", "workspace", "skills"),
+          path2.join(os.homedir(), ".npm-global", "lib", "node_modules", "openclaw", "skills")
+        ];
+      }
+      /** Scan all installed skills and update inventory */
+      scan() {
+        const scanned = this.scanFilesystem();
+        const existing = new Map(
+          this.db.prepare("SELECT id, name, location FROM skills_inventory").all().map((r) => [r.id, r])
+        );
+        let added = 0, updated = 0;
+        const now2 = Date.now();
+        for (const skill of scanned) {
+          const existingSkill = existing.get(skill.id);
+          if (!existingSkill) {
+            this.db.prepare(`
+          INSERT INTO skills_inventory (id, name, description, location, triggers, tools, examples, tags, last_scanned_at, version, installed_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+              skill.id,
+              skill.name,
+              skill.description,
+              skill.location,
+              JSON.stringify(skill.triggers),
+              JSON.stringify(skill.tools),
+              JSON.stringify(skill.examples),
+              JSON.stringify(skill.tags),
+              now2,
+              skill.version,
+              skill.installedAt,
+              now2
+            );
+            added++;
+          } else if (existingSkill.location !== skill.location || existingSkill.name !== skill.name) {
+            this.db.prepare(`
+          UPDATE skills_inventory SET name=?, description=?, location=?, triggers=?, tools=?, examples=?, tags=?, last_scanned_at=?, version=?, updated_at=? WHERE id=?
+        `).run(
+              skill.name,
+              skill.description,
+              skill.location,
+              JSON.stringify(skill.triggers),
+              JSON.stringify(skill.tools),
+              JSON.stringify(skill.examples),
+              JSON.stringify(skill.tags),
+              now2,
+              skill.version,
+              now2,
+              skill.id
+            );
+            updated++;
+          } else {
+            this.db.prepare("UPDATE skills_inventory SET last_scanned_at=? WHERE id=?").run(now2, skill.id);
+          }
+        }
+        const scannedIds = new Set(scanned.map((s) => s.id));
+        const removed = this.db.prepare("SELECT id FROM skills_inventory").all().filter((r) => !scannedIds.has(r.id)).length;
+        if (scanned.length > 0) {
+          this.db.prepare(`DELETE FROM skills_inventory WHERE id NOT IN (${scanned.map(() => "?").join(",")})`).run(...scanned.map((s) => s.id));
+        }
+        return { added, updated, removed };
+      }
+      scanFilesystem() {
+        const skills = [];
+        for (const dir of this.skillDirs) {
+          if (!fs2.existsSync(dir)) continue;
+          try {
+            const entries = fs2.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              if (!entry.isDirectory()) continue;
+              const skillPath = path2.join(dir, entry.name);
+              const skill = this.parseSkillDir(skillPath, entry.name);
+              if (skill) skills.push(skill);
+            }
+          } catch {
+          }
+        }
+        return skills;
+      }
+      parseSkillDir(dir, fallbackName) {
+        const skillFile = path2.join(dir, "SKILL.md");
+        if (!fs2.existsSync(skillFile)) return null;
+        try {
+          const content = fs2.readFileSync(skillFile, "utf-8");
+          const name = this.extractFrontmatter(content, "name") ?? fallbackName;
+          const description = this.extractFrontmatter(content, "description") ?? "";
+          const triggers = this.parseListField(this.extractFrontmatter(content, "triggers") ?? "");
+          const tools = this.parseListField(this.extractFrontmatter(content, "tools") ?? "");
+          const tags = this.parseListField(this.extractFrontmatter(content, "tags") ?? "");
+          const examples = this.parseExamples(content);
+          const version = this.extractFrontmatter(content, "version") ?? "1.0.0";
+          const stat = fs2.statSync(dir);
+          return {
+            id: this.normalizeId(name),
+            name,
+            description,
+            location: dir,
+            triggers,
+            tools,
+            examples,
+            tags,
+            version,
+            installedAt: Math.floor(stat.birthtimeMs)
+          };
+        } catch {
+          return null;
+        }
+      }
+      extractFrontmatter(content, key) {
+        const match = content.match(new RegExp(`^${key}:\\s*["']?(.+?)["']?\\s*$`, "m"));
+        return match?.[1]?.trim() ?? null;
+      }
+      parseListField(value) {
+        if (!value) return [];
+        return value.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+      parseExamples(content) {
+        const examples = [];
+        const usageMatch = content.match(/##? [Uu]sage[\n\r]([\s\S]*?)(?=\n##|\n#|$)/);
+        if (usageMatch) {
+          const lines = usageMatch[1].split("\n").filter((l) => l.trim());
+          examples.push(...lines.slice(0, 3));
+        }
+        return examples;
+      }
+      normalizeId(name) {
+        return `sk_inv_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40)}`;
+      }
+      /** Record a skill/tool usage event */
+      recordUsage(skillId, toolName, success, durationMs) {
+        try {
+          this.db.prepare(`
+        INSERT INTO skill_usage (skill_id, tool_name, success, duration_ms, called_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(skillId, toolName, success ? 1 : 0, durationMs ?? null, Date.now());
+        } catch {
+        }
+      }
+      /** Get usage stats for a skill */
+      getUsageStats(skillId, days = 30) {
+        const since = Date.now() - days * 24 * 60 * 60 * 1e3;
+        return this.db.prepare(`
+      SELECT
+        COUNT(*) as total_calls,
+        SUM(CASE WHEN success=1 THEN 1 ELSE 0 END) as successes,
+        SUM(CASE WHEN success=0 THEN 1 ELSE 0 END) as failures,
+        AVG(duration_ms) as avg_duration
+      FROM skill_usage
+      WHERE skill_id = ? AND called_at > ?
+    `).get(skillId, since);
+      }
+      /** Get recently used skills */
+      getRecentlyUsed(limit = 20) {
+        return this.db.prepare(`
+      SELECT DISTINCT skill_id, MAX(called_at) as last_used, COUNT(*) as call_count
+      FROM skill_usage
+      GROUP BY skill_id
+      ORDER BY last_used DESC
+      LIMIT ?
+    `).all(limit);
+      }
+      /** Get skill combination patterns (skills used in same time window) */
+      getCombinationPatterns(windowMs = 3e5) {
+        const rows = this.db.prepare(`
+      SELECT skill_id, called_at FROM skill_usage ORDER BY called_at
+    `).all();
+        const combinations = /* @__PURE__ */ new Map();
+        for (let i = 0; i < rows.length; i++) {
+          for (let j = i + 1; j < rows.length && rows[j].called_at - rows[i].called_at <= windowMs; j++) {
+            const pair = [rows[i].skill_id, rows[j].skill_id].sort().join("+");
+            combinations.set(pair, (combinations.get(pair) ?? 0) + 1);
+          }
+        }
+        return Array.from(combinations.entries()).filter(([, count]) => count >= 2).map(([pair, count]) => ({ skills: pair.split("+"), count })).sort((a, b) => b.count - a.count);
+      }
+      getAll() {
+        return this.db.prepare("SELECT * FROM skills_inventory ORDER BY name").all().map((r) => ({
+          ...r,
+          triggers: JSON.parse(r.triggers || "[]"),
+          tools: JSON.parse(r.tools || "[]"),
+          examples: JSON.parse(r.examples || "[]"),
+          tags: JSON.parse(r.tags || "[]")
+        }));
+      }
+    };
+  }
+});
+
+// src/evolution/skill-analyzer.ts
+var skill_analyzer_exports = {};
+__export(skill_analyzer_exports, {
+  SkillAnalyzer: () => SkillAnalyzer
+});
+var SkillAnalyzer;
+var init_skill_analyzer = __esm({
+  "src/evolution/skill-analyzer.ts"() {
+    "use strict";
+    SkillAnalyzer = class {
+      skillInventory;
+      db;
+      api;
+      constructor(skillInventory, db, api) {
+        this.skillInventory = skillInventory;
+        this.db = db;
+        this.api = api;
+      }
+      async analyze() {
+        const scanResult = this.skillInventory.scan();
+        this.api.logger.info(`skill inventory: ${scanResult.added} added, ${scanResult.updated} updated`);
+        const insights = this.analyzeUsagePatterns();
+        const suggestions = this.analyzeOpportunities();
+        const now2 = Date.now();
+        for (const insight of [...insights, ...suggestions]) {
+          try {
+            this.db.prepare(`
+          INSERT INTO skill_insights (type, skill_a, skill_b, confidence, description, recommendation, discovered_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+              insight.type,
+              insight.skillA ?? null,
+              insight.skillB ?? null,
+              insight.confidence,
+              insight.description,
+              insight.recommendation,
+              now2
+            );
+          } catch {
+          }
+        }
+        return { insights: insights.length, suggestions: suggestions.length };
+      }
+      analyzeUsagePatterns() {
+        const insights = [];
+        const allSkills = this.skillInventory.getAll();
+        const recentlyUsed = this.skillInventory.getRecentlyUsed(100);
+        const usedIds = new Set(recentlyUsed.map((r) => r.skill_id));
+        for (const skill of allSkills) {
+          if (!usedIds.has(skill.id)) {
+            insights.push({
+              type: "unused",
+              skillA: skill.id,
+              confidence: 0.8,
+              description: `Skill "${skill.name}" is installed but never used in the last 30 days`,
+              recommendation: `Consider removing or repurposing "${skill.name}"`
+            });
+          }
+        }
+        const combinations = this.skillInventory.getCombinationPatterns();
+        for (const combo of combinations.slice(0, 5)) {
+          insights.push({
+            type: "combination",
+            skillA: combo.skills[0],
+            skillB: combo.skills[1],
+            confidence: Math.min(0.9, combo.count * 0.2),
+            description: `Skills "${combo.skills[0]}" and "${combo.skills[1]}" are frequently used together (${combo.count} times)`,
+            recommendation: `Consider combining these into a workflow template`
+          });
+        }
+        return insights;
+      }
+      analyzeOpportunities() {
+        const skills = this.skillInventory.getAll();
+        const insights = [];
+        for (let i = 0; i < skills.length; i++) {
+          for (let j = i + 1; j < skills.length; j++) {
+            const a = skills[i], b = skills[j];
+            const wordsA = new Set(a.description.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
+            const wordsB = new Set(b.description.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
+            const overlap = [...wordsA].filter((w) => wordsB.has(w)).length;
+            const union = (/* @__PURE__ */ new Set([...wordsA, ...wordsB])).size;
+            const jaccard = union > 0 ? overlap / union : 0;
+            if (jaccard >= 0.5) {
+              insights.push({
+                type: "redundancy",
+                skillA: a.id,
+                skillB: b.id,
+                confidence: jaccard,
+                description: `Skills "${a.name}" and "${b.name}" have overlapping descriptions (${(jaccard * 100).toFixed(0)}% similarity)`,
+                recommendation: `Review if these skills serve distinct purposes or could be merged`
+              });
+            }
+          }
+        }
+        return insights;
+      }
+      getInsights(limit = 20) {
+        return this.db.prepare(`
+      SELECT * FROM skill_insights ORDER BY discovered_at DESC, confidence DESC LIMIT ?
+    `).all(limit);
+      }
+    };
+  }
+});
+
 // src/api/router.ts
-function matchPattern(pattern, path3) {
+function matchPattern(pattern, path4) {
   const patternParts = pattern.split("/");
-  const pathParts = path3.split("/");
+  const pathParts = path4.split("/");
   if (patternParts.length !== pathParts.length) return null;
   const params = {};
   for (let i = 0; i < patternParts.length; i++) {
@@ -10315,10 +10676,10 @@ var init_router = __esm({
           return jsonError(status, "Internal Server Error", message);
         }
       }
-      matchRoute(method, path3) {
+      matchRoute(method, path4) {
         for (const route of this.routes) {
           if (route.method !== method) continue;
-          const params = matchPattern(route.pattern, path3);
+          const params = matchPattern(route.pattern, path4);
           if (params !== null) {
             return { ...route, params };
           }
@@ -11796,8 +12157,8 @@ init_hooks();
 init_discipline();
 init_memory();
 init_vector();
-import path2 from "node:path";
-import os from "node:os";
+import path3 from "node:path";
+import os2 from "node:os";
 
 // src/visual/yaml-sync.ts
 var import_yaml = __toESM(require_dist(), 1);
@@ -11920,10 +12281,10 @@ function validateWorkflow(dag) {
   const WHITE = 0, GRAY = 1, BLACK = 2;
   const color = /* @__PURE__ */ new Map();
   for (const id of nodeIds) color.set(id, WHITE);
-  const path3 = [];
+  const path4 = [];
   function dfs(id) {
     color.set(id, GRAY);
-    path3.push(id);
+    path4.push(id);
     const node = dag.nodes.get(id);
     if (node) {
       for (const dep of node.dependencies) {
@@ -11932,14 +12293,14 @@ function validateWorkflow(dag) {
       }
     }
     color.set(id, BLACK);
-    path3.pop();
+    path4.pop();
     return false;
   }
   for (const id of nodeIds) {
-    path3.length = 0;
+    path4.length = 0;
     if (color.get(id) === WHITE && dfs(id)) {
       errors.push(
-        `Cycle detected: ${path3.map((s) => s).join(" \u2192 ")} \u2192 ${path3[0] ?? id}`
+        `Cycle detected: ${path4.map((s) => s).join(" \u2192 ")} \u2192 ${path4[0] ?? id}`
       );
     }
   }
@@ -12091,12 +12452,14 @@ var index_default = definePluginEntry({
     const workflowService = new WorkflowService();
     const scheduler = new Scheduler(workflowService);
     const templateRegistry = new TemplateRegistry();
-    const dataDir = path2.join(os.homedir(), ".openclaw", "data", "soloflow");
+    const dataDir = path3.join(os2.homedir(), ".openclaw", "data", "soloflow");
     let sqliteStore = null;
     let memorySystem = null;
     let vectorSystem = null;
     let evolutionStore = null;
     let evolutionAnalyzer = null;
+    let skillInventory = null;
+    let skillAnalyzer = null;
     let hookSystem2 = null;
     let unregisterBuiltinHooks = null;
     let workflowSubscription = null;
@@ -12137,6 +12500,16 @@ var index_default = definePluginEntry({
           log.info(`evolution system ready (${wfCount} workflow templates, ${skCount} skill patterns)`);
           if (wfCount === 0 && skCount === 0) {
             log.info("no templates yet \u2014 run soloflow_evolve to start analysis, or set up a cron at 02:00 Beijing");
+          }
+          try {
+            const { SkillInventory: SkillInventory2 } = await Promise.resolve().then(() => (init_skill_inventory(), skill_inventory_exports));
+            const { SkillAnalyzer: SkillAnalyzer2 } = await Promise.resolve().then(() => (init_skill_analyzer(), skill_analyzer_exports));
+            skillInventory = new SkillInventory2(store.database);
+            skillAnalyzer = new SkillAnalyzer2(skillInventory, store.database, { logger: log });
+            const scanResult = skillInventory.scan();
+            log.info(`skill inventory: ${scanResult.added + scanResult.updated} skills scanned`);
+          } catch (e) {
+            log.warn(`skill inventory disabled: ${e}`);
           }
           const scheduleNextEvolution = () => {
             const now2 = /* @__PURE__ */ new Date();
@@ -12689,6 +13062,65 @@ var index_default = definePluginEntry({
         }
       }
     );
+    api.registerTool(
+      {
+        name: "skills_list",
+        description: "List all SoloFlow managed skills from inventory.",
+        label: "SoloFlow: List Skills",
+        parameters: Type.Object({}),
+        async execute(_toolCallId, _params) {
+          if (!skillInventory) {
+            return { content: [{ type: "text", text: "Skill inventory not available" }], details: { error: true } };
+          }
+          try {
+            const skills = skillInventory.getAll();
+            return { content: [{ type: "text", text: JSON.stringify({ total: skills.length, skills }, null, 2) }] };
+          } catch (e) {
+            return { content: [{ type: "text", text: `Error: ${e}` }], details: { error: true } };
+          }
+        }
+      }
+    );
+    api.registerTool(
+      {
+        name: "skills_usage",
+        description: "Get skill usage analytics: insights, recent usage, and combination patterns.",
+        label: "SoloFlow: Skill Usage",
+        parameters: Type.Object({}),
+        async execute(_toolCallId, _params) {
+          if (!skillAnalyzer || !skillInventory) {
+            return { content: [{ type: "text", text: "Skill system not available" }], details: { error: true } };
+          }
+          try {
+            const insights = skillAnalyzer.getInsights(20);
+            const recent = skillInventory.getRecentlyUsed(10);
+            const combinations = skillInventory.getCombinationPatterns().slice(0, 5);
+            return { content: [{ type: "text", text: JSON.stringify({ insights, recent, combinations }, null, 2) }] };
+          } catch (e) {
+            return { content: [{ type: "text", text: `Error: ${e}` }], details: { error: true } };
+          }
+        }
+      }
+    );
+    api.registerTool(
+      {
+        name: "skills_scan",
+        description: "Scan installed skills and update the SoloFlow inventory.",
+        label: "SoloFlow: Scan Skills",
+        parameters: Type.Object({}),
+        async execute(_toolCallId, _params) {
+          if (!skillInventory) {
+            return { content: [{ type: "text", text: "Skill inventory not available" }], details: { error: true } };
+          }
+          try {
+            const result = skillInventory.scan();
+            return { content: [{ type: "text", text: JSON.stringify(result) }] };
+          } catch (e) {
+            return { content: [{ type: "text", text: `Error: ${e}` }], details: { error: true } };
+          }
+        }
+      }
+    );
     api.registerGatewayMethod("soloflow.metrics", async (opts) => {
       const wfs = workflowService.list();
       opts.respond(true, {
@@ -12781,8 +13213,34 @@ var index_default = definePluginEntry({
     } catch {
     }
     log.info(
-      `activated (v0.8) \u2014 10 tools registered, memory + evolution active`
+      `activated (v0.8) \u2014 13 tools registered, memory + evolution + skills active`
     );
+    if (skillInventory) {
+      const originalExecute = api.executeTool?.bind(api);
+      api.executeTool = async (toolName, params) => {
+        const startTime = Date.now();
+        try {
+          const result = originalExecute ? await originalExecute(toolName, params) : null;
+          try {
+            const allSkills = skillInventory.getAll();
+            const normalized = toolName.replace(/_/g, " ").toLowerCase();
+            const matched = allSkills.find(
+              (s) => s.tools?.includes(toolName) || s.name.toLowerCase().includes(normalized)
+            );
+            skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, Date.now() - startTime);
+          } catch {
+          }
+          return result;
+        } catch (e) {
+          try {
+            skillInventory.recordUsage(toolName, toolName, false, Date.now() - startTime);
+          } catch {
+          }
+          throw e;
+        }
+      };
+      log.info("skill usage tracking enabled");
+    }
   }
 });
 export {
