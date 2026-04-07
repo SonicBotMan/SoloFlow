@@ -521,6 +521,7 @@ var init_episodic_memory = __esm({
     DEFAULT_COMPRESSION_THRESHOLD_MS = 12 * 60 * 60 * 1e3;
     EpisodicMemory = class {
       store = /* @__PURE__ */ new Map();
+      persistCallback = null;
       capacity;
       compressionThresholdMs;
       namespace;
@@ -555,6 +556,12 @@ var init_episodic_memory = __esm({
           updatedAt: now2
         };
         this.store.set(entry.id, entry);
+        if (this.persistCallback) {
+          try {
+            this.persistCallback(entry);
+          } catch {
+          }
+        }
         this.triggerCompressionIfNeeded();
         this.evictIfNeeded();
         return entry;
@@ -604,6 +611,16 @@ var init_episodic_memory = __esm({
       }
       all() {
         return Array.from(this.store.values());
+      }
+      /** Restore entries from an external store (e.g., SQLite) */
+      restoreEntries(entries) {
+        for (const entry of entries) {
+          this.store.set(entry.id, entry);
+        }
+      }
+      /** Set an external persist callback — called on every storeExecution() */
+      setPersistCallback(cb) {
+        this.persistCallback = cb;
       }
       compressOldEntries() {
         const threshold = Date.now() - this.compressionThresholdMs;
@@ -9355,6 +9372,22 @@ var init_sqlite_store = __esm({
         FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS episodic_memory (
+        id TEXT PRIMARY KEY,
+        namespace TEXT NOT NULL DEFAULT 'default',
+        workflow_id TEXT NOT NULL,
+        workflow_name TEXT NOT NULL,
+        final_state TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        step_summary TEXT NOT NULL DEFAULT '[]',
+        compressed INTEGER NOT NULL DEFAULT 0,
+        raw_data TEXT,
+        source TEXT NOT NULL DEFAULT 'workflow_execution',
+        tags TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS dag_layers (
         workflow_id TEXT NOT NULL,
         layer_index INTEGER NOT NULL,
@@ -9514,6 +9547,48 @@ var init_sqlite_store = __esm({
             insertLayer.run(wf.id, idx, stepId);
           }
         });
+      }
+      /** Store an episodic entry */
+      storeEpisodicEntry(entry) {
+        this.db.prepare(`
+      INSERT OR REPLACE INTO episodic_memory
+      (id, namespace, workflow_id, workflow_name, final_state, duration_ms,
+       step_summary, compressed, raw_data, source, tags, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+          entry.id,
+          entry.namespace,
+          entry.workflowId,
+          entry.workflowName,
+          entry.finalState,
+          entry.durationMs,
+          JSON.stringify(entry.stepSummary),
+          entry.compressed ? 1 : 0,
+          entry.rawData !== void 0 ? JSON.stringify(entry.rawData) : null,
+          entry.source,
+          JSON.stringify(entry.tags),
+          entry.createdAt,
+          entry.updatedAt
+        );
+      }
+      /** Load all episodic entries (for restoring on startup) */
+      loadEpisodicEntries() {
+        const rows = this.db.prepare("SELECT * FROM episodic_memory ORDER BY created_at DESC").all();
+        return rows.map((row) => ({
+          id: row.id,
+          namespace: row.namespace,
+          workflowId: row.workflow_id,
+          workflowName: row.workflow_name,
+          finalState: row.final_state,
+          durationMs: row.duration_ms,
+          stepSummary: JSON.parse(row.step_summary),
+          compressed: row.compressed === 1,
+          rawData: row.raw_data ? JSON.parse(row.raw_data) : void 0,
+          source: row.source,
+          tags: JSON.parse(row.tags),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        }));
       }
       close() {
         this.db.close();
@@ -11355,7 +11430,7 @@ function previewWorkflow(dag) {
 
 // src/index.ts
 var PLUGIN_NAME = "soloflow";
-var PLUGIN_VERSION = "0.6.0";
+var PLUGIN_VERSION = "0.7.0";
 var index_default = definePluginEntry({
   id: "workflow-orchestration",
   name: "SoloFlow",
@@ -11373,17 +11448,6 @@ var index_default = definePluginEntry({
     const templateRegistry = new TemplateRegistry();
     const dataDir = path2.join(os.homedir(), ".openclaw", "data", "soloflow");
     let sqliteStore = null;
-    void (async () => {
-      try {
-        const { SqliteStore: SqliteStore2 } = await Promise.resolve().then(() => (init_sqlite_store(), sqlite_store_exports));
-        sqliteStore = new SqliteStore2(dataDir);
-        sqliteStore.loadAll();
-        workflowService.store = sqliteStore;
-        log.info(`SQLite store loaded from ${dataDir}`);
-      } catch (e) {
-        log.warn(`SQLite store disabled, using in-memory: ${e}`);
-      }
-    })();
     let memorySystem = null;
     let vectorSystem = null;
     let hookSystem2 = null;
@@ -11391,12 +11455,23 @@ var index_default = definePluginEntry({
     let workflowSubscription = null;
     void (async () => {
       try {
+        const { SqliteStore: SqliteStore2 } = await Promise.resolve().then(() => (init_sqlite_store(), sqlite_store_exports));
+        const store = new SqliteStore2(dataDir);
+        store.loadAll();
+        workflowService.store = store;
+        sqliteStore = store;
+        log.info(`SQLite store loaded from ${dataDir}`);
         const mod = await Promise.resolve().then(() => (init_memory(), memory_exports));
         memorySystem = new mod.MemorySystem({ disableLobsterPress: true });
         await memorySystem.init();
-        log.info("memory system ready");
+        const entries = store.loadEpisodicEntries();
+        memorySystem.episodic.restoreEntries(entries);
+        memorySystem.episodic.setPersistCallback((entry) => {
+          store.storeEpisodicEntry(entry);
+        });
+        log.info(`memory system ready (episodic: ${entries.length} entries restored)`);
       } catch (e) {
-        log.warn(`memory system disabled: ${e}`);
+        log.warn(`SQLite + memory system disabled: ${e}`);
       }
     })();
     void (async () => {
@@ -11921,7 +11996,7 @@ var index_default = definePluginEntry({
     } catch {
     }
     log.info(
-      `activated (v0.6) \u2014 8 tools registered, memory system active`
+      `activated (v0.7) \u2014 8 tools registered, memory system active`
     );
   }
 });

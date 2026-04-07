@@ -11,6 +11,7 @@ const DEFAULT_COMPRESSION_THRESHOLD_MS = 12 * 60 * 60 * 1000;
 
 export class EpisodicMemory {
   private readonly store = new Map<string, EpisodicEntry>();
+  private persistCallback: ((entry: EpisodicEntry) => void) | null = null;
   private readonly capacity: number;
   private readonly compressionThresholdMs: number;
   private readonly namespace: MemoryNamespace;
@@ -55,6 +56,9 @@ export class EpisodicMemory {
     };
 
     this.store.set(entry.id, entry);
+    if (this.persistCallback) {
+      try { this.persistCallback(entry); } catch { /* non-critical */ }
+    }
     this.triggerCompressionIfNeeded();
     this.evictIfNeeded();
 
@@ -118,6 +122,18 @@ export class EpisodicMemory {
 
   all(): EpisodicEntry[] {
     return Array.from(this.store.values());
+  }
+
+  /** Restore entries from an external store (e.g., SQLite) */
+  restoreEntries(entries: EpisodicEntry[]): void {
+    for (const entry of entries) {
+      this.store.set(entry.id, entry);
+    }
+  }
+
+  /** Set an external persist callback — called on every storeExecution() */
+  setPersistCallback(cb: (entry: EpisodicEntry) => void): void {
+    this.persistCallback = cb;
   }
 
   compressOldEntries(): number {

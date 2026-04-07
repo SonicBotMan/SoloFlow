@@ -58,6 +58,22 @@ export class SqliteStore {
         FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS episodic_memory (
+        id TEXT PRIMARY KEY,
+        namespace TEXT NOT NULL DEFAULT 'default',
+        workflow_id TEXT NOT NULL,
+        workflow_name TEXT NOT NULL,
+        final_state TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        step_summary TEXT NOT NULL DEFAULT '[]',
+        compressed INTEGER NOT NULL DEFAULT 0,
+        raw_data TEXT,
+        source TEXT NOT NULL DEFAULT 'workflow_execution',
+        tags TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS dag_layers (
         workflow_id TEXT NOT NULL,
         layer_index INTEGER NOT NULL,
@@ -220,6 +236,50 @@ export class SqliteStore {
         insertLayer.run(wf.id, idx, stepId);
       }
     });
+  }
+
+  /** Store an episodic entry */
+  storeEpisodicEntry(entry: any): void {
+    this.db.prepare(`
+      INSERT OR REPLACE INTO episodic_memory
+      (id, namespace, workflow_id, workflow_name, final_state, duration_ms,
+       step_summary, compressed, raw_data, source, tags, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      entry.id,
+      entry.namespace,
+      entry.workflowId,
+      entry.workflowName,
+      entry.finalState,
+      entry.durationMs,
+      JSON.stringify(entry.stepSummary),
+      entry.compressed ? 1 : 0,
+      entry.rawData !== undefined ? JSON.stringify(entry.rawData) : null,
+      entry.source,
+      JSON.stringify(entry.tags),
+      entry.createdAt,
+      entry.updatedAt,
+    );
+  }
+
+  /** Load all episodic entries (for restoring on startup) */
+  loadEpisodicEntries(): any[] {
+    const rows = this.db.prepare("SELECT * FROM episodic_memory ORDER BY created_at DESC").all() as any[];
+    return rows.map(row => ({
+      id: row.id,
+      namespace: row.namespace,
+      workflowId: row.workflow_id,
+      workflowName: row.workflow_name,
+      finalState: row.final_state,
+      durationMs: row.duration_ms,
+      stepSummary: JSON.parse(row.step_summary),
+      compressed: row.compressed === 1,
+      rawData: row.raw_data ? JSON.parse(row.raw_data) : undefined,
+      source: row.source,
+      tags: JSON.parse(row.tags),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
   }
 
   close(): void {

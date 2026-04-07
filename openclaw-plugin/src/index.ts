@@ -33,7 +33,7 @@ import type {
 // ─── Plugin metadata ────────────────────────────────────────────────────
 
 const PLUGIN_NAME = "soloflow";
-const PLUGIN_VERSION = "0.6.0";
+const PLUGIN_VERSION = "0.7.0";
 
 // ─── Entry point ────────────────────────────────────────────────────────
 
@@ -58,23 +58,10 @@ export default definePluginEntry({
     const scheduler = new Scheduler(workflowService);
     const templateRegistry = new TemplateRegistry();
 
-    // ── 1b. SQLite persistence (load async, populate workflowService) ──
+    // ── 1b. SQLite + Memory persistence (combined async init) ──
     const dataDir = path.join(os.homedir(), ".openclaw", "data", "soloflow");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let sqliteStore: any = null;
-    void (async () => {
-      try {
-        const { SqliteStore } = await import("./store/sqlite-store.js");
-        sqliteStore = new SqliteStore(dataDir);
-        sqliteStore.loadAll();
-        // Replace the in-memory store with the SQLite-backed one
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (workflowService as any).store = sqliteStore;
-        log.info(`SQLite store loaded from ${dataDir}`);
-      } catch (e) {
-        log.warn(`SQLite store disabled, using in-memory: ${e}`);
-      }
-    })();
 
     // ── 2. Phase 2 subsystems (behind try-catch walls) ──────────────
 
@@ -87,15 +74,33 @@ export default definePluginEntry({
     let unregisterBuiltinHooks: (() => void) | null = null;
     let workflowSubscription: (() => void) | null = null;
 
-    // Memory system (pure Map, no SQLite) — lazy init behind try-catch
+    // SQLite + Memory system initialization (combined for episodic persistence)
     void (async () => {
       try {
+        // 1. Initialize SQLite store
+        const { SqliteStore } = await import("./store/sqlite-store.js");
+        const store = new SqliteStore(dataDir);
+        store.loadAll();
+        // Replace the in-memory store with the SQLite-backed one
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (workflowService as any).store = store;
+        sqliteStore = store;
+        log.info(`SQLite store loaded from ${dataDir}`);
+
+        // 2. Initialize memory system
         const mod = await import("./memory/index.js");
         memorySystem = new mod.MemorySystem({ disableLobsterPress: true });
         await memorySystem.init();
-        log.info("memory system ready");
+
+        // 3. Restore episodic memory from SQLite
+        const entries = store.loadEpisodicEntries();
+        memorySystem.episodic.restoreEntries(entries);
+        memorySystem.episodic.setPersistCallback((entry: any) => {
+          store.storeEpisodicEntry(entry);
+        });
+        log.info(`memory system ready (episodic: ${entries.length} entries restored)`);
       } catch (e) {
-        log.warn(`memory system disabled: ${e}`);
+        log.warn(`SQLite + memory system disabled: ${e}`);
       }
     })();
 
@@ -688,7 +693,7 @@ export default definePluginEntry({
     }
 
     log.info(
-      `activated (v0.6) — 8 tools registered, memory system active`,
+      `activated (v0.7) — 8 tools registered, memory system active`,
     );
   },
 });
