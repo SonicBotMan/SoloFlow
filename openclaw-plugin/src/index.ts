@@ -17,6 +17,7 @@ import { Scheduler } from "./services/scheduler.js";
 import { TemplateRegistry } from "./services/template-registry.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import os from "node:os";
 
 import type {
@@ -1008,8 +1009,23 @@ export default definePluginEntry({
           match: "prefix",
           auth: "plugin",
           handler: async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
-            // Strip /soloflow prefix
+            // Serve Visual Builder at /soloflow/builder
             const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+            if (url.pathname === "/soloflow/builder" || url.pathname === "/soloflow/builder/") {
+              try {
+                const fs = await import("node:fs");
+                const __dirname = path.dirname(fileURLToPath(import.meta.url));
+                const builderPath = path.join(__dirname, "visual-builder", "index.html");
+                const html = fs.readFileSync(builderPath, "utf8");
+                res.setHeader("content-type", "text/html; charset=utf-8");
+                res.end(html);
+                return true;
+              } catch (e) {
+                log.warn(`Visual Builder not available: ${e}`);
+              }
+            }
+
+            // Strip /soloflow prefix
             const internalPath = url.pathname.replace(/^\/soloflow/, "") || "/";
 
             // Parse query string

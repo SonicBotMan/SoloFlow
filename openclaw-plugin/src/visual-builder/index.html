@@ -1,0 +1,2136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoloFlow — Visual Builder</title>
+<style>
+/* ============================================
+   SOLOFLOW VISUAL BUILDER
+   A production-quality DAG workflow editor
+   ============================================ */
+
+:root {
+  /* Core palette */
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #1c2128;
+  --bg-elevated: #21262d;
+  --bg-hover: #292e36;
+  --border-primary: #30363d;
+  --border-secondary: #21262d;
+  --border-accent: #58a6ff;
+
+  /* Text */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-tertiary: #6e7681;
+  --text-inverse: #0d1117;
+
+  /* Accents */
+  --accent-blue: #58a6ff;
+  --accent-blue-dim: rgba(88,166,255,0.15);
+  --accent-green: #3fb950;
+  --accent-green-dim: rgba(63,185,80,0.15);
+  --accent-red: #f85149;
+  --accent-red-dim: rgba(248,81,73,0.15);
+  --accent-yellow: #d29922;
+  --accent-yellow-dim: rgba(210,153,34,0.15);
+  --accent-purple: #bc8cff;
+  --accent-purple-dim: rgba(188,140,255,0.15);
+  --accent-orange: #f0883e;
+  --accent-orange-dim: rgba(240,136,62,0.15);
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
+
+  /* Sizing */
+  --sidebar-width: 300px;
+  --toolbar-height: 48px;
+  --node-width: 220px;
+  --node-min-height: 72px;
+  --grid-size: 20px;
+
+  /* Animation */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.6);
+  --shadow-node: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 1px var(--border-primary);
+  --shadow-node-hover: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px var(--accent-blue);
+  --shadow-node-selected: 0 0 0 2px var(--accent-blue), 0 4px 16px rgba(88,166,255,0.2);
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bg-hover); }
+
+/* ==================== LAYOUT ==================== */
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ==================== SIDEBAR ==================== */
+
+#sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  transition: transform var(--transition-slow);
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.sidebar-brand .logo {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.sidebar-brand h1 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.sidebar-brand span {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-tertiary);
+}
+
+.btn-primary {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #79c0ff;
+  border-color: #79c0ff;
+}
+
+.btn-danger {
+  background: var(--accent-red-dim);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.btn-danger:hover {
+  background: var(--accent-red);
+  color: #fff;
+}
+
+.btn-success {
+  background: var(--accent-green-dim);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.btn-success:hover {
+  background: var(--accent-green);
+  color: #fff;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-hover);
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 16px;
+}
+
+/* Filter tabs */
+.sidebar-filters {
+  display: flex;
+  padding: 8px 16px 0;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.filter-tab {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.filter-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.filter-tab.active {
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+  border-color: rgba(88,166,255,0.3);
+}
+
+/* Workflow list */
+.workflow-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.workflow-item {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+}
+
+.workflow-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.workflow-item.active {
+  background: var(--accent-blue-dim);
+  border-color: rgba(88,166,255,0.3);
+}
+
+.workflow-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.workflow-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.workflow-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.badge-idle { background: var(--bg-elevated); color: var(--text-secondary); }
+.badge-running { background: var(--accent-blue-dim); color: var(--accent-blue); }
+.badge-completed { background: var(--accent-green-dim); color: var(--accent-green); }
+.badge-failed { background: var(--accent-red-dim); color: var(--accent-red); }
+.badge-cancelled { background: var(--accent-yellow-dim); color: var(--accent-yellow); }
+
+.badge-running .badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ==================== MAIN AREA ==================== */
+
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Toolbar */
+#toolbar {
+  height: var(--toolbar-height);
+  min-height: var(--toolbar-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  z-index: 5;
+}
+
+.toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-primary);
+  margin: 0 4px;
+}
+
+.toolbar-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.toolbar-spacer { flex: 1; }
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.zoom-controls .btn-icon {
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+}
+
+/* Canvas container */
+#canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-primary);
+  cursor: grab;
+}
+
+#canvas-container.grabbing {
+  cursor: grabbing;
+}
+
+#canvas-container.connecting {
+  cursor: crosshair;
+}
+
+/* Grid background */
+#canvas-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, var(--border-secondary) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* SVG layer for connections */
+#connections-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#connections-svg path {
+  fill: none;
+  stroke: var(--border-primary);
+  stroke-width: 2;
+  transition: stroke var(--transition-fast);
+}
+
+#connections-svg path.active {
+  stroke: var(--accent-blue);
+  stroke-width: 2.5;
+}
+
+#connections-svg .arrow {
+  fill: var(--border-primary);
+  transition: fill var(--transition-fast);
+}
+
+#connections-svg path.active + .arrow,
+#connections-svg path.active ~ .arrow {
+  fill: var(--accent-blue);
+}
+
+/* Temporary connection line */
+#temp-connection {
+  fill: none;
+  stroke: var(--accent-blue);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  opacity: 0.7;
+}
+
+/* Nodes container */
+#nodes-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 2;
+  transform-origin: 0 0;
+}
+
+/* ==================== NODE ==================== */
+
+.wf-node {
+  position: absolute;
+  width: var(--node-width);
+  min-height: var(--node-min-height);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-node);
+  cursor: move;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+  user-select: none;
+  overflow: visible;
+}
+
+.wf-node:hover {
+  box-shadow: var(--shadow-node-hover);
+}
+
+.wf-node.selected {
+  box-shadow: var(--shadow-node-selected);
+  border-color: var(--accent-blue);
+}
+
+.wf-node-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px 6px;
+  gap: 8px;
+}
+
+.node-discipline-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.node-discipline-icon.deep { background: var(--accent-purple-dim); }
+.node-discipline-icon.quick { background: var(--accent-yellow-dim); }
+.node-discipline-icon.visual { background: var(--accent-green-dim); }
+.node-discipline-icon.ultrabrain { background: var(--accent-orange-dim); }
+
+.node-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-step-id {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.node-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.wf-node:hover .node-actions {
+  opacity: 1;
+}
+
+.node-actions .btn-icon {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.node-actions .btn-icon:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.node-actions .btn-icon.delete:hover {
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+}
+
+.wf-node-body {
+  padding: 0 12px 10px;
+}
+
+.node-action-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.node-status-bar {
+  height: 3px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  transition: background var(--transition-normal);
+}
+
+.node-status-bar.pending { background: var(--bg-elevated); }
+.node-status-bar.running { background: var(--accent-blue); animation: status-pulse 1.5s infinite; }
+.node-status-bar.completed { background: var(--accent-green); }
+.node-status-bar.failed { background: var(--accent-red); }
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Connection ports */
+.node-port {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-primary);
+  cursor: crosshair;
+  transition: all var(--transition-fast);
+  z-index: 5;
+}
+
+.node-port:hover {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+  transform: scale(1.3);
+}
+
+.node-port.input {
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%);
+}
+
+.node-port.input:hover {
+  transform: translateY(-50%) scale(1.3);
+}
+
+.node-port.output {
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+}
+
+.node-port.output:hover {
+  transform: translateY(-50%) scale(1.3);
+}
+
+.node-port.active {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue);
+}
+
+/* Discipline dropdown */
+.discipline-select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.discipline-select:focus {
+  border-color: var(--accent-blue);
+}
+
+/* ==================== ADD NODE FAB ==================== */
+
+#add-node-fab {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 24px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg), 0 0 0 0 rgba(88,166,255,0.4);
+  transition: all var(--transition-fast);
+  z-index: 5;
+}
+
+#add-node-fab:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-lg), 0 0 20px rgba(88,166,255,0.3);
+}
+
+/* ==================== MODALS ==================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 90%;
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(10px) scale(0.98);
+  transition: transform var(--transition-normal);
+}
+
+.modal-overlay.open .modal {
+  transform: translateY(0) scale(1);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+
+.modal-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border-primary);
+}
+
+/* Form elements */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--accent-blue);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Template cards */
+.template-card {
+  padding: 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.template-card:hover {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.template-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.template-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.template-card .template-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.template-card p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.template-disciplines {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.template-disciplines .discipline-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.discipline-tag.deep { background: var(--accent-purple-dim); color: var(--accent-purple); }
+.discipline-tag.quick { background: var(--accent-yellow-dim); color: var(--accent-yellow); }
+.discipline-tag.visual { background: var(--accent-green-dim); color: var(--accent-green); }
+.discipline-tag.ultrabrain { background: var(--accent-orange-dim); color: var(--accent-orange); }
+
+/* ==================== TOAST ==================== */
+
+#toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 10px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: toast-in 0.3s ease;
+  pointer-events: auto;
+  max-width: 360px;
+}
+
+.toast.toast-success { border-left: 3px solid var(--accent-green); }
+.toast.toast-error { border-left: 3px solid var(--accent-red); }
+.toast.toast-info { border-left: 3px solid var(--accent-blue); }
+.toast.toast-warning { border-left: 3px solid var(--accent-yellow); }
+
+.toast.toast-out {
+  animation: toast-out 0.3s ease forwards;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(20px); }
+}
+
+/* ==================== EMPTY STATE ==================== */
+
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.empty-state h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ==================== CONFIRM DIALOG ==================== */
+
+.confirm-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.confirm-text strong {
+  color: var(--accent-red);
+}
+
+/* ==================== LOADING ==================== */
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-primary);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==================== CONNECTION MODE HINT ==================== */
+
+.canvas-hint {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  color: var(--accent-blue);
+  z-index: 5;
+  display: none;
+  pointer-events: none;
+}
+
+.canvas-hint.visible {
+  display: block;
+}
+
+/* Sidebar empty */
+.sidebar-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.sidebar-empty .icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="logo">S</div>
+        <div>
+          <h1>SoloFlow</h1>
+          <span>Visual Builder</span>
+        </div>
+      </div>
+      <div class="sidebar-actions">
+        <button class="btn btn-primary" onclick="App.createNewWorkflow()" title="New Workflow">＋ New</button>
+        <button class="btn btn-ghost" onclick="App.showTemplates()" title="Templates">📋</button>
+        <button class="btn btn-ghost" onclick="App.refreshWorkflows()" title="Refresh">🔄</button>
+      </div>
+    </div>
+    <div class="sidebar-filters">
+      <span class="filter-tab active" data-filter="all" onclick="App.setFilter('all',this)">All</span>
+      <span class="filter-tab" data-filter="idle" onclick="App.setFilter('idle',this)">Idle</span>
+      <span class="filter-tab" data-filter="running" onclick="App.setFilter('running',this)">Running</span>
+      <span class="filter-tab" data-filter="completed" onclick="App.setFilter('completed',this)">Done</span>
+      <span class="filter-tab" data-filter="failed" onclick="App.setFilter('failed',this)">Failed</span>
+    </div>
+    <div class="workflow-list" id="workflow-list"></div>
+  </aside>
+
+  <!-- Main -->
+  <main id="main">
+    <div id="toolbar">
+      <span class="toolbar-title" id="toolbar-title">No workflow selected</span>
+      <div class="toolbar-sep"></div>
+      <span class="toolbar-info" id="toolbar-info"></span>
+      <div class="toolbar-spacer"></div>
+      <button class="btn btn-success btn-sm" id="btn-start" onclick="App.startWorkflow()" style="display:none" title="Start">▶ Start</button>
+      <button class="btn btn-danger btn-sm" id="btn-cancel" onclick="App.cancelWorkflow()" style="display:none" title="Cancel">⏹ Cancel</button>
+      <div class="toolbar-sep"></div>
+      <button class="btn btn-primary btn-sm" id="btn-save" onclick="App.saveWorkflow()" style="display:none" title="Save">💾 Save</button>
+      <div class="toolbar-sep"></div>
+      <div class="zoom-controls">
+        <button class="btn btn-ghost btn-icon" onclick="App.zoomIn()" title="Zoom In">+</button>
+        <span id="zoom-level">100%</span>
+        <button class="btn btn-ghost btn-icon" onclick="App.zoomOut()" title="Zoom Out">−</button>
+        <button class="btn btn-ghost btn-icon" onclick="App.zoomReset()" title="Reset">⊡</button>
+      </div>
+    </div>
+
+    <div id="canvas-container">
+      <svg id="connections-svg">
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" class="arrow" />
+          </marker>
+          <marker id="arrowhead-active" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="var(--accent-blue)" />
+          </marker>
+        </defs>
+        <path id="temp-connection" d="" style="display:none" />
+      </svg>
+      <div id="nodes-container"></div>
+      <div class="empty-state" id="empty-state">
+        <div class="empty-state-icon">⚡</div>
+        <h2>Select or create a workflow</h2>
+        <p>Use the sidebar to manage your workflows</p>
+      </div>
+      <button id="add-node-fab" onclick="App.addNode()" style="display:none" title="Add Step">+</button>
+      <div class="canvas-hint" id="canvas-hint">Click a target node's input port to create a dependency</div>
+    </div>
+  </main>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<!-- Toasts -->
+<div id="toast-container"></div>
+
+<script>
+// ============================================
+// SOLOFLOW VISUAL BUILDER — Application
+// ============================================
+
+const API_BASE = '/soloflow/api';
+
+const DISCIPLINES = {
+  deep:      { emoji: '🧠', label: 'Deep',      color: 'purple' },
+  quick:     { emoji: '⚡', label: 'Quick',     color: 'yellow' },
+  visual:    { emoji: '🎨', label: 'Visual',    color: 'green'  },
+  ultrabrain:{ emoji: '🚀', label: 'UltraBrain', color: 'orange' },
+};
+
+const STATUS_ORDER = ['pending','running','completed','failed'];
+
+// ============================================
+// STATE
+// ============================================
+
+const State = {
+  workflows: [],
+  currentWorkflow: null,
+  filter: 'all',
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  // Canvas interaction
+  isPanning: false,
+  panStartX: 0,
+  panStartY: 0,
+  // Node drag
+  draggingNode: null,
+  dragOffsetX: 0,
+  dragOffsetY: 0,
+  // Connection drawing
+  isConnecting: false,
+  connectFromStep: null,
+  connectFromPort: null,
+  // Selection
+  selectedStep: null,
+  // Polling
+  pollTimer: null,
+  // Node positions (local, not persisted)
+  nodePositions: {},
+};
+
+// ============================================
+// API
+// ============================================
+
+const API = {
+  async request(path, opts = {}) {
+    const url = `${API_BASE}${path}`;
+    try {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`${res.status} ${text || res.statusText}`);
+      }
+      return res.json();
+    } catch (err) {
+      Toast.error(`API Error: ${err.message}`);
+      throw err;
+    }
+  },
+
+  listWorkflows(state) {
+    const params = new URLSearchParams({ limit: 50, offset: 0 });
+    if (state && state !== 'all') params.set('state', state);
+    return API.request(`/workflows?${params}`);
+  },
+
+  getWorkflow(id) {
+    return API.request(`/workflows/${id}`);
+  },
+
+  createWorkflow(data) {
+    return API.request('/workflows', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  deleteWorkflow(id) {
+    return API.request(`/workflows/${id}`, { method: 'DELETE' });
+  },
+
+  startWorkflow(id) {
+    return API.request(`/workflows/${id}/start`, { method: 'POST' });
+  },
+
+  cancelWorkflow(id) {
+    return API.request(`/workflows/${id}/cancel`, { method: 'POST' });
+  },
+
+  getTemplates() {
+    return API.request('/templates');
+  },
+
+  getExecutions() {
+    return API.request('/executions');
+  },
+};
+
+// ============================================
+// TOAST
+// ============================================
+
+const Toast = {
+  show(msg, type = 'info', duration = 3000) {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
+    el.innerHTML = `<span>${icons[type] || ''}</span><span>${msg}</span>`;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('toast-out');
+      setTimeout(() => el.remove(), 300);
+    }, duration);
+  },
+  success(msg) { Toast.show(msg, 'success'); },
+  error(msg) { Toast.show(msg, 'error', 4000); },
+  info(msg) { Toast.show(msg, 'info'); },
+  warning(msg) { Toast.show(msg, 'warning'); },
+};
+
+// ============================================
+// MODAL
+// ============================================
+
+const Modal = {
+  open(html) {
+    document.getElementById('modal-content').innerHTML = html;
+    document.getElementById('modal-overlay').classList.add('open');
+  },
+  close() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  },
+};
+
+// Close on overlay click
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'modal-overlay') Modal.close();
+});
+
+// Close on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    Modal.close();
+    if (State.isConnecting) cancelConnection();
+  }
+});
+
+// ============================================
+// UTILITY
+// ============================================
+
+function snapToGrid(val, size = 20) {
+  return Math.round(val / size) * size;
+}
+
+function generateStepId() {
+  return 'step_' + Math.random().toString(36).substr(2, 6);
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+  return d.toLocaleDateString();
+}
+
+function topologicalSort(steps) {
+  const ids = new Set(steps.map(s => s.id));
+  const inDegree = {};
+  const adj = {};
+  steps.forEach(s => { inDegree[s.id] = 0; adj[s.id] = []; });
+  steps.forEach(s => {
+    (s.dependencies || []).forEach(dep => {
+      if (ids.has(dep)) {
+        adj[dep].push(s.id);
+        inDegree[s.id]++;
+      }
+    });
+  });
+  const queue = [];
+  Object.keys(inDegree).forEach(id => { if (inDegree[id] === 0) queue.push(id); });
+  const layers = [];
+  while (queue.length) {
+    layers.push([...queue]);
+    const next = [];
+    queue.forEach(id => {
+      adj[id].forEach(to => {
+        inDegree[to]--;
+        if (inDegree[to] === 0) next.push(to);
+      });
+    });
+    queue.length = 0;
+    queue.push(...next);
+  }
+  return layers;
+}
+
+function autoLayout(steps) {
+  const layers = topologicalSort(steps);
+  const stepMap = {};
+  steps.forEach(s => stepMap[s.id] = s);
+  const positions = {};
+  const nodeW = 240;
+  const nodeH = 110;
+  const layerGap = 180;
+  const nodeGap = 140;
+
+  // If topo sort didn't cover all (cycle), put remaining in a separate layer
+  const placed = new Set(layers.flat());
+  const unplaced = steps.filter(s => !placed.has(s.id));
+  if (unplaced.length) layers.push(unplaced.map(s => s.id));
+
+  layers.forEach((layer, li) => {
+    const totalWidth = layer.length * nodeW + (layer.length - 1) * nodeGap;
+    const startX = -totalWidth / 2;
+    layer.forEach((id, ni) => {
+      positions[id] = {
+        x: snapToGrid(startX + ni * (nodeW + nodeGap) + nodeW / 2),
+        y: snapToGrid(80 + li * layerGap),
+      };
+    });
+  });
+
+  return positions;
+}
+
+function statusBadge(state) {
+  const cls = `badge badge-${state || 'idle'}`;
+  const dot = state === 'running' ? '<span class="badge-dot"></span>' : '';
+  return `<span class="${cls}">${dot}${state || 'idle'}</span>`;
+}
+
+function bezierPath(x1, y1, x2, y2) {
+  const dx = Math.abs(x2 - x1);
+  const cp = Math.max(dx * 0.5, 60);
+  return `M${x1},${y1} C${x1+cp},${y1} ${x2-cp},${y2} ${x2},${y2}`;
+}
+
+// ============================================
+// CANVAS RENDERING
+// ============================================
+
+function applyCanvasTransform() {
+  const container = document.getElementById('nodes-container');
+  const svg = document.getElementById('connections-svg');
+  container.style.transform = `translate(${State.panX}px, ${State.panY}px) scale(${State.zoom})`;
+  svg.style.transform = `translate(${State.panX}px, ${State.panY}px) scale(${State.zoom})`;
+  svg.style.transformOrigin = '0 0';
+  document.getElementById('zoom-level').textContent = `${Math.round(State.zoom * 100)}%`;
+}
+
+function renderConnections() {
+  const svg = document.getElementById('connections-svg');
+  // Remove old paths (keep defs and temp-connection)
+  svg.querySelectorAll('path.connection').forEach(p => p.remove());
+
+  if (!State.currentWorkflow || !State.currentWorkflow.steps) return;
+
+  const stepMap = {};
+  State.currentWorkflow.steps.forEach(s => stepMap[s.id] = s);
+
+  State.currentWorkflow.steps.forEach(step => {
+    const fromPos = State.nodePositions[step.id];
+    if (!fromPos) return;
+    const fromX = fromPos.x + 110; // right edge
+    const fromY = fromPos.y + 36;  // middle
+
+    (step.dependencies || []).forEach(depId => {
+      const toPos = State.nodePositions[depId];
+      if (!toPos) return;
+      const toX = toPos.x - 110; // left edge
+      const toY = toPos.y + 36;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', bezierPath(toX, toY, fromX, fromY));
+      path.setAttribute('class', 'connection');
+      path.setAttribute('marker-end', 'url(#arrowhead)');
+      if (State.selectedStep === step.id || State.selectedStep === depId) {
+        path.classList.add('active');
+        path.setAttribute('marker-end', 'url(#arrowhead-active)');
+      }
+      svg.insertBefore(path, document.getElementById('temp-connection'));
+    });
+  });
+}
+
+function renderNodes() {
+  const container = document.getElementById('nodes-container');
+  container.innerHTML = '';
+
+  if (!State.currentWorkflow || !State.currentWorkflow.steps) return;
+
+  State.currentWorkflow.steps.forEach(step => {
+    const pos = State.nodePositions[step.id];
+    if (!pos) return;
+    const disc = DISCIPLINES[step.discipline] || DISCIPLINES.quick;
+    const status = step.status || 'pending';
+
+    const node = document.createElement('div');
+    node.className = `wf-node${State.selectedStep === step.id ? ' selected' : ''}`;
+    node.dataset.stepId = step.id;
+    node.style.left = `${pos.x}px`;
+    node.style.top = `${pos.y}px`;
+
+    node.innerHTML = `
+      <div class="node-port input" data-port="input" data-step="${step.id}" title="Add dependency"></div>
+      <div class="node-port output" data-port="output" data-step="${step.id}" title="Create dependency from here"></div>
+      <div class="node-actions">
+        <button class="btn-icon" onclick="event.stopPropagation();App.editStep('${step.id}')" title="Edit">✎</button>
+        <button class="btn-icon delete" onclick="event.stopPropagation();App.deleteStep('${step.id}')" title="Delete">✕</button>
+      </div>
+      <div class="wf-node-header">
+        <div class="node-discipline-icon ${step.discipline}">${disc.emoji}</div>
+        <div style="flex:1;min-width:0">
+          <div class="node-title">${escapeHtml(step.name || 'Untitled')}</div>
+          <div class="node-step-id">${step.id}</div>
+        </div>
+        <select class="discipline-select" onchange="event.stopPropagation();App.changeDiscipline('${step.id}',this.value)">
+          ${Object.entries(DISCIPLINES).map(([k,v]) => `<option value="${k}"${step.discipline===k?' selected':''}>${v.emoji} ${v.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="wf-node-body">
+        <div class="node-action-text">${escapeHtml((step.action || '').substring(0, 60))}${(step.action||'').length > 60 ? '…' : ''}</div>
+      </div>
+      <div class="node-status-bar ${status}"></div>
+    `;
+
+    // Double click to edit
+    node.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      App.editStep(step.id);
+    });
+
+    // Click to select
+    node.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.node-port') || e.target.closest('.node-actions') || e.target.closest('.discipline-select')) return;
+      App.selectStep(step.id);
+      startNodeDrag(e, step.id);
+    });
+
+    container.appendChild(node);
+  });
+
+  renderConnections();
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function updateNodeStatuses() {
+  if (!State.currentWorkflow || !State.currentWorkflow.steps) return;
+  State.currentWorkflow.steps.forEach(step => {
+    const nodeEl = document.querySelector(`.wf-node[data-step-id="${step.id}"]`);
+    if (!nodeEl) return;
+    const bar = nodeEl.querySelector('.node-status-bar');
+    if (bar) {
+      bar.className = `node-status-bar ${step.status || 'pending'}`;
+    }
+  });
+}
+
+// ============================================
+// CANVAS INTERACTIONS
+// ============================================
+
+function startNodeDrag(e, stepId) {
+  const pos = State.nodePositions[stepId];
+  if (!pos) return;
+  State.draggingNode = stepId;
+  const rect = document.getElementById('canvas-container').getBoundingClientRect();
+  State.dragOffsetX = (e.clientX - rect.left - State.panX) / State.zoom - pos.x;
+  State.dragOffsetY = (e.clientY - rect.top - State.panY) / State.zoom - pos.y;
+  e.preventDefault();
+}
+
+function cancelConnection() {
+  State.isConnecting = false;
+  State.connectFromStep = null;
+  document.getElementById('temp-connection').style.display = 'none';
+  document.getElementById('temp-connection').setAttribute('d', '');
+  document.getElementById('canvas-container').classList.remove('connecting');
+  document.getElementById('canvas-hint').classList.remove('visible');
+  document.querySelectorAll('.node-port.active').forEach(p => p.classList.remove('active'));
+}
+
+// Canvas mousedown
+document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
+  // Check for port click
+  const port = e.target.closest('.node-port');
+  if (port) {
+    e.stopPropagation();
+    const stepId = port.dataset.step;
+    const portType = port.dataset.port;
+
+    if (portType === 'output') {
+      // Start connection from output
+      State.isConnecting = true;
+      State.connectFromStep = stepId;
+      port.classList.add('active');
+      document.getElementById('canvas-container').classList.add('connecting');
+      document.getElementById('canvas-hint').classList.add('visible');
+      document.getElementById('temp-connection').style.display = '';
+    } else if (portType === 'input' && State.isConnecting) {
+      // Complete connection to input
+      App.addDependency(State.connectFromStep, stepId);
+      cancelConnection();
+    }
+    return;
+  }
+
+  // If clicking on a node, handled by node mousedown
+  if (e.target.closest('.wf-node')) return;
+
+  // Deselect
+  App.selectStep(null);
+
+  // Start panning
+  State.isPanning = true;
+  State.panStartX = e.clientX - State.panX;
+  State.panStartY = e.clientY - State.panY;
+  document.getElementById('canvas-container').classList.add('grabbing');
+  cancelConnection();
+});
+
+document.addEventListener('mousemove', (e) => {
+  // Node dragging
+  if (State.draggingNode) {
+    const rect = document.getElementById('canvas-container').getBoundingClientRect();
+    const x = (e.clientX - rect.left - State.panX) / State.zoom - State.dragOffsetX;
+    const y = (e.clientY - rect.top - State.panY) / State.zoom - State.dragOffsetY;
+    State.nodePositions[State.draggingNode] = {
+      x: snapToGrid(x),
+      y: snapToGrid(y),
+    };
+    const nodeEl = document.querySelector(`.wf-node[data-step-id="${State.draggingNode}"]`);
+    if (nodeEl) {
+      nodeEl.style.left = `${State.nodePositions[State.draggingNode].x}px`;
+      nodeEl.style.top = `${State.nodePositions[State.draggingNode].y}px`;
+    }
+    renderConnections();
+    return;
+  }
+
+  // Panning
+  if (State.isPanning) {
+    State.panX = e.clientX - State.panStartX;
+    State.panY = e.clientY - State.panStartY;
+    applyCanvasTransform();
+    return;
+  }
+
+  // Connection drawing
+  if (State.isConnecting && State.connectFromStep) {
+    const fromPos = State.nodePositions[State.connectFromStep];
+    if (!fromPos) return;
+    const rect = document.getElementById('canvas-container').getBoundingClientRect();
+    const mx = (e.clientX - rect.left - State.panX) / State.zoom;
+    const my = (e.clientY - rect.top - State.panY) / State.zoom;
+    const fromX = fromPos.x + 110;
+    const fromY = fromPos.y + 36;
+    const path = document.getElementById('temp-connection');
+    path.setAttribute('d', bezierPath(fromX, fromY, mx, my));
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  State.draggingNode = null;
+  if (State.isPanning) {
+    State.isPanning = false;
+    document.getElementById('canvas-container').classList.remove('grabbing');
+  }
+});
+
+// Zoom with mouse wheel
+document.getElementById('canvas-container').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+  const newZoom = Math.min(2, Math.max(0.2, State.zoom + delta));
+  // Zoom toward cursor
+  const rect = document.getElementById('canvas-container').getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  State.panX = mx - (mx - State.panX) * (newZoom / State.zoom);
+  State.panY = my - (my - State.panY) * (newZoom / State.zoom);
+  State.zoom = newZoom;
+  applyCanvasTransform();
+}, { passive: false });
+
+// ============================================
+// APPLICATION LOGIC
+// ============================================
+
+const App = {
+  async init() {
+    await this.refreshWorkflows();
+    applyCanvasTransform();
+  },
+
+  // --- Workflow List ---
+
+  async refreshWorkflows() {
+    try {
+      const data = await API.listWorkflows(State.filter);
+      State.workflows = (data.workflows || data || []);
+      this.renderWorkflowList();
+    } catch (e) { /* toast already shown */ }
+  },
+
+  setFilter(filter, el) {
+    State.filter = filter;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    this.refreshWorkflows();
+  },
+
+  renderWorkflowList() {
+    const list = document.getElementById('workflow-list');
+    if (!State.workflows.length) {
+      list.innerHTML = '<div class="sidebar-empty"><div class="icon">📭</div>No workflows found</div>';
+      return;
+    }
+    list.innerHTML = State.workflows.map(wf => `
+      <div class="workflow-item${State.currentWorkflow && State.currentWorkflow.id === wf.id ? ' active' : ''}"
+           onclick="App.loadWorkflow('${wf.id}')">
+        <div class="workflow-item-header">
+          <span class="workflow-item-name">${escapeHtml(wf.name || 'Untitled')}</span>
+          ${statusBadge(wf.state)}
+        </div>
+        <div class="workflow-item-meta">
+          <span>${(wf.steps || []).length} steps</span>
+          ${wf.createdAt ? `<span>· ${formatTime(wf.createdAt)}</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+  },
+
+  // --- Workflow CRUD ---
+
+  async createNewWorkflow() {
+    Modal.open(`
+      <div class="modal-header"><h2>New Workflow</h2></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Name</label>
+          <input id="new-wf-name" placeholder="My Workflow" autofocus />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="new-wf-desc" placeholder="What does this workflow do?" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="Modal.close()">Cancel</button>
+        <button class="btn btn-primary" onclick="App.doCreateWorkflow()">Create</button>
+      </div>
+    `);
+    setTimeout(() => document.getElementById('new-wf-name')?.focus(), 100);
+  },
+
+  async doCreateWorkflow() {
+    const name = document.getElementById('new-wf-name').value.trim();
+    if (!name) { Toast.warning('Please enter a name'); return; }
+    const desc = document.getElementById('new-wf-desc').value.trim();
+    try {
+      const wf = await API.createWorkflow({
+        name,
+        description: desc,
+        steps: [],
+      });
+      Modal.close();
+      Toast.success(`Workflow "${name}" created`);
+      await this.refreshWorkflows();
+      if (wf && wf.id) this.loadWorkflow(wf.id);
+    } catch (e) { /* toast */ }
+  },
+
+  async loadWorkflow(id) {
+    try {
+      const wf = await API.getWorkflow(id);
+      State.currentWorkflow = wf;
+      State.selectedStep = null;
+      State.nodePositions = {};
+
+      if (wf.steps && wf.steps.length) {
+        State.nodePositions = autoLayout(wf.steps);
+      }
+
+      // Center canvas
+      State.panX = 0;
+      State.panY = 0;
+      State.zoom = 1;
+      applyCanvasTransform();
+
+      this.renderWorkflowList();
+      this.updateToolbar();
+      renderNodes();
+
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('add-node-fab').style.display = '';
+
+      // Start polling if running
+      this.startPolling();
+    } catch (e) { /* toast */ }
+  },
+
+  async deleteWorkflow(id) {
+    const wf = State.workflows.find(w => w.id === id);
+    const name = wf ? wf.name : id;
+    Modal.open(`
+      <div class="modal-header"><h2>Delete Workflow</h2></div>
+      <div class="modal-body">
+        <p class="confirm-text">Are you sure you want to delete <strong>${escapeHtml(name)}</strong>? This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="Modal.close()">Cancel</button>
+        <button class="btn btn-danger" onclick="App.doDeleteWorkflow('${id}')">Delete</button>
+      </div>
+    `);
+  },
+
+  async doDeleteWorkflow(id) {
+    try {
+      await API.deleteWorkflow(id);
+      Modal.close();
+      Toast.success('Workflow deleted');
+      if (State.currentWorkflow && State.currentWorkflow.id === id) {
+        State.currentWorkflow = null;
+        State.selectedStep = null;
+        State.nodePositions = {};
+        this.updateToolbar();
+        document.getElementById('nodes-container').innerHTML = '';
+        document.getElementById('empty-state').style.display = '';
+        document.getElementById('add-node-fab').style.display = 'none';
+        this.stopPolling();
+      }
+      await this.refreshWorkflows();
+    } catch (e) { /* toast */ }
+  },
+
+  async saveWorkflow() {
+    if (!State.currentWorkflow) return;
+    try {
+      // Reconstruct steps with current positions stored as metadata hint (positions aren't part of the API)
+      // We just save the step data (name, discipline, action, dependencies)
+      const steps = (State.currentWorkflow.steps || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        discipline: s.discipline,
+        action: s.action,
+        dependencies: s.dependencies || [],
+      }));
+      await API.createWorkflow({
+        name: State.currentWorkflow.name,
+        description: State.currentWorkflow.description,
+        steps,
+      });
+      Toast.success('Workflow saved');
+      await this.refreshWorkflows();
+    } catch (e) { /* toast */ }
+  },
+
+  // --- Execution ---
+
+  async startWorkflow() {
+    if (!State.currentWorkflow) return;
+    try {
+      await API.startWorkflow(State.currentWorkflow.id);
+      Toast.success('Workflow started');
+      State.currentWorkflow.state = 'running';
+      this.updateToolbar();
+      this.startPolling();
+      await this.refreshWorkflows();
+    } catch (e) { /* toast */ }
+  },
+
+  async cancelWorkflow() {
+    if (!State.currentWorkflow) return;
+    try {
+      await API.cancelWorkflow(State.currentWorkflow.id);
+      Toast.info('Workflow cancelled');
+      State.currentWorkflow.state = 'cancelled';
+      this.updateToolbar();
+      this.stopPolling();
+      await this.refreshWorkflows();
+    } catch (e) { /* toast */ }
+  },
+
+  startPolling() {
+    this.stopPolling();
+    if (!State.currentWorkflow) return;
+    State.pollTimer = setInterval(async () => {
+      if (!State.currentWorkflow) { this.stopPolling(); return; }
+      try {
+        const wf = await API.getWorkflow(State.currentWorkflow.id);
+        if (!wf) { this.stopPolling(); return; }
+        // Update step statuses
+        if (wf.steps) {
+          const stepMap = {};
+          wf.steps.forEach(s => stepMap[s.id] = s);
+          (State.currentWorkflow.steps || []).forEach(s => {
+            if (stepMap[s.id]) {
+              s.status = stepMap[s.id].status || s.status;
+            }
+          });
+        }
+        State.currentWorkflow.state = wf.state;
+        updateNodeStatuses();
+        this.updateToolbar();
+
+        // Stop polling if terminal
+        if (['completed','failed','cancelled'].includes(wf.state)) {
+          this.stopPolling();
+          await this.refreshWorkflows();
+        }
+      } catch (e) { /* silent */ }
+    }, 2000);
+  },
+
+  stopPolling() {
+    if (State.pollTimer) {
+      clearInterval(State.pollTimer);
+      State.pollTimer = null;
+    }
+  },
+
+  updateToolbar() {
+    const wf = State.currentWorkflow;
+    const title = document.getElementById('toolbar-title');
+    const info = document.getElementById('toolbar-info');
+    const btnStart = document.getElementById('btn-start');
+    const btnCancel = document.getElementById('btn-cancel');
+    const btnSave = document.getElementById('btn-save');
+
+    if (!wf) {
+      title.textContent = 'No workflow selected';
+      info.textContent = '';
+      btnStart.style.display = 'none';
+      btnCancel.style.display = 'none';
+      btnSave.style.display = 'none';
+      return;
+    }
+
+    title.textContent = wf.name || 'Untitled';
+    info.textContent = `${(wf.steps||[]).length} steps`;
+    btnSave.style.display = '';
+
+    const state = wf.state || 'idle';
+    btnStart.style.display = state === 'idle' ? '' : 'none';
+    btnCancel.style.display = state === 'running' ? '' : 'none';
+  },
+
+  // --- Step Operations ---
+
+  addNode() {
+    if (!State.currentWorkflow) return;
+    const id = generateStepId();
+    const step = {
+      id,
+      name: `Step ${(State.currentWorkflow.steps||[]).length + 1}`,
+      discipline: 'quick',
+      action: '',
+      dependencies: [],
+    };
+    if (!State.currentWorkflow.steps) State.currentWorkflow.steps = [];
+    State.currentWorkflow.steps.push(step);
+
+    // Position: offset from center
+    const container = document.getElementById('canvas-container');
+    const cx = (container.clientWidth / 2 - State.panX) / State.zoom;
+    const cy = (container.clientHeight / 2 - State.panY) / State.zoom;
+    State.nodePositions[id] = {
+      x: snapToGrid(cx - 110 + Math.random() * 60 - 30),
+      y: snapToGrid(cy - 36 + Math.random() * 60 - 30),
+    };
+
+    renderNodes();
+    this.updateToolbar();
+    App.selectStep(id);
+    App.editStep(id);
+  },
+
+  editStep(stepId) {
+    const step = (State.currentWorkflow?.steps || []).find(s => s.id === stepId);
+    if (!step) return;
+
+    // Build dependency checkboxes
+    const otherSteps = (State.currentWorkflow.steps || []).filter(s => s.id !== stepId);
+    const depChecks = otherSteps.map(s => `
+      <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer">
+        <input type="checkbox" value="${s.id}" ${step.dependencies?.includes(s.id) ? 'checked' : ''}
+          style="accent-color:var(--accent-blue)" />
+        <span>${DISCIPLINES[s.discipline]?.emoji || ''} ${escapeHtml(s.name)}</span>
+      </label>
+    `).join('');
+
+    Modal.open(`
+      <div class="modal-header"><h2>Edit Step</h2></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Step ID</label>
+          <input value="${escapeHtml(step.id)}" disabled style="opacity:0.5" />
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input id="edit-step-name" value="${escapeHtml(step.name || '')}" />
+        </div>
+        <div class="form-group">
+          <label>Discipline</label>
+          <select id="edit-step-disc">
+            ${Object.entries(DISCIPLINES).map(([k,v]) => `<option value="${k}"${step.discipline===k?' selected':''}>${v.emoji} ${v.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Action / Prompt</label>
+          <textarea id="edit-step-action" rows="5" placeholder="Describe what this step does...">${escapeHtml(step.action || '')}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Dependencies (runs after)</label>
+          <div id="edit-step-deps">${depChecks || '<span style="color:var(--text-tertiary);font-size:12px">No other steps</span>'}</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="Modal.close()">Cancel</button>
+        <button class="btn btn-primary" onclick="App.doEditStep('${stepId}')">Save</button>
+      </div>
+    `);
+    setTimeout(() => document.getElementById('edit-step-name')?.focus(), 100);
+  },
+
+  doEditStep(stepId) {
+    const step = (State.currentWorkflow?.steps || []).find(s => s.id === stepId);
+    if (!step) return;
+
+    step.name = document.getElementById('edit-step-name').value.trim() || step.name;
+    step.discipline = document.getElementById('edit-step-disc').value;
+    step.action = document.getElementById('edit-step-action').value.trim();
+
+    // Read dependencies
+    const deps = [];
+    document.querySelectorAll('#edit-step-deps input[type="checkbox"]:checked').forEach(cb => {
+      deps.push(cb.value);
+    });
+    step.dependencies = deps;
+
+    Modal.close();
+    renderNodes();
+    Toast.success('Step updated');
+  },
+
+  deleteStep(stepId) {
+    const step = (State.currentWorkflow?.steps || []).find(s => s.id === stepId);
+    if (!step) return;
+    Modal.open(`
+      <div class="modal-header"><h2>Delete Step</h2></div>
+      <div class="modal-body">
+        <p class="confirm-text">Delete step <strong>${escapeHtml(step.name)}</strong>? Dependencies referencing this step will be removed.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="Modal.close()">Cancel</button>
+        <button class="btn btn-danger" onclick="App.doDeleteStep('${stepId}')">Delete</button>
+      </div>
+    `);
+  },
+
+  doDeleteStep(stepId) {
+    if (!State.currentWorkflow) return;
+    State.currentWorkflow.steps = (State.currentWorkflow.steps || []).filter(s => s.id !== stepId);
+    // Remove from dependencies
+    (State.currentWorkflow.steps || []).forEach(s => {
+      s.dependencies = (s.dependencies || []).filter(d => d !== stepId);
+    });
+    delete State.nodePositions[stepId];
+    if (State.selectedStep === stepId) State.selectedStep = null;
+    Modal.close();
+    renderNodes();
+    this.updateToolbar();
+    Toast.info('Step deleted');
+  },
+
+  changeDiscipline(stepId, disc) {
+    const step = (State.currentWorkflow?.steps || []).find(s => s.id === stepId);
+    if (!step) return;
+    step.discipline = disc;
+    renderNodes();
+  },
+
+  addDependency(fromId, toId) {
+    if (!State.currentWorkflow) return;
+    if (fromId === toId) { Toast.warning('Cannot create self-dependency'); return; }
+    const step = State.currentWorkflow.steps.find(s => s.id === fromId);
+    if (!step) return;
+    if (!step.dependencies) step.dependencies = [];
+    if (step.dependencies.includes(toId)) { Toast.info('Dependency already exists'); return; }
+    // Check for circular
+    if (wouldCreateCycle(State.currentWorkflow.steps, fromId, toId)) {
+      Toast.warning('Cannot create circular dependency');
+      return;
+    }
+    step.dependencies.push(toId);
+    renderNodes();
+    Toast.success('Dependency added');
+  },
+
+  selectStep(stepId) {
+    State.selectedStep = stepId;
+    document.querySelectorAll('.wf-node').forEach(n => {
+      n.classList.toggle('selected', n.dataset.stepId === stepId);
+    });
+    renderConnections();
+  },
+
+  // --- Templates ---
+
+  async showTemplates() {
+    try {
+      const data = await API.getTemplates();
+      const templates = data.templates || data || [];
+
+      if (!templates.length) {
+        Modal.open(`
+          <div class="modal-header"><h2>Templates</h2></div>
+          <div class="modal-body">
+            <p style="color:var(--text-tertiary)">No templates available yet.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="Modal.close()">Close</button>
+          </div>
+        `);
+        return;
+      }
+
+      Modal.open(`
+        <div class="modal-header"><h2>Templates</h2></div>
+        <div class="modal-body">
+          ${templates.map(t => {
+            const steps = t.steps || [];
+            const discs = [...new Set(steps.map(s => s.discipline).filter(Boolean))];
+            return `
+              <div class="template-card" onclick="App.createFromTemplate(this)" data-template='${escapeHtml(JSON.stringify(t))}'>
+                <div class="template-card-header">
+                  <h3>${escapeHtml(t.name || 'Untitled')}</h3>
+                  <span class="template-meta">${steps.length} steps</span>
+                </div>
+                <p>${escapeHtml(t.description || 'No description')}</p>
+                ${discs.length ? `
+                  <div class="template-disciplines">
+                    ${discs.map(d => `<span class="discipline-tag ${d}">${DISCIPLINES[d]?.emoji || ''} ${DISCIPLINES[d]?.label || d}</span>`).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <div class="modal-footer">
+          <button class="btn" onclick="Modal.close()">Close</button>
+        </div>
+      `);
+    } catch (e) { /* toast */ }
+  },
+
+  async createFromTemplate(el) {
+    const template = JSON.parse(el.dataset.template);
+    Modal.close();
+    try {
+      const wf = await API.createWorkflow({
+        name: template.name + ' (from template)',
+        description: template.description || '',
+        steps: template.steps || [],
+      });
+      Toast.success(`Created from template: ${template.name}`);
+      await this.refreshWorkflows();
+      if (wf && wf.id) this.loadWorkflow(wf.id);
+    } catch (e) { /* toast */ }
+  },
+
+  // --- Zoom ---
+
+  zoomIn() { State.zoom = Math.min(2, State.zoom + 0.1); applyCanvasTransform(); },
+  zoomOut() { State.zoom = Math.max(0.2, State.zoom - 0.1); applyCanvasTransform(); },
+  zoomReset() { State.zoom = 1; State.panX = 0; State.panY = 0; applyCanvasTransform(); },
+};
+
+// ============================================
+// CYCLE DETECTION
+// ============================================
+
+function wouldCreateCycle(steps, fromId, toId) {
+  // Check if toId can reach fromId via existing dependencies
+  // If so, adding fromId → toId would create a cycle
+  const visited = new Set();
+  const queue = [toId];
+  while (queue.length) {
+    const current = queue.shift();
+    if (current === fromId) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const step = steps.find(s => s.id === current);
+    if (step && step.dependencies) {
+      step.dependencies.forEach(d => queue.push(d));
+    }
+  }
+  return false;
+}
+
+// ============================================
+// INIT
+// ============================================
+
+App.init();
+</script>
+</body>
+</html>

@@ -13145,6 +13145,7 @@ init_discipline();
 init_memory();
 init_vector();
 import path3 from "node:path";
+import { fileURLToPath } from "node:url";
 import os2 from "node:os";
 
 // src/visual/yaml-sync.ts
@@ -14275,6 +14276,19 @@ var index_default = definePluginEntry({
           auth: "plugin",
           handler: async (req, res) => {
             const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+            if (url.pathname === "/soloflow/builder" || url.pathname === "/soloflow/builder/") {
+              try {
+                const fs3 = await import("node:fs");
+                const __dirname = path3.dirname(fileURLToPath(import.meta.url));
+                const builderPath = path3.join(__dirname, "visual-builder", "index.html");
+                const html = fs3.readFileSync(builderPath, "utf8");
+                res.setHeader("content-type", "text/html; charset=utf-8");
+                res.end(html);
+                return true;
+              } catch (e) {
+                log.warn(`Visual Builder not available: ${e}`);
+              }
+            }
             const internalPath = url.pathname.replace(/^\/soloflow/, "") || "/";
             const query = {};
             for (const [k, v] of url.searchParams) {
