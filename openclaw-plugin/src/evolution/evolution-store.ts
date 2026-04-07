@@ -2,6 +2,7 @@
  * SoloFlow — Evolution Store
  * SQLite persistence for evolved templates and skill patterns.
  * Shares the same database connection as SqliteStore.
+ * Schema is managed by migrations.ts — this store only reads/writes.
  */
 
 import type { EvolvedTemplate, TemplateType } from "./types.js";
@@ -11,33 +12,7 @@ export class EvolutionStore {
 
   constructor(db: any) {
     this.db = db;
-    this.migrate();
-  }
-
-  private migrate(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS evolved_templates (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL CHECK(type IN ('workflow', 'skill')),
-        name TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        steps TEXT,
-        pattern TEXT,
-        sources TEXT NOT NULL DEFAULT '[]',
-        use_count INTEGER NOT NULL DEFAULT 0,
-        success_count INTEGER NOT NULL DEFAULT 0,
-        fail_count INTEGER NOT NULL DEFAULT 0,
-        last_used_at INTEGER,
-        last_iterated_at INTEGER,
-        quality_score REAL NOT NULL DEFAULT 0.5,
-        version INTEGER NOT NULL DEFAULT 1,
-        tags TEXT NOT NULL DEFAULT '[]',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_evolved_type ON evolved_templates(type);
-      CREATE INDEX IF NOT EXISTS idx_evolved_quality ON evolved_templates(quality_score);
-    `);
+    // No migrate() here — schema is managed by runMigrations() in migrations.ts
   }
 
   private rowToTemplate(row: any): EvolvedTemplate {
@@ -46,6 +21,15 @@ export class EvolutionStore {
       type: row.type as TemplateType,
       name: row.name,
       description: row.description,
+      triggers: row.triggers ? JSON.parse(row.triggers) : [],
+      scope: row.scope ?? "general",
+      prerequisites: row.prerequisites ? JSON.parse(row.prerequisites) : [],
+      tools_required: row.tools_required ? JSON.parse(row.tools_required) : [],
+      tools_optional: row.tools_optional ? JSON.parse(row.tools_optional) : [],
+      disciplines_used: row.disciplines_used ? JSON.parse(row.disciplines_used) : [],
+      estimated_steps: row.estimated_steps ?? 0,
+      estimated_duration: row.estimated_duration ?? "",
+      examples: row.examples ? JSON.parse(row.examples) : [],
       steps: row.steps ? JSON.parse(row.steps) : undefined,
       pattern: row.pattern ?? undefined,
       sources: JSON.parse(row.sources),
@@ -68,8 +52,11 @@ export class EvolutionStore {
       INSERT OR REPLACE INTO evolved_templates
       (id, type, name, description, steps, pattern, sources,
        use_count, success_count, fail_count, last_used_at, last_iterated_at,
-       quality_score, version, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       quality_score, version, tags, created_at, updated_at,
+       triggers, scope, prerequisites, tools_required, tools_optional,
+       disciplines_used, estimated_steps, estimated_duration, examples)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       template.id,
       template.type,
@@ -88,79 +75,142 @@ export class EvolutionStore {
       JSON.stringify(template.tags),
       template.createdAt,
       now,
+      JSON.stringify(template.triggers),
+      template.scope,
+      JSON.stringify(template.prerequisites),
+      JSON.stringify(template.tools_required),
+      JSON.stringify(template.tools_optional),
+      JSON.stringify(template.disciplines_used),
+      template.estimated_steps,
+      template.estimated_duration,
+      JSON.stringify(template.examples),
     );
   }
 
   getById(id: string): EvolvedTemplate | null {
-    const row = this.db.prepare("SELECT * FROM evolved_templates WHERE id = ?").get(id);
-    return row ? this.rowToTemplate(row) : null;
+    try {
+      const row = this.db.prepare("SELECT * FROM evolved_templates WHERE id = ?").get(id);
+      return row ? this.rowToTemplate(row) : null;
+    } catch {
+      return null;
+    }
   }
 
   getAll(type?: TemplateType): EvolvedTemplate[] {
-    const rows = type
-      ? this.db.prepare("SELECT * FROM evolved_templates WHERE type = ? ORDER BY quality_score DESC, created_at DESC").all(type)
-      : this.db.prepare("SELECT * FROM evolved_templates ORDER BY quality_score DESC, created_at DESC").all();
-    return (rows as any[]).map(r => this.rowToTemplate(r));
+    try {
+      const rows = type
+        ? this.db.prepare("SELECT * FROM evolved_templates WHERE type = ? ORDER BY quality_score DESC, created_at DESC").all(type)
+        : this.db.prepare("SELECT * FROM evolved_templates ORDER BY quality_score DESC, created_at DESC").all();
+      return (rows as any[]).map(r => this.rowToTemplate(r));
+    } catch {
+      return [];
+    }
   }
 
   search(query: string, type?: TemplateType, limit: number = 20): EvolvedTemplate[] {
-    const pattern = `%${query}%`;
-    let sql = "SELECT * FROM evolved_templates WHERE (name LIKE ? OR description LIKE ? OR tags LIKE ?)";
-    const params: any[] = [pattern, pattern, pattern];
-    if (type) {
-      sql += " AND type = ?";
-      params.push(type);
+    try {
+      const pattern = `%${query}%`;
+      let sql = "SELECT * FROM evolved_templates WHERE (name LIKE ? OR description LIKE ? OR tags LIKE ? OR triggers LIKE ? OR scope LIKE ?)";
+      const params: any[] = [pattern, pattern, pattern, pattern, pattern];
+      if (type) {
+        sql += " AND type = ?";
+        params.push(type);
+      }
+      sql += " ORDER BY quality_score DESC, created_at DESC LIMIT ?";
+      params.push(limit);
+      return (this.db.prepare(sql).all(...params) as any[]).map(r => this.rowToTemplate(r));
+    } catch {
+      return [];
     }
-    sql += " ORDER BY quality_score DESC, created_at DESC LIMIT ?";
-    params.push(limit);
-    return (this.db.prepare(sql).all(...params) as any[]).map(r => this.rowToTemplate(r));
   }
 
   recordUsage(id: string, success: boolean): void {
-    const t = this.getById(id);
-    if (!t) return;
-    const now = Date.now();
-    const useCount = t.useCount + 1;
-    const successCount = t.successCount + (success ? 1 : 0);
-    const failCount = t.failCount + (success ? 0 : 1);
-    const qualityScore = useCount > 0 ? successCount / useCount : 0.5;
-    this.db.prepare(`
-      UPDATE evolved_templates SET
-        use_count = ?, success_count = ?, fail_count = ?,
-        last_used_at = ?, quality_score = ?, updated_at = ?
-      WHERE id = ?
-    `).run(useCount, successCount, failCount, now, qualityScore, now, id);
+    try {
+      const t = this.getById(id);
+      if (!t) return;
+      const now = Date.now();
+      const useCount = t.useCount + 1;
+      const successCount = t.successCount + (success ? 1 : 0);
+      const failCount = t.failCount + (success ? 0 : 1);
+      const qualityScore = useCount > 0 ? successCount / useCount : 0.5;
+      this.db.prepare(`
+        UPDATE evolved_templates SET
+          use_count = ?, success_count = ?, fail_count = ?,
+          last_used_at = ?, quality_score = ?, updated_at = ?
+        WHERE id = ?
+      `).run(useCount, successCount, failCount, now, qualityScore, now, id);
+    } catch {
+      // non-critical
+    }
   }
 
   delete(id: string): void {
-    this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
+    try {
+      this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
+    } catch {
+      // non-critical
+    }
   }
 
   bumpVersion(id: string, updated: Partial<EvolvedTemplate>): void {
-    const t = this.getById(id);
-    if (!t) return;
-    const now = Date.now();
-    const newVersion = (t.version ?? 1) + 1;
-    this.db.prepare(`
-      UPDATE evolved_templates SET
-        version = ?, description = ?, pattern = ?, quality_score = ?,
-        steps = ?, tags = ?, updated_at = ?
-      WHERE id = ?
-    `).run(
-      newVersion,
-      updated.description ?? t.description,
-      updated.pattern ?? t.pattern ?? null,
-      0.5,
-      updated.steps ? JSON.stringify(updated.steps) : (t.steps ? JSON.stringify(t.steps) : null),
-      updated.tags ? JSON.stringify(updated.tags) : (t.tags ? JSON.stringify(t.tags) : null),
-      now, id
-    );
+    try {
+      const t = this.getById(id);
+      if (!t) return;
+      const now = Date.now();
+      const newVersion = (t.version ?? 1) + 1;
+
+      // Merge triggers: union dedup
+      const mergedTriggers = [...new Set([...t.triggers, ...(updated.triggers ?? [])])];
+      // Merge examples: union dedup by input
+      const existingInputs = new Set(t.examples.map(e => e.input));
+      const mergedExamples = [...t.examples];
+      for (const ex of (updated.examples ?? [])) {
+        if (!existingInputs.has(ex.input)) {
+          mergedExamples.push(ex);
+          existingInputs.add(ex.input);
+        }
+      }
+
+      this.db.prepare(`
+        UPDATE evolved_templates SET
+          version = ?, description = ?, pattern = ?, quality_score = ?,
+          steps = ?, tags = ?, updated_at = ?,
+          triggers = ?, scope = ?, prerequisites = ?,
+          tools_required = ?, tools_optional = ?, disciplines_used = ?,
+          estimated_steps = ?, estimated_duration = ?, examples = ?
+        WHERE id = ?
+      `).run(
+        newVersion,
+        updated.description ?? t.description,
+        updated.pattern ?? t.pattern ?? null,
+        0.5,
+        updated.steps ? JSON.stringify(updated.steps) : (t.steps ? JSON.stringify(t.steps) : null),
+        updated.tags ? JSON.stringify(updated.tags) : (t.tags ? JSON.stringify(t.tags) : null),
+        now,
+        JSON.stringify(mergedTriggers),
+        updated.scope ?? t.scope,
+        JSON.stringify([...new Set([...t.prerequisites, ...(updated.prerequisites ?? [])])]),
+        JSON.stringify([...new Set([...t.tools_required, ...(updated.tools_required ?? [])])]),
+        JSON.stringify([...new Set([...t.tools_optional, ...(updated.tools_optional ?? [])])]),
+        JSON.stringify([...new Set([...t.disciplines_used, ...(updated.disciplines_used ?? [])])]),
+        updated.estimated_steps ?? t.estimated_steps,
+        updated.estimated_duration ?? t.estimated_duration,
+        JSON.stringify(mergedExamples),
+        id
+      );
+    } catch {
+      // non-critical
+    }
   }
 
   count(type?: TemplateType): number {
-    const row = type
-      ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type)
-      : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
-    return (row as any).cnt;
+    try {
+      const row = type
+        ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type)
+        : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
+      return (row as any).cnt;
+    } catch {
+      return 0;
+    }
   }
 }

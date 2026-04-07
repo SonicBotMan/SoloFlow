@@ -7,6 +7,7 @@ import Database from "better-sqlite3";
 import type { WorkflowId, StepId, Workflow, WorkflowStep, WorkflowState, DAG, DAGEdge, DAGNode } from "../types.js";
 import path from "node:path";
 import fs from "node:fs";
+import { runMigrations } from "./migrations.js";
 
 export class SqliteStore {
   private readonly db: Database.Database;
@@ -18,70 +19,7 @@ export class SqliteStore {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = NORMAL");
-    this.migrate();
-  }
-
-  private migrate(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS workflows (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        state TEXT NOT NULL DEFAULT 'idle',
-        current_steps TEXT NOT NULL DEFAULT '[]',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        metadata TEXT NOT NULL DEFAULT '{}'
-      );
-
-      CREATE TABLE IF NOT EXISTS workflow_steps (
-        workflow_id TEXT NOT NULL,
-        step_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        discipline TEXT NOT NULL,
-        dependencies TEXT NOT NULL DEFAULT '[]',
-        config TEXT NOT NULL DEFAULT '{}',
-        state TEXT NOT NULL DEFAULT 'pending',
-        result TEXT,
-        error TEXT,
-        started_at INTEGER,
-        completed_at INTEGER,
-        PRIMARY KEY (workflow_id, step_id),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS dag_edges (
-        workflow_id TEXT NOT NULL,
-        edge_from TEXT NOT NULL,
-        edge_to TEXT NOT NULL,
-        PRIMARY KEY (workflow_id, edge_from, edge_to),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS episodic_memory (
-        id TEXT PRIMARY KEY,
-        namespace TEXT NOT NULL DEFAULT 'default',
-        workflow_id TEXT NOT NULL,
-        workflow_name TEXT NOT NULL,
-        final_state TEXT NOT NULL,
-        duration_ms INTEGER NOT NULL DEFAULT 0,
-        step_summary TEXT NOT NULL DEFAULT '[]',
-        compressed INTEGER NOT NULL DEFAULT 0,
-        raw_data TEXT,
-        source TEXT NOT NULL DEFAULT 'workflow_execution',
-        tags TEXT NOT NULL DEFAULT '[]',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS dag_layers (
-        workflow_id TEXT NOT NULL,
-        layer_index INTEGER NOT NULL,
-        step_id TEXT NOT NULL,
-        PRIMARY KEY (workflow_id, layer_index, step_id),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-    `);
+    runMigrations(this.db);
   }
 
   /** Load all workflows from SQLite into memory cache */

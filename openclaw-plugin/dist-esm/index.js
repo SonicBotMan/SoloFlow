@@ -9335,6 +9335,155 @@ var require_dist = __commonJS({
   }
 });
 
+// src/store/migrations.ts
+function runMigrations(db, logger) {
+  const log = logger ?? { warn: (msg) => console.warn(`[migrations] ${msg}`) };
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS _schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      )
+    `);
+  } catch (e) {
+    log.warn(`failed to create migrations table: ${e.message}`);
+    return;
+  }
+  const applied = new Set(
+    db.prepare("SELECT version FROM _schema_migrations").all().map((r) => r.version)
+  );
+  const migrations = [
+    {
+      version: 1,
+      up: (db2) => {
+        db2.exec(`
+          CREATE TABLE IF NOT EXISTS workflows (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL DEFAULT 'idle',
+            current_steps TEXT NOT NULL DEFAULT '[]',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            metadata TEXT NOT NULL DEFAULT '{}'
+          );
+
+          CREATE TABLE IF NOT EXISTS workflow_steps (
+            workflow_id TEXT NOT NULL,
+            step_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            discipline TEXT NOT NULL,
+            dependencies TEXT NOT NULL DEFAULT '[]',
+            config TEXT NOT NULL DEFAULT '{}',
+            state TEXT NOT NULL DEFAULT 'pending',
+            result TEXT,
+            error TEXT,
+            started_at INTEGER,
+            completed_at INTEGER,
+            PRIMARY KEY (workflow_id, step_id),
+            FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS dag_edges (
+            workflow_id TEXT NOT NULL,
+            edge_from TEXT NOT NULL,
+            edge_to TEXT NOT NULL,
+            PRIMARY KEY (workflow_id, edge_from, edge_to),
+            FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS dag_layers (
+            workflow_id TEXT NOT NULL,
+            layer_index INTEGER NOT NULL,
+            step_id TEXT NOT NULL,
+            PRIMARY KEY (workflow_id, layer_index, step_id),
+            FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS episodic_memory (
+            id TEXT PRIMARY KEY,
+            namespace TEXT NOT NULL DEFAULT 'default',
+            workflow_id TEXT NOT NULL,
+            workflow_name TEXT NOT NULL,
+            final_state TEXT NOT NULL,
+            duration_ms INTEGER NOT NULL DEFAULT 0,
+            step_summary TEXT NOT NULL DEFAULT '[]',
+            compressed INTEGER NOT NULL DEFAULT 0,
+            raw_data TEXT,
+            source TEXT NOT NULL DEFAULT 'workflow_execution',
+            tags TEXT NOT NULL DEFAULT '[]',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS evolved_templates (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL CHECK(type IN ('workflow', 'skill')),
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            steps TEXT,
+            pattern TEXT,
+            sources TEXT NOT NULL DEFAULT '[]',
+            use_count INTEGER NOT NULL DEFAULT 0,
+            success_count INTEGER NOT NULL DEFAULT 0,
+            fail_count INTEGER NOT NULL DEFAULT 0,
+            last_used_at INTEGER,
+            last_iterated_at INTEGER,
+            quality_score REAL NOT NULL DEFAULT 0.5,
+            version INTEGER NOT NULL DEFAULT 1,
+            tags TEXT NOT NULL DEFAULT '[]',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_evolved_type ON evolved_templates(type);
+          CREATE INDEX IF NOT EXISTS idx_evolved_quality ON evolved_templates(quality_score);
+        `);
+        db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(1, Date.now());
+      }
+    },
+    {
+      version: 2,
+      up: (db2) => {
+        const columns = [
+          ["triggers", "TEXT NOT NULL DEFAULT '[]'"],
+          ["scope", "TEXT NOT NULL DEFAULT 'general'"],
+          ["prerequisites", "TEXT NOT NULL DEFAULT '[]'"],
+          ["tools_required", "TEXT NOT NULL DEFAULT '[]'"],
+          ["tools_optional", "TEXT NOT NULL DEFAULT '[]'"],
+          ["disciplines_used", "TEXT NOT NULL DEFAULT '[]'"],
+          ["estimated_steps", "INTEGER NOT NULL DEFAULT 0"],
+          ["estimated_duration", "TEXT NOT NULL DEFAULT ''"],
+          ["examples", "TEXT NOT NULL DEFAULT '[]'"]
+        ];
+        for (const [col, def] of columns) {
+          try {
+            db2.exec(`ALTER TABLE evolved_templates ADD COLUMN ${col} ${def}`);
+          } catch (e) {
+            if (!e.message?.includes("duplicate column name")) {
+              log.warn(`migration v2: failed to add column ${col}: ${e.message}`);
+            }
+          }
+        }
+        db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(2, Date.now());
+      }
+    }
+  ];
+  for (const m of migrations) {
+    if (!applied.has(m.version)) {
+      try {
+        m.up(db);
+      } catch (e) {
+        log.warn(`migration v${m.version} failed: ${e.message}`);
+      }
+    }
+  }
+}
+var init_migrations = __esm({
+  "src/store/migrations.ts"() {
+    "use strict";
+  }
+});
+
 // src/store/sqlite-store.ts
 var sqlite_store_exports = {};
 __export(sqlite_store_exports, {
@@ -9347,6 +9496,7 @@ var SqliteStore;
 var init_sqlite_store = __esm({
   "src/store/sqlite-store.ts"() {
     "use strict";
+    init_migrations();
     SqliteStore = class {
       db;
       cache = /* @__PURE__ */ new Map();
@@ -9356,69 +9506,7 @@ var init_sqlite_store = __esm({
         this.db = new Database(dbPath);
         this.db.pragma("journal_mode = WAL");
         this.db.pragma("synchronous = NORMAL");
-        this.migrate();
-      }
-      migrate() {
-        this.db.exec(`
-      CREATE TABLE IF NOT EXISTS workflows (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        state TEXT NOT NULL DEFAULT 'idle',
-        current_steps TEXT NOT NULL DEFAULT '[]',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        metadata TEXT NOT NULL DEFAULT '{}'
-      );
-
-      CREATE TABLE IF NOT EXISTS workflow_steps (
-        workflow_id TEXT NOT NULL,
-        step_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        discipline TEXT NOT NULL,
-        dependencies TEXT NOT NULL DEFAULT '[]',
-        config TEXT NOT NULL DEFAULT '{}',
-        state TEXT NOT NULL DEFAULT 'pending',
-        result TEXT,
-        error TEXT,
-        started_at INTEGER,
-        completed_at INTEGER,
-        PRIMARY KEY (workflow_id, step_id),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS dag_edges (
-        workflow_id TEXT NOT NULL,
-        edge_from TEXT NOT NULL,
-        edge_to TEXT NOT NULL,
-        PRIMARY KEY (workflow_id, edge_from, edge_to),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS episodic_memory (
-        id TEXT PRIMARY KEY,
-        namespace TEXT NOT NULL DEFAULT 'default',
-        workflow_id TEXT NOT NULL,
-        workflow_name TEXT NOT NULL,
-        final_state TEXT NOT NULL,
-        duration_ms INTEGER NOT NULL DEFAULT 0,
-        step_summary TEXT NOT NULL DEFAULT '[]',
-        compressed INTEGER NOT NULL DEFAULT 0,
-        raw_data TEXT,
-        source TEXT NOT NULL DEFAULT 'workflow_execution',
-        tags TEXT NOT NULL DEFAULT '[]',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS dag_layers (
-        workflow_id TEXT NOT NULL,
-        layer_index INTEGER NOT NULL,
-        step_id TEXT NOT NULL,
-        PRIMARY KEY (workflow_id, layer_index, step_id),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-    `);
+        runMigrations(this.db);
       }
       /** Load all workflows from SQLite into memory cache */
       loadAll() {
@@ -9642,32 +9730,6 @@ var init_evolution_store = __esm({
       // better-sqlite3 Database
       constructor(db) {
         this.db = db;
-        this.migrate();
-      }
-      migrate() {
-        this.db.exec(`
-      CREATE TABLE IF NOT EXISTS evolved_templates (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL CHECK(type IN ('workflow', 'skill')),
-        name TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        steps TEXT,
-        pattern TEXT,
-        sources TEXT NOT NULL DEFAULT '[]',
-        use_count INTEGER NOT NULL DEFAULT 0,
-        success_count INTEGER NOT NULL DEFAULT 0,
-        fail_count INTEGER NOT NULL DEFAULT 0,
-        last_used_at INTEGER,
-        last_iterated_at INTEGER,
-        quality_score REAL NOT NULL DEFAULT 0.5,
-        version INTEGER NOT NULL DEFAULT 1,
-        tags TEXT NOT NULL DEFAULT '[]',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_evolved_type ON evolved_templates(type);
-      CREATE INDEX IF NOT EXISTS idx_evolved_quality ON evolved_templates(quality_score);
-    `);
       }
       rowToTemplate(row) {
         return {
@@ -9675,6 +9737,15 @@ var init_evolution_store = __esm({
           type: row.type,
           name: row.name,
           description: row.description,
+          triggers: row.triggers ? JSON.parse(row.triggers) : [],
+          scope: row.scope ?? "general",
+          prerequisites: row.prerequisites ? JSON.parse(row.prerequisites) : [],
+          tools_required: row.tools_required ? JSON.parse(row.tools_required) : [],
+          tools_optional: row.tools_optional ? JSON.parse(row.tools_optional) : [],
+          disciplines_used: row.disciplines_used ? JSON.parse(row.disciplines_used) : [],
+          estimated_steps: row.estimated_steps ?? 0,
+          estimated_duration: row.estimated_duration ?? "",
+          examples: row.examples ? JSON.parse(row.examples) : [],
           steps: row.steps ? JSON.parse(row.steps) : void 0,
           pattern: row.pattern ?? void 0,
           sources: JSON.parse(row.sources),
@@ -9696,8 +9767,11 @@ var init_evolution_store = __esm({
       INSERT OR REPLACE INTO evolved_templates
       (id, type, name, description, steps, pattern, sources,
        use_count, success_count, fail_count, last_used_at, last_iterated_at,
-       quality_score, version, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       quality_score, version, tags, created_at, updated_at,
+       triggers, scope, prerequisites, tools_required, tools_optional,
+       disciplines_used, estimated_steps, estimated_duration, examples)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
           template.id,
           template.type,
@@ -9715,71 +9789,126 @@ var init_evolution_store = __esm({
           template.version,
           JSON.stringify(template.tags),
           template.createdAt,
-          now2
+          now2,
+          JSON.stringify(template.triggers),
+          template.scope,
+          JSON.stringify(template.prerequisites),
+          JSON.stringify(template.tools_required),
+          JSON.stringify(template.tools_optional),
+          JSON.stringify(template.disciplines_used),
+          template.estimated_steps,
+          template.estimated_duration,
+          JSON.stringify(template.examples)
         );
       }
       getById(id) {
-        const row = this.db.prepare("SELECT * FROM evolved_templates WHERE id = ?").get(id);
-        return row ? this.rowToTemplate(row) : null;
+        try {
+          const row = this.db.prepare("SELECT * FROM evolved_templates WHERE id = ?").get(id);
+          return row ? this.rowToTemplate(row) : null;
+        } catch {
+          return null;
+        }
       }
       getAll(type) {
-        const rows = type ? this.db.prepare("SELECT * FROM evolved_templates WHERE type = ? ORDER BY quality_score DESC, created_at DESC").all(type) : this.db.prepare("SELECT * FROM evolved_templates ORDER BY quality_score DESC, created_at DESC").all();
-        return rows.map((r) => this.rowToTemplate(r));
+        try {
+          const rows = type ? this.db.prepare("SELECT * FROM evolved_templates WHERE type = ? ORDER BY quality_score DESC, created_at DESC").all(type) : this.db.prepare("SELECT * FROM evolved_templates ORDER BY quality_score DESC, created_at DESC").all();
+          return rows.map((r) => this.rowToTemplate(r));
+        } catch {
+          return [];
+        }
       }
       search(query, type, limit = 20) {
-        const pattern = `%${query}%`;
-        let sql = "SELECT * FROM evolved_templates WHERE (name LIKE ? OR description LIKE ? OR tags LIKE ?)";
-        const params = [pattern, pattern, pattern];
-        if (type) {
-          sql += " AND type = ?";
-          params.push(type);
+        try {
+          const pattern = `%${query}%`;
+          let sql = "SELECT * FROM evolved_templates WHERE (name LIKE ? OR description LIKE ? OR tags LIKE ? OR triggers LIKE ? OR scope LIKE ?)";
+          const params = [pattern, pattern, pattern, pattern, pattern];
+          if (type) {
+            sql += " AND type = ?";
+            params.push(type);
+          }
+          sql += " ORDER BY quality_score DESC, created_at DESC LIMIT ?";
+          params.push(limit);
+          return this.db.prepare(sql).all(...params).map((r) => this.rowToTemplate(r));
+        } catch {
+          return [];
         }
-        sql += " ORDER BY quality_score DESC, created_at DESC LIMIT ?";
-        params.push(limit);
-        return this.db.prepare(sql).all(...params).map((r) => this.rowToTemplate(r));
       }
       recordUsage(id, success) {
-        const t = this.getById(id);
-        if (!t) return;
-        const now2 = Date.now();
-        const useCount = t.useCount + 1;
-        const successCount = t.successCount + (success ? 1 : 0);
-        const failCount = t.failCount + (success ? 0 : 1);
-        const qualityScore = useCount > 0 ? successCount / useCount : 0.5;
-        this.db.prepare(`
-      UPDATE evolved_templates SET
-        use_count = ?, success_count = ?, fail_count = ?,
-        last_used_at = ?, quality_score = ?, updated_at = ?
-      WHERE id = ?
-    `).run(useCount, successCount, failCount, now2, qualityScore, now2, id);
+        try {
+          const t = this.getById(id);
+          if (!t) return;
+          const now2 = Date.now();
+          const useCount = t.useCount + 1;
+          const successCount = t.successCount + (success ? 1 : 0);
+          const failCount = t.failCount + (success ? 0 : 1);
+          const qualityScore = useCount > 0 ? successCount / useCount : 0.5;
+          this.db.prepare(`
+        UPDATE evolved_templates SET
+          use_count = ?, success_count = ?, fail_count = ?,
+          last_used_at = ?, quality_score = ?, updated_at = ?
+        WHERE id = ?
+      `).run(useCount, successCount, failCount, now2, qualityScore, now2, id);
+        } catch {
+        }
       }
       delete(id) {
-        this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
+        try {
+          this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
+        } catch {
+        }
       }
       bumpVersion(id, updated) {
-        const t = this.getById(id);
-        if (!t) return;
-        const now2 = Date.now();
-        const newVersion = (t.version ?? 1) + 1;
-        this.db.prepare(`
-      UPDATE evolved_templates SET
-        version = ?, description = ?, pattern = ?, quality_score = ?,
-        steps = ?, tags = ?, updated_at = ?
-      WHERE id = ?
-    `).run(
-          newVersion,
-          updated.description ?? t.description,
-          updated.pattern ?? t.pattern ?? null,
-          0.5,
-          updated.steps ? JSON.stringify(updated.steps) : t.steps ? JSON.stringify(t.steps) : null,
-          updated.tags ? JSON.stringify(updated.tags) : t.tags ? JSON.stringify(t.tags) : null,
-          now2,
-          id
-        );
+        try {
+          const t = this.getById(id);
+          if (!t) return;
+          const now2 = Date.now();
+          const newVersion = (t.version ?? 1) + 1;
+          const mergedTriggers = [.../* @__PURE__ */ new Set([...t.triggers, ...updated.triggers ?? []])];
+          const existingInputs = new Set(t.examples.map((e) => e.input));
+          const mergedExamples = [...t.examples];
+          for (const ex of updated.examples ?? []) {
+            if (!existingInputs.has(ex.input)) {
+              mergedExamples.push(ex);
+              existingInputs.add(ex.input);
+            }
+          }
+          this.db.prepare(`
+        UPDATE evolved_templates SET
+          version = ?, description = ?, pattern = ?, quality_score = ?,
+          steps = ?, tags = ?, updated_at = ?,
+          triggers = ?, scope = ?, prerequisites = ?,
+          tools_required = ?, tools_optional = ?, disciplines_used = ?,
+          estimated_steps = ?, estimated_duration = ?, examples = ?
+        WHERE id = ?
+      `).run(
+            newVersion,
+            updated.description ?? t.description,
+            updated.pattern ?? t.pattern ?? null,
+            0.5,
+            updated.steps ? JSON.stringify(updated.steps) : t.steps ? JSON.stringify(t.steps) : null,
+            updated.tags ? JSON.stringify(updated.tags) : t.tags ? JSON.stringify(t.tags) : null,
+            now2,
+            JSON.stringify(mergedTriggers),
+            updated.scope ?? t.scope,
+            JSON.stringify([.../* @__PURE__ */ new Set([...t.prerequisites, ...updated.prerequisites ?? []])]),
+            JSON.stringify([.../* @__PURE__ */ new Set([...t.tools_required, ...updated.tools_required ?? []])]),
+            JSON.stringify([.../* @__PURE__ */ new Set([...t.tools_optional, ...updated.tools_optional ?? []])]),
+            JSON.stringify([.../* @__PURE__ */ new Set([...t.disciplines_used, ...updated.disciplines_used ?? []])]),
+            updated.estimated_steps ?? t.estimated_steps,
+            updated.estimated_duration ?? t.estimated_duration,
+            JSON.stringify(mergedExamples),
+            id
+          );
+        } catch {
+        }
       }
       count(type) {
-        const row = type ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type) : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
-        return row.cnt;
+        try {
+          const row = type ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type) : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
+          return row.cnt;
+        } catch {
+          return 0;
+        }
       }
     };
   }
@@ -9790,6 +9919,23 @@ var analyzer_exports = {};
 __export(analyzer_exports, {
   EvolutionAnalyzer: () => EvolutionAnalyzer
 });
+function calculateOverlap(a, b) {
+  if (a.length === 0 && b.length === 0) return 0;
+  const setA = new Set(a.map((s) => s.toLowerCase()));
+  const setB = new Set(b.map((s) => s.toLowerCase()));
+  let intersection = 0;
+  for (const item of setA) {
+    if (setB.has(item)) intersection++;
+  }
+  const union = (/* @__PURE__ */ new Set([...setA, ...setB])).size;
+  return union === 0 ? 0 : intersection / union;
+}
+function extractKeyPhrase(description) {
+  if (!description) return null;
+  const sentence = description.split(/[.!?\n]/)[0] ?? "";
+  const words = sentence.split(/\s+/).filter((w) => w.length > 3).slice(0, 3);
+  return words.length > 0 ? words.join(" ") : null;
+}
 var EvolutionAnalyzer;
 var init_analyzer = __esm({
   "src/evolution/analyzer.ts"() {
@@ -9826,7 +9972,7 @@ var init_analyzer = __esm({
         try {
           const all = this.evolutionStore.getAll();
           for (const t of all) {
-            existingTemplates.push({ id: t.id, name: t.name, type: t.type });
+            existingTemplates.push({ id: t.id, name: t.name, type: t.type, triggers: t.triggers, tools_required: t.tools_required });
           }
         } catch {
         }
@@ -9845,10 +9991,23 @@ ${JSON.stringify(existingTemplates, null, 2)}
 Identify patterns that appear more than once or represent a complete useful workflow:
 
 1. **Workflow Templates**: Multi-step processes that could be reused. For each, provide:
-   - name (concise), description (what it does), steps array with: id, name, discipline (deep|quick|visual|ultrabrain), action (the prompt text), dependencies (array of step ids), tags
+   - name (concise), description (what it does)
+   - triggers (array of natural language scenarios, e.g. ["when user asks for X", "when Y needs analysis"])
+   - scope (one of: "general", "code-review", "content-creation", "data-analysis", "research", "automation", "communication")
+   - prerequisites (array of preconditions, e.g. ["needs internet access"])
+   - tools_required (array of tool names used, e.g. ["web_search", "weather"])
+   - tools_optional (array of optional tools)
+   - disciplines_used (array from: "deep", "quick", "visual", "ultrabrain")
+   - estimated_duration (one of: "<1min", "1-5min", "5-15min", "15-60min", ">1h")
+   - examples (array of {input, expected_output} showing typical use cases, 1-3 examples)
+   - steps array with: id, name, discipline (deep|quick|visual|ultrabrain), action (the prompt text), dependencies (array of step ids)
+   - tags
 
 2. **Skill Patterns**: Single-step reusable operations. For each, provide:
-   - name, description, pattern (the reusable prompt/action text), tags
+   - name, description, pattern (the reusable prompt/action text)
+   - triggers, scope, prerequisites, tools_required, tools_optional, disciplines_used, estimated_duration
+   - examples (array of {input, expected_output})
+   - tags
 
 Only extract patterns that are genuinely reusable. Skip one-off workflows unless they represent a common archetype.
 
@@ -9865,7 +10024,6 @@ Output ONLY valid JSON (no markdown, no explanation):
       /**
        * Direct HTTP call to LLM API.
        * Reads config from openclaw.json to get baseUrl + apiKey.
-       * Falls back to GLM-5 free API if no config found.
        */
       async callLLM(prompt) {
         const baseUrl = this.getBaseUrl();
@@ -9923,7 +10081,6 @@ Output ONLY valid JSON (no markdown, no explanation):
         }
         return _EvolutionAnalyzer.providerConfig;
       }
-      /** Get base URL from openclaw.json providers */
       getBaseUrl() {
         const providers = this.getProviderConfig();
         const zai = providers["zai"];
@@ -9933,7 +10090,6 @@ Output ONLY valid JSON (no markdown, no explanation):
         }
         return "";
       }
-      /** Get API key from openclaw.json providers */
       getApiKey() {
         const providers = this.getProviderConfig();
         const zai = providers["zai"];
@@ -9943,7 +10099,6 @@ Output ONLY valid JSON (no markdown, no explanation):
         }
         return "";
       }
-      /** Get model ID */
       getModel() {
         const providers = this.getProviderConfig();
         const zai = providers["zai"];
@@ -9965,7 +10120,7 @@ Output ONLY valid JSON (no markdown, no explanation):
         let parsed;
         try {
           parsed = JSON.parse(jsonStr);
-        } catch (_e) {
+        } catch {
           return { templates: 0, skills: 0 };
         }
         let wfCount = 0;
@@ -9974,84 +10129,99 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
           for (const wf of parsed.workflows) {
             if (!wf.name) continue;
-            const existingWf = this.evolutionStore.search(wf.name, "workflow", 1);
-            if (existingWf.length > 0 && existingWf[0].name === wf.name) {
-              this.evolutionStore.bumpVersion(existingWf[0].id, {
-                description: wf.description,
-                steps: wf.steps,
-                tags: wf.tags
-              });
-              wfCount++;
-              continue;
+            const template = this.buildTemplate("workflow", wf, now2);
+            if (!template) continue;
+            const { merged } = this.smartMerge(template);
+            if (!merged) {
+              try {
+                await this.onTemplateFound(template);
+              } catch {
+              }
             }
-            const template = {
-              id: `wf_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-              type: "workflow",
-              name: wf.name,
-              description: wf.description ?? "",
-              steps: wf.steps?.map((s, i) => ({
-                id: s.id ?? `step_${i + 1}`,
-                name: s.name ?? `Step ${i + 1}`,
-                discipline: s.discipline ?? "quick",
-                action: s.action ?? s.name ?? "",
-                dependencies: s.dependencies ?? []
-              })),
-              sources: wf.sources ?? [],
-              useCount: 0,
-              successCount: 0,
-              failCount: 0,
-              lastUsedAt: null,
-              lastIteratedAt: null,
-              qualityScore: 0.5,
-              version: 1,
-              tags: wf.tags ?? [],
-              createdAt: now2,
-              updatedAt: now2
-            };
-            await this.onTemplateFound(template);
             wfCount++;
           }
         }
         if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
           for (const sk of parsed.skills) {
             if (!sk.name) continue;
-            const existingSk = this.evolutionStore.search(sk.name, "skill", 1);
-            if (existingSk.length > 0 && existingSk[0].name === sk.name) {
-              this.evolutionStore.bumpVersion(existingSk[0].id, {
-                description: sk.description,
-                pattern: sk.pattern,
-                tags: sk.tags
-              });
-              skCount++;
-              continue;
+            const template = this.buildTemplate("skill", sk, now2);
+            if (!template) continue;
+            const { merged } = this.smartMerge(template);
+            if (!merged) {
+              try {
+                await this.onTemplateFound(template);
+              } catch {
+              }
             }
-            const template = {
-              id: `sk_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-              type: "skill",
-              name: sk.name,
-              description: sk.description ?? "",
-              pattern: sk.pattern ?? "",
-              sources: sk.sources ?? [],
-              useCount: 0,
-              successCount: 0,
-              failCount: 0,
-              lastUsedAt: null,
-              lastIteratedAt: null,
-              qualityScore: 0.5,
-              version: 1,
-              tags: sk.tags ?? [],
-              createdAt: now2,
-              updatedAt: now2
-            };
-            await this.onTemplateFound(template);
             skCount++;
           }
         }
         return { templates: wfCount, skills: skCount };
       }
-      /**
-       * Auto-optimize: archive templates with quality < 0.3 and uses >= 3
-       */
+      /** Build an EvolvedTemplate from LLM output with graceful defaults */
+      buildTemplate(type, raw, now2) {
+        const prefix = type === "workflow" ? "wf_evo" : "sk_evo";
+        const template = {
+          id: `${prefix}_${now2.toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+          type,
+          name: raw.name,
+          description: raw.description ?? "",
+          triggers: Array.isArray(raw.triggers) ? raw.triggers : [],
+          scope: typeof raw.scope === "string" ? raw.scope : "general",
+          prerequisites: Array.isArray(raw.prerequisites) ? raw.prerequisites : [],
+          tools_required: Array.isArray(raw.tools_required) ? raw.tools_required : [],
+          tools_optional: Array.isArray(raw.tools_optional) ? raw.tools_optional : [],
+          disciplines_used: Array.isArray(raw.disciplines_used) ? raw.disciplines_used : [],
+          estimated_steps: type === "workflow" ? raw.steps?.length ?? 0 : 0,
+          estimated_duration: typeof raw.estimated_duration === "string" ? raw.estimated_duration : "",
+          examples: Array.isArray(raw.examples) ? raw.examples.filter((e) => e.input) : [],
+          sources: Array.isArray(raw.sources) ? raw.sources : [],
+          useCount: 0,
+          successCount: 0,
+          failCount: 0,
+          lastUsedAt: null,
+          lastIteratedAt: null,
+          qualityScore: 0.5,
+          version: 1,
+          tags: Array.isArray(raw.tags) ? raw.tags : [],
+          createdAt: now2,
+          updatedAt: now2
+        };
+        if (type === "workflow" && raw.steps) {
+          template.steps = raw.steps.map((s, i) => ({
+            id: s.id ?? `step_${i + 1}`,
+            name: s.name ?? `Step ${i + 1}`,
+            discipline: s.discipline ?? "quick",
+            action: s.action ?? s.name ?? "",
+            dependencies: s.dependencies ?? []
+          }));
+        }
+        if (type === "skill") {
+          template.pattern = raw.pattern ?? "";
+        }
+        return template;
+      }
+      /** Smart merge: check for semantic overlap with existing templates */
+      smartMerge(template) {
+        try {
+          const existing = this.evolutionStore.search(template.name, template.type, 20);
+          for (const ex of existing) {
+            const triggerOverlap = calculateOverlap(template.triggers, ex.triggers);
+            const toolsOverlap = calculateOverlap(template.tools_required, ex.tools_required);
+            const combinedScore = (triggerOverlap + toolsOverlap) / 2;
+            if (combinedScore >= 0.6) {
+              this.evolutionStore.bumpVersion(ex.id, template);
+              return { merged: true };
+            } else if (ex.name === template.name && combinedScore < 0.6) {
+              const suffix = extractKeyPhrase(template.description) || template.scope;
+              template.name = `${template.name} (${suffix})`;
+              return { merged: false };
+            }
+          }
+        } catch {
+        }
+        return { merged: false };
+      }
       cleanupLowQualityTemplates() {
         try {
           const all = this.evolutionStore.getAll();

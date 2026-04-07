@@ -19,6 +19,28 @@ export interface EvolutionResult {
   skills: number;
 }
 
+/** Jaccard similarity on lowercased word sets */
+function calculateOverlap(a: string[], b: string[]): number {
+  if (a.length === 0 && b.length === 0) return 0;
+  const setA = new Set(a.map(s => s.toLowerCase()));
+  const setB = new Set(b.map(s => s.toLowerCase()));
+  let intersection = 0;
+  for (const item of setA) {
+    if (setB.has(item)) intersection++;
+  }
+  const union = new Set([...setA, ...setB]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/** Extract a short key phrase from description (first meaningful noun phrase, max 3 words) */
+function extractKeyPhrase(description: string): string | null {
+  if (!description) return null;
+  // Take first sentence, split into words, grab up to 3 content words
+  const sentence = description.split(/[.!?\n]/)[0] ?? "";
+  const words = sentence.split(/\s+/).filter(w => w.length > 3).slice(0, 3);
+  return words.length > 0 ? words.join(" ") : null;
+}
+
 export class EvolutionAnalyzer {
   private api: OpenClawPluginApi;
   private memorySystem: any;
@@ -57,7 +79,7 @@ export class EvolutionAnalyzer {
     try {
       const all = this.evolutionStore.getAll();
       for (const t of all) {
-        existingTemplates.push({ id: t.id, name: t.name, type: t.type });
+        existingTemplates.push({ id: t.id, name: t.name, type: t.type, triggers: t.triggers, tools_required: t.tools_required });
       }
     } catch {
       // store may not be ready
@@ -80,10 +102,23 @@ ${JSON.stringify(existingTemplates, null, 2)}
 Identify patterns that appear more than once or represent a complete useful workflow:
 
 1. **Workflow Templates**: Multi-step processes that could be reused. For each, provide:
-   - name (concise), description (what it does), steps array with: id, name, discipline (deep|quick|visual|ultrabrain), action (the prompt text), dependencies (array of step ids), tags
+   - name (concise), description (what it does)
+   - triggers (array of natural language scenarios, e.g. ["when user asks for X", "when Y needs analysis"])
+   - scope (one of: "general", "code-review", "content-creation", "data-analysis", "research", "automation", "communication")
+   - prerequisites (array of preconditions, e.g. ["needs internet access"])
+   - tools_required (array of tool names used, e.g. ["web_search", "weather"])
+   - tools_optional (array of optional tools)
+   - disciplines_used (array from: "deep", "quick", "visual", "ultrabrain")
+   - estimated_duration (one of: "<1min", "1-5min", "5-15min", "15-60min", ">1h")
+   - examples (array of {input, expected_output} showing typical use cases, 1-3 examples)
+   - steps array with: id, name, discipline (deep|quick|visual|ultrabrain), action (the prompt text), dependencies (array of step ids)
+   - tags
 
 2. **Skill Patterns**: Single-step reusable operations. For each, provide:
-   - name, description, pattern (the reusable prompt/action text), tags
+   - name, description, pattern (the reusable prompt/action text)
+   - triggers, scope, prerequisites, tools_required, tools_optional, disciplines_used, estimated_duration
+   - examples (array of {input, expected_output})
+   - tags
 
 Only extract patterns that are genuinely reusable. Skip one-off workflows unless they represent a common archetype.
 
@@ -108,10 +143,8 @@ Output ONLY valid JSON (no markdown, no explanation):
   /**
    * Direct HTTP call to LLM API.
    * Reads config from openclaw.json to get baseUrl + apiKey.
-   * Falls back to GLM-5 free API if no config found.
    */
   private async callLLM(prompt: string): Promise<string | null> {
-    // Try to read provider config from the api object
     const baseUrl = this.getBaseUrl();
     const apiKey = this.getApiKey();
 
@@ -149,7 +182,6 @@ Output ONLY valid JSON (no markdown, no explanation):
       const data = (await response.json()) as any;
       return data.choices?.[0]?.message?.content ?? null;
     } catch (e) {
-      // Log but don't throw — evolution is non-critical
       const msg = e instanceof Error ? e.message : String(e);
       this.api.logger.warn(`evolution LLM call failed: ${msg}`);
       return null;
@@ -175,20 +207,16 @@ Output ONLY valid JSON (no markdown, no explanation):
     return EvolutionAnalyzer.providerConfig;
   }
 
-  /** Get base URL from openclaw.json providers */
   private getBaseUrl(): string {
     const providers = this.getProviderConfig();
-    // Try zai (GLM) first — it's free
     const zai = providers["zai"];
     if (zai?.baseUrl) return zai.baseUrl as string;
-    // Try any provider with a baseUrl
     for (const p of Object.values(providers)) {
       if ((p as any).baseUrl) return (p as any).baseUrl as string;
     }
     return "";
   }
 
-  /** Get API key from openclaw.json providers */
   private getApiKey(): string {
     const providers = this.getProviderConfig();
     const zai = providers["zai"];
@@ -199,7 +227,6 @@ Output ONLY valid JSON (no markdown, no explanation):
     return "";
   }
 
-  /** Get model ID */
   private getModel(): string {
     const providers = this.getProviderConfig();
     const zai = providers["zai"];
@@ -216,7 +243,6 @@ Output ONLY valid JSON (no markdown, no explanation):
       jsonStr = jsonMatch[1].trim();
     }
 
-    // Find the JSON object
     const braceStart = jsonStr.indexOf("{");
     const braceEnd = jsonStr.lastIndexOf("}");
     if (braceStart === -1 || braceEnd === -1) {
@@ -227,7 +253,7 @@ Output ONLY valid JSON (no markdown, no explanation):
     let parsed: any;
     try {
       parsed = JSON.parse(jsonStr);
-    } catch (_e) {
+    } catch {
       return { templates: 0, skills: 0 };
     }
 
@@ -239,42 +265,13 @@ Output ONLY valid JSON (no markdown, no explanation):
     if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
       for (const wf of parsed.workflows) {
         if (!wf.name) continue;
-        // Dedup: check if similar template exists
-        const existingWf = this.evolutionStore.search(wf.name, "workflow", 1);
-        if (existingWf.length > 0 && existingWf[0].name === wf.name) {
-          this.evolutionStore.bumpVersion(existingWf[0].id, {
-            description: wf.description,
-            steps: wf.steps,
-            tags: wf.tags,
-          });
-          wfCount++; // count as updated, not new
-          continue;
+        const template = this.buildTemplate("workflow", wf, now);
+        if (!template) continue;
+
+        const { merged } = this.smartMerge(template);
+        if (!merged) {
+          try { await this.onTemplateFound(template); } catch { /* non-critical */ }
         }
-        const template: EvolvedTemplate = {
-          id: `wf_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-          type: "workflow",
-          name: wf.name,
-          description: wf.description ?? "",
-          steps: wf.steps?.map((s: any, i: number) => ({
-            id: s.id ?? `step_${i + 1}`,
-            name: s.name ?? `Step ${i + 1}`,
-            discipline: s.discipline ?? "quick",
-            action: s.action ?? s.name ?? "",
-            dependencies: s.dependencies ?? [],
-          })),
-          sources: wf.sources ?? [],
-          useCount: 0,
-          successCount: 0,
-          failCount: 0,
-          lastUsedAt: null,
-          lastIteratedAt: null,
-          qualityScore: 0.5,
-          version: 1,
-          tags: wf.tags ?? [],
-          createdAt: now,
-          updatedAt: now,
-        };
-        await this.onTemplateFound(template);
         wfCount++;
       }
     }
@@ -283,36 +280,13 @@ Output ONLY valid JSON (no markdown, no explanation):
     if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
       for (const sk of parsed.skills) {
         if (!sk.name) continue;
-        // Dedup: check if similar template exists
-        const existingSk = this.evolutionStore.search(sk.name, "skill", 1);
-        if (existingSk.length > 0 && existingSk[0].name === sk.name) {
-          this.evolutionStore.bumpVersion(existingSk[0].id, {
-            description: sk.description,
-            pattern: sk.pattern,
-            tags: sk.tags,
-          });
-          skCount++; // count as updated, not new
-          continue;
+        const template = this.buildTemplate("skill", sk, now);
+        if (!template) continue;
+
+        const { merged } = this.smartMerge(template);
+        if (!merged) {
+          try { await this.onTemplateFound(template); } catch { /* non-critical */ }
         }
-        const template: EvolvedTemplate = {
-          id: `sk_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-          type: "skill",
-          name: sk.name,
-          description: sk.description ?? "",
-          pattern: sk.pattern ?? "",
-          sources: sk.sources ?? [],
-          useCount: 0,
-          successCount: 0,
-          failCount: 0,
-          lastUsedAt: null,
-          lastIteratedAt: null,
-          qualityScore: 0.5,
-          version: 1,
-          tags: sk.tags ?? [],
-          createdAt: now,
-          updatedAt: now,
-        };
-        await this.onTemplateFound(template);
         skCount++;
       }
     }
@@ -320,9 +294,81 @@ Output ONLY valid JSON (no markdown, no explanation):
     return { templates: wfCount, skills: skCount };
   }
 
-  /**
-   * Auto-optimize: archive templates with quality < 0.3 and uses >= 3
-   */
+  /** Build an EvolvedTemplate from LLM output with graceful defaults */
+  private buildTemplate(type: "workflow" | "skill", raw: any, now: number): EvolvedTemplate | null {
+    const prefix = type === "workflow" ? "wf_evo" : "sk_evo";
+    const template: EvolvedTemplate = {
+      id: `${prefix}_${now.toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      type,
+      name: raw.name,
+      description: raw.description ?? "",
+      triggers: Array.isArray(raw.triggers) ? raw.triggers : [],
+      scope: typeof raw.scope === "string" ? raw.scope : "general",
+      prerequisites: Array.isArray(raw.prerequisites) ? raw.prerequisites : [],
+      tools_required: Array.isArray(raw.tools_required) ? raw.tools_required : [],
+      tools_optional: Array.isArray(raw.tools_optional) ? raw.tools_optional : [],
+      disciplines_used: Array.isArray(raw.disciplines_used) ? raw.disciplines_used : [],
+      estimated_steps: type === "workflow" ? (raw.steps?.length ?? 0) : 0,
+      estimated_duration: typeof raw.estimated_duration === "string" ? raw.estimated_duration : "",
+      examples: Array.isArray(raw.examples) ? raw.examples.filter((e: any) => e.input) : [],
+      sources: Array.isArray(raw.sources) ? raw.sources : [],
+      useCount: 0,
+      successCount: 0,
+      failCount: 0,
+      lastUsedAt: null,
+      lastIteratedAt: null,
+      qualityScore: 0.5,
+      version: 1,
+      tags: Array.isArray(raw.tags) ? raw.tags : [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (type === "workflow" && raw.steps) {
+      template.steps = raw.steps.map((s: any, i: number) => ({
+        id: s.id ?? `step_${i + 1}`,
+        name: s.name ?? `Step ${i + 1}`,
+        discipline: s.discipline ?? "quick",
+        action: s.action ?? s.name ?? "",
+        dependencies: s.dependencies ?? [],
+      }));
+    }
+
+    if (type === "skill") {
+      template.pattern = raw.pattern ?? "";
+    }
+
+    return template;
+  }
+
+  /** Smart merge: check for semantic overlap with existing templates */
+  private smartMerge(template: EvolvedTemplate): { merged: boolean } {
+    try {
+      const existing = this.evolutionStore.search(template.name, template.type, 20);
+
+      for (const ex of existing) {
+        const triggerOverlap = calculateOverlap(template.triggers, ex.triggers);
+        const toolsOverlap = calculateOverlap(template.tools_required, ex.tools_required);
+        const combinedScore = (triggerOverlap + toolsOverlap) / 2;
+
+        if (combinedScore >= 0.6) {
+          // Merge: bump version, union triggers/examples
+          this.evolutionStore.bumpVersion(ex.id, template);
+          return { merged: true };
+        } else if (ex.name === template.name && combinedScore < 0.6) {
+          // Same name but different function — add suffix
+          const suffix = extractKeyPhrase(template.description) || template.scope;
+          template.name = `${template.name} (${suffix})`;
+          return { merged: false };
+        }
+      }
+    } catch {
+      // non-critical
+    }
+
+    return { merged: false };
+  }
+
   private cleanupLowQualityTemplates(): void {
     try {
       const all = this.evolutionStore.getAll();
