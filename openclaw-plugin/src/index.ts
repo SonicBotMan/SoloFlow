@@ -713,10 +713,18 @@ export default definePluginEntry({
               type: t.type,
               name: t.name,
               description: t.description,
+              triggers: t.triggers ?? [],
+              scope: t.scope ?? "general",
+              prerequisites: t.prerequisites ?? [],
+              tools_required: t.tools_required ?? [],
+              tools_optional: t.tools_optional ?? [],
+              estimated_duration: t.estimatedDuration ?? "",
+              examples: t.examples ?? [],
               quality: t.qualityScore.toFixed(2),
               uses: t.useCount,
               version: t.version,
               ...(t.type === "workflow" ? { steps: t.steps?.length ?? 0 } : {}),
+              ...(t.pattern ? { pattern: t.pattern } : {}),
               tags: t.tags,
             }));
             return {
