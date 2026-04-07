@@ -488,46 +488,82 @@ export WORKFLOW_ENGINE_API_KEY="your-api-key"
 export WORKFLOW_GATEWAY_URL="ws://localhost:3000"
 ```
 
-### Run Your First Workflow
+### Quick Start (3 steps)
+
+SoloFlow works through your AI agent — just ask naturally. No slash commands needed.
+
+**Step 1: Install & Restart**
 
 ```bash
-# Via slash command
-/workflow start --steps "fetch-data:quick,analyze:deep:fetch-data,report:quick:analyze"
+# Install via ClawHub
+clawhub install soloflow
 
-# Or create + start in sequence
-/workflow start --template code-review-workflow
+# Restart gateway to load the plugin
+openclaw gateway restart
 ```
 
-Programmatic access via RPC:
+**Step 2: Create Your First Workflow**
 
-```typescript
-const { id } = await api.rpc.call("workflow.create", {
-  steps: [
-    { id: "research",  name: "Research topic",        discipline: "deep",       dependencies: [],           config: { prompt: "Research AI agent frameworks" } },
-    { id: "analyze",   name: "Analyze findings",      discipline: "ultrabrain", dependencies: ["research"], config: { prompt: "Compare and rank by features" } },
-    { id: "visualize", name: "Create comparison chart", discipline: "visual",    dependencies: ["analyze"],  config: { prompt: "Generate a comparison table" } },
-  ],
-});
+Just tell your agent what you need. Examples:
 
-await api.rpc.call("workflow.start", { id });
-
-// Check progress
-const status = await api.rpc.call("workflow.status", { id, verbose: true });
-console.log(status.steps);
+```
+"Create a 3-step workflow: research AI frameworks (deep), analyze findings (ultrabrain), write a report (deep)"
 ```
 
-### Use a Built-in Template
+Or use the tool directly:
 
-SoloFlow ships with ready-made workflow templates:
-
-```typescript
-import { codeReviewWorkflow } from "./examples/code-review-workflow";
-
-// 3-step code review: quick read → ultrabrain analysis → deep report
-// Layer 0: review-read (quick)
-// Layer 1: review-analyze (ultrabrain)
-// Layer 2: review-report (deep)
 ```
+→ soloflow_create(name="Code Review", steps=[
+    {id: "read", name: "Read code", discipline: "deep", action: "Review the PR diff"},
+    {id: "analyze", name: "Analyze", discipline: "ultrabrain", action: "Find issues and suggest fixes", dependencies: ["read"]},
+    {id: "report", name: "Report", discipline: "quick", action: "Summarize findings", dependencies: ["analyze"]}
+  ])
+```
+
+**Step 3: Start & Monitor**
+
+```
+→ soloflow_start(workflowId="...")
+→ soloflow_status(workflowId="...")
+```
+
+The agent automatically executes steps in dependency order, routing each to the right discipline model.
+
+### Visual Builder
+
+Open `/soloflow/builder` in your browser for a drag-and-drop DAG editor:
+
+- Create workflows visually with drag-and-drop
+- Edit node prompts by double-clicking
+- Start / cancel / save workflows
+- Real-time execution status (auto-refresh)
+- Template gallery for one-click creation
+
+### Skill Auto-Evolution
+
+After running workflows, SoloFlow learns from them:
+
+```
+→ soloflow_evolve()
+→ soloflow_templates(query="weather")
+```
+
+Evolved skill patterns are automatically written as `SKILL.md` files to `~/.openclaw/workspace/skills/`, ready for immediate use.
+
+### Cognitive Memory
+
+SoloFlow remembers every workflow execution:
+
+```
+→ soloflow_memory(query="code review findings", tier="episodic")
+→ soloflow_memory(query="best practices", tier="semantic")
+```
+
+Memory tiers:
+- **Working** — current session context
+- **Episodic** — past workflow executions (with forgetting curve)
+- **Semantic** — distilled knowledge (with spaced repetition)
+- **Entity** — R³Mem knowledge graph (auto-extracted entities)
 
 ---
 
