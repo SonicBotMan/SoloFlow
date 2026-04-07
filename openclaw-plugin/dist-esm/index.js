@@ -9756,6 +9756,27 @@ var init_evolution_store = __esm({
       delete(id) {
         this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
       }
+      bumpVersion(id, updated) {
+        const t = this.getById(id);
+        if (!t) return;
+        const now2 = Date.now();
+        const newVersion = (t.version ?? 1) + 1;
+        this.db.prepare(`
+      UPDATE evolved_templates SET
+        version = ?, description = ?, pattern = ?, quality_score = ?,
+        steps = ?, tags = ?, updated_at = ?
+      WHERE id = ?
+    `).run(
+          newVersion,
+          updated.description ?? t.description,
+          updated.pattern ?? t.pattern ?? null,
+          0.5,
+          updated.steps ? JSON.stringify(updated.steps) : t.steps ? JSON.stringify(t.steps) : null,
+          updated.tags ? JSON.stringify(updated.tags) : t.tags ? JSON.stringify(t.tags) : null,
+          now2,
+          id
+        );
+      }
       count(type) {
         const row = type ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type) : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
         return row.cnt;
@@ -9837,7 +9858,9 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (!responseText) {
           return { templates: 0, skills: 0 };
         }
-        return await this.parseAndSave(responseText, filterType);
+        const result = await this.parseAndSave(responseText, filterType);
+        this.cleanupLowQualityTemplates();
+        return result;
       }
       /**
        * Direct HTTP call to LLM API.
@@ -9951,6 +9974,16 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
           for (const wf of parsed.workflows) {
             if (!wf.name) continue;
+            const existingWf = this.evolutionStore.search(wf.name, "workflow", 1);
+            if (existingWf.length > 0 && existingWf[0].name === wf.name) {
+              this.evolutionStore.bumpVersion(existingWf[0].id, {
+                description: wf.description,
+                steps: wf.steps,
+                tags: wf.tags
+              });
+              wfCount++;
+              continue;
+            }
             const template = {
               id: `wf_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
               type: "workflow",
@@ -9982,6 +10015,16 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
           for (const sk of parsed.skills) {
             if (!sk.name) continue;
+            const existingSk = this.evolutionStore.search(sk.name, "skill", 1);
+            if (existingSk.length > 0 && existingSk[0].name === sk.name) {
+              this.evolutionStore.bumpVersion(existingSk[0].id, {
+                description: sk.description,
+                pattern: sk.pattern,
+                tags: sk.tags
+              });
+              skCount++;
+              continue;
+            }
             const template = {
               id: `sk_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
               type: "skill",
@@ -10005,6 +10048,25 @@ Output ONLY valid JSON (no markdown, no explanation):
           }
         }
         return { templates: wfCount, skills: skCount };
+      }
+      /**
+       * Auto-optimize: archive templates with quality < 0.3 and uses >= 3
+       */
+      cleanupLowQualityTemplates() {
+        try {
+          const all = this.evolutionStore.getAll();
+          let cleaned = 0;
+          for (const t of all) {
+            if ((t.qualityScore ?? 0.5) < 0.3 && t.useCount >= 3) {
+              this.evolutionStore.delete(t.id);
+              cleaned++;
+            }
+          }
+          if (cleaned > 0) {
+            this.api.logger.info(`evolution cleanup: archived ${cleaned} low-quality template(s)`);
+          }
+        } catch {
+        }
       }
     };
   }
@@ -11906,6 +11968,25 @@ var index_default = definePluginEntry({
           if (wfCount === 0 && skCount === 0) {
             log.info("no templates yet \u2014 run soloflow_evolve to start analysis, or set up a cron at 02:00 Beijing");
           }
+          const scheduleNextEvolution = () => {
+            const now2 = /* @__PURE__ */ new Date();
+            const beijing = new Date(now2.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
+            const target = new Date(beijing);
+            target.setHours(2, 0, 0, 0);
+            if (target <= beijing) target.setDate(target.getDate() + 1);
+            const delay = target.getTime() - beijing.getTime();
+            setTimeout(async () => {
+              try {
+                log.info("auto-evolution scan starting (scheduled 02:00 Beijing)");
+                const result = await evolutionAnalyzer.analyze();
+                log.info(`auto-evolution scan complete: ${result.templates} workflows, ${result.skills} skills extracted`);
+              } catch (e) {
+                log.warn(`auto-evolution scan failed: ${e}`);
+              }
+              scheduleNextEvolution();
+            }, delay);
+          };
+          scheduleNextEvolution();
         } catch (e) {
           log.warn(`evolution system disabled: ${e}`);
         }
@@ -12258,6 +12339,22 @@ var index_default = definePluginEntry({
             }
             const newReady = workflowService.getReadySteps(wfId, completed, running);
             message = `Step ${stepId} completed. ${newReady.length} step(s) now ready: ${newReady.join(", ") || "none"}`;
+          }
+          if (evolutionStore && !params.error) {
+            try {
+              const allSkills = evolutionStore.search("", "skill", 50);
+              const stepAction = step2?.action?.toLowerCase() ?? "";
+              for (const skill of allSkills) {
+                if (skill.pattern && stepAction.length > 0) {
+                  const patternWords = skill.pattern.toLowerCase().split(/\s+/);
+                  const overlap = patternWords.filter((w) => w.length > 3 && stepAction.includes(w));
+                  if (overlap.length >= 2 || overlap.length >= 1 && patternWords.length <= 5) {
+                    evolutionStore.recordUsage(skill.id, true);
+                  }
+                }
+              }
+            } catch {
+            }
           }
           if (memorySystem && !params.error) {
             try {

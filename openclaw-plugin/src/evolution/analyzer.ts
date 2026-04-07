@@ -97,7 +97,12 @@ Output ONLY valid JSON (no markdown, no explanation):
     }
 
     // 5. Parse response and save templates
-    return await this.parseAndSave(responseText, filterType);
+    const result = await this.parseAndSave(responseText, filterType);
+
+    // 6. Auto-optimize: archive low-quality templates
+    this.cleanupLowQualityTemplates();
+
+    return result;
   }
 
   /**
@@ -234,6 +239,17 @@ Output ONLY valid JSON (no markdown, no explanation):
     if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
       for (const wf of parsed.workflows) {
         if (!wf.name) continue;
+        // Dedup: check if similar template exists
+        const existingWf = this.evolutionStore.search(wf.name, "workflow", 1);
+        if (existingWf.length > 0 && existingWf[0].name === wf.name) {
+          this.evolutionStore.bumpVersion(existingWf[0].id, {
+            description: wf.description,
+            steps: wf.steps,
+            tags: wf.tags,
+          });
+          wfCount++; // count as updated, not new
+          continue;
+        }
         const template: EvolvedTemplate = {
           id: `wf_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
           type: "workflow",
@@ -267,6 +283,17 @@ Output ONLY valid JSON (no markdown, no explanation):
     if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
       for (const sk of parsed.skills) {
         if (!sk.name) continue;
+        // Dedup: check if similar template exists
+        const existingSk = this.evolutionStore.search(sk.name, "skill", 1);
+        if (existingSk.length > 0 && existingSk[0].name === sk.name) {
+          this.evolutionStore.bumpVersion(existingSk[0].id, {
+            description: sk.description,
+            pattern: sk.pattern,
+            tags: sk.tags,
+          });
+          skCount++; // count as updated, not new
+          continue;
+        }
         const template: EvolvedTemplate = {
           id: `sk_evo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
           type: "skill",
@@ -291,5 +318,26 @@ Output ONLY valid JSON (no markdown, no explanation):
     }
 
     return { templates: wfCount, skills: skCount };
+  }
+
+  /**
+   * Auto-optimize: archive templates with quality < 0.3 and uses >= 3
+   */
+  private cleanupLowQualityTemplates(): void {
+    try {
+      const all = this.evolutionStore.getAll();
+      let cleaned = 0;
+      for (const t of all) {
+        if ((t.qualityScore ?? 0.5) < 0.3 && t.useCount >= 3) {
+          this.evolutionStore.delete(t.id);
+          cleaned++;
+        }
+      }
+      if (cleaned > 0) {
+        this.api.logger.info(`evolution cleanup: archived ${cleaned} low-quality template(s)`);
+      }
+    } catch {
+      // non-critical
+    }
   }
 }

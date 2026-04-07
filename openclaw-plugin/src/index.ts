@@ -131,6 +131,27 @@ export default definePluginEntry({
           if (wfCount === 0 && skCount === 0) {
             log.info("no templates yet — run soloflow_evolve to start analysis, or set up a cron at 02:00 Beijing");
           }
+
+          // Auto-evolution: schedule daily at 02:00 Beijing time (18:00 UTC)
+          const scheduleNextEvolution = () => {
+            const now = new Date();
+            const beijing = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
+            const target = new Date(beijing);
+            target.setHours(2, 0, 0, 0);
+            if (target <= beijing) target.setDate(target.getDate() + 1);
+            const delay = target.getTime() - beijing.getTime();
+            setTimeout(async () => {
+              try {
+                log.info("auto-evolution scan starting (scheduled 02:00 Beijing)");
+                const result = await evolutionAnalyzer.analyze();
+                log.info(`auto-evolution scan complete: ${result.templates} workflows, ${result.skills} skills extracted`);
+              } catch (e) {
+                log.warn(`auto-evolution scan failed: ${e}`);
+              }
+              scheduleNextEvolution(); // reschedule for next day
+            }, delay);
+          };
+          scheduleNextEvolution();
         } catch (e) {
           log.warn(`evolution system disabled: ${e}`);
         }
@@ -524,6 +545,25 @@ export default definePluginEntry({
             }
             const newReady = workflowService.getReadySteps(wfId, completed, running);
             message = `Step ${stepId} completed. ${newReady.length} step(s) now ready: ${newReady.join(", ") || "none"}`;
+          }
+
+          // Track template usage if step action matches a skill pattern
+          if (evolutionStore && !params.error) {
+            try {
+              const allSkills = evolutionStore.search("", "skill", 50);
+              const stepAction = (step as any)?.action?.toLowerCase() ?? "";
+              for (const skill of allSkills) {
+                if (skill.pattern && stepAction.length > 0) {
+                  const patternWords = skill.pattern.toLowerCase().split(/\s+/);
+                  const overlap = patternWords.filter((w: string) => w.length > 3 && stepAction.includes(w));
+                  if (overlap.length >= 2 || (overlap.length >= 1 && patternWords.length <= 5)) {
+                    evolutionStore.recordUsage(skill.id, true);
+                  }
+                }
+              }
+            } catch {
+              // non-critical
+            }
           }
 
           // Store in episodic memory (AFTER state is finalized)

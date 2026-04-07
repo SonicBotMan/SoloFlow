@@ -136,6 +136,27 @@ export class EvolutionStore {
     this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
   }
 
+  bumpVersion(id: string, updated: Partial<EvolvedTemplate>): void {
+    const t = this.getById(id);
+    if (!t) return;
+    const now = Date.now();
+    const newVersion = (t.version ?? 1) + 1;
+    this.db.prepare(`
+      UPDATE evolved_templates SET
+        version = ?, description = ?, pattern = ?, quality_score = ?,
+        steps = ?, tags = ?, updated_at = ?
+      WHERE id = ?
+    `).run(
+      newVersion,
+      updated.description ?? t.description,
+      updated.pattern ?? t.pattern ?? null,
+      0.5,
+      updated.steps ? JSON.stringify(updated.steps) : (t.steps ? JSON.stringify(t.steps) : null),
+      updated.tags ? JSON.stringify(updated.tags) : (t.tags ? JSON.stringify(t.tags) : null),
+      now, id
+    );
+  }
+
   count(type?: TemplateType): number {
     const row = type
       ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type)
