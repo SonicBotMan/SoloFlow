@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SoloFlow — Open Source AI Workflow Orchestration Engine</title>
-  <meta name="description" content="SoloFlow is an open-source AI workflow orchestration engine with cognitive memory, discipline-aware routing, and DAG+FSM hybrid architecture. Lightweight (~0.27MB dist), 175 tests, minimal runtime deps (jose, yaml, better-sqlite3).">
+  <meta name="description" content="SoloFlow is an open-source AI workflow orchestration engine with cognitive memory, discipline-aware routing, and DAG+FSM hybrid architecture. Lightweight (~469KB dist), 15 MCP tools, cognitive memory, skill evolution, minimal runtime deps (better-sqlite3, jose, yaml).">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://soloflow.pmparker.net/">
   
   <!-- Open Graph / Social Sharing -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="SoloFlow — Open Source AI Workflow Orchestration Engine">
-  <meta property="og:description" content="Open-source AI workflow orchestration with cognitive memory, discipline-aware routing, and DAG+FSM hybrid. 175 tests, ~0.27MB bundle, MCP tools, OpenClaw plugin.">
+  <meta property="og:description" content="Open-source AI workflow orchestration with cognitive memory, discipline-aware routing, and DAG+FSM hybrid. 15 MCP tools, ~469KB bundle, skill evolution, OpenClaw plugin.">
   <meta property="og:url" content="https://soloflow.pmparker.net/">
   <meta property="og:site_name" content="SoloFlow">
   <meta property="og:locale" content="en_US">
@@ -214,12 +214,12 @@
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="10">0</span>
+            <span class="stat-value" data-target="15">0</span>
             <span class="stat-label" data-i18n="hero.stats.modules">MCP Tools</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="405" data-suffix="KB">0</span>
+            <span class="stat-value" data-target="469" data-suffix="KB">0</span>
             <span class="stat-label" data-i18n="hero.stats.bundle">Bundle Size</span>
           </div>
           <div class="stat-divider"></div>
@@ -471,11 +471,43 @@
             <div class="feature-content">
               <div class="feature-number">04</div>
               <h3 data-i18n="features.evolution.title">Skill Auto-Evolution</h3>
-              <p data-i18n="features.evolution.desc">LLM-powered pattern extraction across workflow executions. Automatically detects repeated patterns and packages them into versioned, reusable skill templates and workflow templates persisted in SQLite.</p>
+              <p data-i18n="features.evolution.desc">LLM-powered pattern extraction with intelligent merging. Automatically detects repeated patterns across workflow executions, packages them into versioned skill templates with structured manifests (triggers, scope, prerequisites, tools, estimated duration). Nightly analysis cycle runs at 02:00 CST. Jaccard similarity-based deduplication prevents template bloat.</p>
               <span class="tag" style="background:rgba(110,231,183,0.15);color:#6EE7B7;border:1px solid rgba(110,231,183,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">✅ v0.8 — LLM-powered, SQLite persisted</span>
               <div class="feature-formula glass-chip">
                 <code>pattern → detect → package → skill → MCP tool</code>
               </div>
+            </div>
+          </div>
+
+          <!-- Feature 5: Skill + MCP Inventory -->
+          <div class="feature-row glass-card reveal" style="--delay:4">
+            <div class="feature-visual">
+              <svg class="feature-svg" viewBox="0 0 300 200" fill="none">
+                <g class="inventory-diagram">
+                  <!-- Skills column -->
+                  <rect x="20" y="20" width="120" height="160" rx="8" fill="rgba(110,231,183,0.06)" stroke="rgba(110,231,183,0.3)" stroke-width="1"/>
+                  <text x="80" y="40" text-anchor="middle" fill="#6EE7B7" font-size="10" font-family="var(--font-mono)">SKILLS</text>
+                  <text x="80" y="58" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">100+ scanned</text>
+                  <rect x="30" y="70" width="100" height="14" rx="3" fill="rgba(110,231,183,0.1)"/>
+                  <rect x="30" y="88" width="100" height="14" rx="3" fill="rgba(110,231,183,0.1)"/>
+                  <rect x="30" y="106" width="100" height="14" rx="3" fill="rgba(110,231,183,0.1)"/>
+                  <text x="80" y="145" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-family="var(--font-mono)">usage tracked</text>
+
+                  <!-- MCP column -->
+                  <rect x="160" y="20" width="120" height="160" rx="8" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.3)" stroke-width="1"/>
+                  <text x="220" y="40" text-anchor="middle" fill="#60A5FA" font-size="10" font-family="var(--font-mono)">MCP SERVERS</text>
+                  <text x="220" y="58" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">auto-discovered</text>
+                  <rect x="170" y="70" width="100" height="14" rx="3" fill="rgba(59,130,246,0.1)"/>
+                  <rect x="170" y="88" width="100" height="14" rx="3" fill="rgba(59,130,246,0.1)"/>
+                  <text x="220" y="125" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-family="var(--font-mono)">call stats</text>
+                </g>
+              </svg>
+            </div>
+            <div class="feature-content">
+              <div class="feature-number">05</div>
+              <h3 data-i18n="features.inventory.title">Skill &amp; MCP Inventory</h3>
+              <p data-i18n="features.inventory.desc">Full visibility into your agent's capabilities. Automatically discovers and catalogs all installed skills and MCP servers at startup. Tracks usage patterns, detects redundant tools, and feeds data into the evolution engine for smarter optimization.</p>
+              <span class="tag" style="background:rgba(110,231,183,0.15);color:#6EE7B7;border:1px solid rgba(110,231,183,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">✅ v0.8 — Auto-scan, usage tracking, evolution feed</span>
             </div>
           </div>
         </div>
@@ -736,38 +768,31 @@
           <div class="lobster-modules-grid">
             <div class="lobster-module-card glass-card reveal" style="--delay:0">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
               </div>
-              <h4 data-i18n="lobsterPress.moduleList.cmv.name">CMV Triple-Pass Lossless</h4>
-              <p data-i18n="lobsterPress.moduleList.cmv.desc">Three-verification mechanism ensures zero loss in memory compression</p>
+              <h4 data-i18n="modules.sqlite.name">SQLite Persistence</h4>
+              <p data-i18n="modules.sqlite.desc">Workflow state, episodic memory, skill inventory, MCP inventory — all persisted in a single SQLite database with versioned migrations</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:1">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
               </div>
-              <h4 data-i18n="lobsterPress.moduleList.chlr.name">C-HLR+ Adaptive Forgetting</h4>
-              <p data-i18n="lobsterPress.moduleList.chlr.desc">Intelligently regulates memory decay based on Ebbinghaus curve</p>
+              <h4 data-i18n="modules.skillInventory.name">Skill Inventory</h4>
+              <p data-i18n="modules.skillInventory.desc">Scans 100+ installed skills, tracks usage frequency, detects redundant/unused skills, discovers tool combinations</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:2">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
               </div>
-              <h4 data-i18n="lobsterPress.moduleList.focus.name">Focus Active Compression</h4>
-              <p data-i18n="lobsterPress.moduleList.focus.desc">Smart detection and triggering of memory compression timing</p>
+              <h4 data-i18n="modules.mcpInventory.name">MCP Inventory</h4>
+              <p data-i18n="modules.mcpInventory.desc">Tracks all registered MCP servers and their tools, monitors call frequency and success rates</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:3">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
               </div>
-              <h4 data-i18n="lobsterPress.moduleList.r3mem.name">R³Mem Reversible 3-Layer</h4>
-              <p data-i18n="lobsterPress.moduleList.r3mem.desc">Working → Episodic → Semantic memory compression</p>
-            </div>
-            <div class="lobster-module-card glass-card reveal" style="--delay:4">
-              <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-              </div>
-              <h4 data-i18n="lobsterPress.moduleList.wmr.name">WMR Tool Framework</h4>
-              <p data-i18n="lobsterPress.moduleList.wmr.desc">Modular tool registration and invocation framework</p>
+              <h4 data-i18n="modules.evolution.name">Evolution Engine</h4>
+              <p data-i18n="modules.evolution.desc">GLM-5 powered pattern analysis, intelligent template merging (Jaccard ≥ 0.6), nightly auto-evolution cycle, quality scoring with auto-cleanup</p>
             </div>
           </div>
 
@@ -832,6 +857,14 @@
                   <td class="cross">✕</td>
                 </tr>
                 <tr>
+                  <td data-i18n="comparison.features.inventory">Skill &amp; MCP Inventory</td>
+                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                  <td class="cross">✕</td>
+                </tr>
+                <tr>
                   <td data-i18n="comparison.features.dagFsm">DAG + FSM Hybrid</td>
                   <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
                   <td class="partial">Partial</td>
@@ -883,28 +916,28 @@
       <div class="container">
         <div class="metrics-grid">
           <div class="metric-card glass-card reveal" style="--delay:0">
-            <div class="metric-value" data-target="175" data-suffix="">0</div>
-            <div class="metric-label" data-i18n="metrics.tests.label">TypeScript Tests</div>
-            <div class="metric-desc" data-i18n="metrics.tests.desc">All passing, strict mode</div>
-            <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
+            <div class="metric-value" data-target="15" data-suffix="">0</div>
+            <div class="metric-label">MCP Tools</div>
+            <div class="metric-desc">Workflow + Memory + Evolution + Skills + MCP</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:90%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:1">
-            <div class="metric-value" data-target="10">0</div>
+            <div class="metric-value" data-target="15">0</div>
             <div class="metric-label" data-i18n="metrics.modules.label">MCP Tools</div>
-            <div class="metric-desc">create, start, ready_steps, advance_step, status, list, cancel, memory, evolve, templates</div>
+            <div class="metric-desc">create, start, ready_steps, advance_step, status, list, cancel, memory, evolve, templates + 5 skill/MCP tools</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:90%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:2">
-            <div class="metric-value" data-target="405" data-suffix="KB">0</div>
+            <div class="metric-value" data-target="469" data-suffix="KB">0</div>
             <div class="metric-label" data-i18n="metrics.bundle.label">Bundle Size</div>
             <div class="metric-desc" data-i18n="metrics.bundle.desc">Incredibly lightweight</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:3%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:3">
-            <div class="metric-value" data-target="175" data-suffix="">0</div>
-            <div class="metric-label" data-i18n="metrics.tests.label">TypeScript Tests</div>
-            <div class="metric-desc" data-i18n="metrics.tests.desc">All passing, strict mode</div>
-            <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
+            <div class="metric-value" data-target="6" data-suffix="">0</div>
+            <div class="metric-label">Source Modules</div>
+            <div class="metric-desc">Clean, modular TypeScript</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:60%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:4">
             <div class="metric-value" data-target="2" data-suffix="">0</div>
