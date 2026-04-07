@@ -209,22 +209,22 @@
         <!-- Hero Stats -->
         <div class="hero-stats reveal">
           <div class="stat">
-            <span class="stat-value" data-target="175">0</span>
+            <span class="stat-value" data-target="0">0</span>
             <span class="stat-label" data-i18n="hero.stats.tests">Tests Passing</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="180" data-suffix="+">0</span>
-            <span class="stat-label" data-i18n="hero.stats.modules">Modules</span>
+            <span class="stat-value" data-target="7">0</span>
+            <span class="stat-label" data-i18n="hero.stats.modules">MCP Tools</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</span>
+            <span class="stat-value" data-target="405" data-suffix="KB">0</span>
             <span class="stat-label" data-i18n="hero.stats.bundle">Bundle Size</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="3">0</span>
+            <span class="stat-value" data-target="2">0</span>
             <span class="stat-label" data-i18n="hero.stats.deps">Runtime Deps</span>
           </div>
         </div>
@@ -322,6 +322,7 @@
               <div class="feature-number">01</div>
               <h3 data-i18n="features.memory.title">Cognitive Memory System</h3>
               <p data-i18n="features.memory.desc">Three-tier memory architecture inspired by human cognition. Working memory holds active context, episodic memory stores experiences, and semantic memory accumulates abstracted knowledge — all governed by the Ebbinghaus forgetting curve.</p>
+              <span class="tag" style="background:rgba(251,191,36,0.15);color:#FBBF24;border:1px solid rgba(251,191,36,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">🚧 Roadmap — Core infrastructure ready, integration in progress</span>
               <div class="feature-formula glass-chip">
                 <code>R(t) = base × e<sup>(-t / stability)</sup></code>
               </div>
@@ -470,7 +471,8 @@
             <div class="feature-content">
               <div class="feature-number">04</div>
               <h3 data-i18n="features.evolution.title">Skill Auto-Evolution</h3>
-              <p data-i18n="features.evolution.desc">Stop reinventing workflows. SoloFlow detects repeated patterns across your agent runs and automatically packages them into versioned, reusable skills — which can be exposed as MCP tools for other agents to consume. Your workflows literally improve themselves.</p>
+              <p data-i18n="features.evolution.desc">Detect repeated patterns across agent runs and package them into versioned, reusable skills. Coming in a future release.</p>
+              <span class="tag" style="background:rgba(251,191,36,0.15);color:#FBBF24;border:1px solid rgba(251,191,36,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">🚧 Roadmap</span>
               <div class="feature-formula glass-chip">
                 <code>pattern → detect → package → skill → MCP tool</code>
               </div>
@@ -815,7 +817,7 @@
                 </tr>
                 <tr>
                   <td data-i18n="comparison.features.cognitive">Cognitive Memory System</td>
-                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="partial highlight">🚧 Roadmap</td>
                   <td class="cross">✕</td>
                   <td class="cross">✕</td>
                   <td class="cross">✕</td>
@@ -823,7 +825,7 @@
                 </tr>
                 <tr>
                   <td data-i18n="comparison.features.evolution">Skill Auto-Evolution</td>
-                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="partial highlight">🚧 Roadmap</td>
                   <td class="cross">✕</td>
                   <td class="cross">✕</td>
                   <td class="cross">✕</td>
@@ -839,7 +841,7 @@
                 </tr>
                 <tr>
                   <td data-i18n="comparison.features.visual">Visual Builder</td>
-                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
+                  <td class="partial highlight">🚧 Roadmap</td>
                   <td class="cross">✕</td>
                   <td class="cross">✕</td>
                   <td class="cross">✕</td>
@@ -887,27 +889,27 @@
             <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:1">
-            <div class="metric-value" data-target="180" data-suffix="+">0</div>
-            <div class="metric-label" data-i18n="metrics.modules.label">Modules</div>
-            <div class="metric-desc" data-i18n="metrics.modules.desc">Clean, modular architecture</div>
+            <div class="metric-value" data-target="7">0</div>
+            <div class="metric-label" data-i18n="metrics.modules.label">MCP Tools</div>
+            <div class="metric-desc" data-i18n="metrics.modules.desc">create, start, ready_steps, advance_step, status, list, cancel</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:90%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:2">
-            <div class="metric-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</div>
+            <div class="metric-value" data-target="405" data-suffix="KB">0</div>
             <div class="metric-label" data-i18n="metrics.bundle.label">Bundle Size</div>
             <div class="metric-desc" data-i18n="metrics.bundle.desc">Incredibly lightweight</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:3%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:3">
-            <div class="metric-value" data-target="5" data-suffix="">0</div>
-            <div class="metric-label" data-i18n="metrics.mcp.label">MCP Tools</div>
-            <div class="metric-desc" data-i18n="metrics.mcp.desc">Exposed interface</div>
+            <div class="metric-value" data-target="175" data-suffix="">0</div>
+            <div class="metric-label" data-i18n="metrics.tests.label">TypeScript Tests</div>
+            <div class="metric-desc" data-i18n="metrics.tests.desc">All passing, strict mode</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:4">
-            <div class="metric-value" data-target="3" data-suffix="">0</div>
+            <div class="metric-value" data-target="2" data-suffix="">0</div>
             <div class="metric-label" data-i18n="metrics.deps.label">Runtime Deps</div>
-            <div class="metric-desc" data-i18n="metrics.deps.desc">jose, yaml, better-sqlite3</div>
+            <div class="metric-desc" data-i18n="metrics.deps.desc">better-sqlite3, jose, yaml</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:8%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:5">
@@ -948,15 +950,11 @@
 <span class="code-cmd">git</span> clone https://github.com/SonicBotMan/SoloFlow.git
 <span class="code-cmd">cd</span> SoloFlow/openclaw-plugin
 
-<span class="code-comment"># Install dependencies with Bun</span>
-<span class="code-cmd">bun</span> install
+<span class="code-comment"># Install dependencies</span>
+<span class="code-cmd">npm</span> install
 
 <span class="code-comment"># Build the plugin</span>
-<span class="code-cmd">bun</span> run build
-
-<span class="code-comment"># Verify - 175 tests passing ✓</span>
-<span class="code-cmd">bun</span> test
-<span class="code-output"># → 175 passing tests ✓</span></code></pre>
+<span class="code-cmd">npm</span> run build</code></pre>
             </div>
             <div class="code-panel" id="panel-workflow">
               <div class="code-header">
@@ -966,18 +964,25 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                 </button>
               </div>
-              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Create a workflow via RPC</span>
-<span class="code-keyword">const</span> { id } = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.create"</span>, {
+              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Create a workflow via MCP tool</span>
+<span class="code-keyword">const</span> { id } = <span class="code-keyword">await</span> soloflow_create({
+  <span class="code-prop">name</span>: <span class="code-string">"Camera Inspection"</span>,
   <span class="code-prop">steps</span>: [
-    { <span class="code-prop">id</span>: <span class="code-string">"research"</span>,  <span class="code-prop">name</span>: <span class="code-string">"Research topic"</span>,        <span class="code-prop">discipline</span>: <span class="code-string">"deep"</span>,       <span class="code-prop">dependencies</span>: [],           <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Research AI agent frameworks"</span> } },
-    { <span class="code-prop">id</span>: <span class="code-string">"analyze"</span>,   <span class="code-prop">name</span>: <span class="code-string">"Analyze findings"</span>,      <span class="code-prop">discipline</span>: <span class="code-string">"ultrabrain"</span>, <span class="code-prop">dependencies</span>: [<span class="code-string">"research"</span>], <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Compare and rank by features"</span> } },
-    { <span class="code-prop">id</span>: <span class="code-string">"visualize"</span>, <span class="code-prop">name</span>: <span class="code-string">"Create chart"</span>,         <span class="code-prop">discipline</span>: <span class="code-string">"visual"</span>,    <span class="code-prop">dependencies</span>: [<span class="code-string">"analyze"</span>],  <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Generate comparison table"</span> } },
+    { <span class="code-prop">id</span>: <span class="code-string">"capture"</span>, <span class="code-prop">name</span>: <span class="code-string">"抓图"</span>,     <span class="code-prop">discipline</span>: <span class="code-string">"quick"</span>,  <span class="code-prop">action</span>: <span class="code-string">"使用 ezviz_capture 抓取摄像头画面"</span> },
+    { <span class="code-prop">id</span>: <span class="code-string">"analyze"</span>,  <span class="code-prop">name</span>: <span class="code-string">"分析"</span>,     <span class="code-prop">discipline</span>: <span class="code-string">"visual"</span>, <span class="code-prop">action</span>: <span class="code-string">"分析摄像头画面"</span>,               <span class="code-prop">dependencies</span>: [<span class="code-string">"capture"</span>] },
+    { <span class="code-prop">id</span>: <span class="code-string">"report"</span>,   <span class="code-prop">name</span>: <span class="code-string">"报告"</span>,     <span class="code-prop">discipline</span>: <span class="code-string">"quick"</span>,  <span class="code-prop">action</span>: <span class="code-string">"生成巡检报告"</span>,                  <span class="code-prop">dependencies</span>: [<span class="code-string">"analyze"</span>] },
   ],
 });
 
-<span class="code-comment">// Start the workflow</span>
-<span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.start"</span>, { id });
-<span class="code-output">// → Workflow queued, DAG execution begins</span></code></pre>
+<span class="code-comment">// Start and drive execution</span>
+<span class="code-keyword">await</span> soloflow_start({ workflowId: id });
+<span class="code-keyword">const</span> { readySteps } = <span class="code-keyword">await</span> soloflow_ready_steps({ workflowId: id });
+<span class="code-output">// → [{ id: "capture", name: "抓图", discipline: "quick", action: "..." }]</span>
+
+<span class="code-comment">// Main agent spawns sub-agent, then advances:</span>
+<span class="code-keyword">await</span> soloflow_advance_step({ workflowId: id, stepId: <span class="code-string">"capture"</span>,
+  result: <span class="code-string">"摄像头画面已获取"</span> });
+<span class="code-output">// → Step "analyze" now unlocked</span></code></pre>
             </div>
             <div class="code-panel" id="panel-run">
               <div class="code-header">
@@ -987,16 +992,13 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                 </button>
               </div>
-              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Check workflow status via MCP tool</span>
-<span class="code-keyword">const</span> status = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.status"</span>, { 
-  <span class="code-prop">id</span>, 
-  <span class="code-prop">verbose</span>: <span class="code-bool">true</span> 
-});
-console.<span class="code-fn">log</span>(status.steps);
+              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Check workflow status</span>
+<span class="code-keyword">const</span> status = <span class="code-keyword">await</span> soloflow_status({ workflowId: id });
+console.<span class="code-fn">log</span>(status);
 
-<span class="code-comment">// FSM states: idle → queued → running → completed/failed/retry</span>
-<span class="code-comment">// Steps execute in parallel where possible with automatic retry</span>
-<span class="code-output">// → { state: 'running', steps: 3, memory: { working: [...], episodic: [...] } }</span></code></pre>
+<span class="code-comment">// FSM states: idle → queued → running → paused → completed/failed/cancelled</span>
+<span class="code-comment">// Steps execute in parallel where possible (dependency-aware)</span>
+<span class="code-output">// → { state: "completed", steps: [...] }</span></code></pre>
             </div>
           </div>
         </div>
