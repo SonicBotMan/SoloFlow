@@ -11834,10 +11834,7 @@ var index_default = definePluginEntry({
           const skCount = evolutionStore.count("skill");
           log.info(`evolution system ready (${wfCount} workflow templates, ${skCount} skill patterns)`);
           if (wfCount === 0 && skCount === 0) {
-            log.info("first install detected \u2014 triggering auto-evolution scan");
-            void evolutionAnalyzer.analyze().catch((e) => {
-              log.warn(`auto-evolution scan failed: ${e}`);
-            });
+            log.info("no templates yet \u2014 run soloflow_evolve to start analysis, or set up a cron at 02:00 Beijing");
           }
         } catch (e) {
           log.warn(`evolution system disabled: ${e}`);
