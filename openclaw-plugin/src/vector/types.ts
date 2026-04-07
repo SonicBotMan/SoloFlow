@@ -132,7 +132,7 @@ export const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
 
 // ─── Embedding Provider ───────────────────────────────────────────────
 
-export type EmbeddingProviderType = "openai" | "local" | "mock";
+export type EmbeddingProviderType = "openai" | "local" | "mock" | "glm" | "minimax";
 
 export interface EmbeddingProviderConfig {
   /** Provider type */

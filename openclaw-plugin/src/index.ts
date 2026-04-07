@@ -198,7 +198,19 @@ export default definePluginEntry({
     void (async () => {
       try {
         const mod = await import("./vector/index.js");
-        vectorSystem = new mod.VectorSearchSystem({ embedding: { type: "local" }, search: {} });
+        const { detectEmbeddingConfig, validateEmbeddingConfig } = await import("./vector/embedding-config.js");
+        const detectedEmbedding = detectEmbeddingConfig();
+        let activeEmbeddingConfig = detectedEmbedding;
+        if (detectedEmbedding.type !== "local") {
+          const valid = await validateEmbeddingConfig(detectedEmbedding);
+          if (!valid) {
+            log.warn(`Embedding provider ${detectedEmbedding.type} validation failed, falling back to local`);
+            activeEmbeddingConfig = { type: "local" };
+          } else {
+            log.info(`Using ${detectedEmbedding.type} embedding provider (model: ${detectedEmbedding.model})`);
+          }
+        }
+        vectorSystem = new mod.VectorSearchSystem({ embedding: activeEmbeddingConfig, search: {} });
         await vectorSystem.init();
         log.info("vector search ready");
         if (memorySystem) {

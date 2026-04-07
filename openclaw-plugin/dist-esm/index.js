@@ -1814,6 +1814,15 @@ var init_types = __esm({
 });
 
 // src/vector/embedder.ts
+var embedder_exports = {};
+__export(embedder_exports, {
+  EmbeddingError: () => EmbeddingError,
+  cosineSimilarity: () => cosineSimilarity2,
+  createEmbedder: () => createEmbedder,
+  deserializeEmbedding: () => deserializeEmbedding,
+  normalizeInPlace: () => normalizeInPlace,
+  serializeEmbedding: () => serializeEmbedding
+});
 function createEmbedder(config) {
   const defaults = PROVIDER_DEFAULTS[config.type];
   const model = config.model ?? defaults.model;
@@ -1821,6 +1830,10 @@ function createEmbedder(config) {
   switch (config.type) {
     case "openai":
       return new OpenAIEmbedder(config.apiBase ?? "https://api.openai.com/v1", config.apiKey ?? "", model, dimensions, config.batchSize ?? 32);
+    case "glm":
+      return new GLMEmbedder(config.apiBase ?? "https://open.bigmodel.cn/api/paas/v4", config.apiKey ?? "", model, dimensions);
+    case "minimax":
+      return new OpenAIEmbedder(config.apiBase ?? "https://api.minimax.chat/v1", config.apiKey ?? "", model, dimensions, config.batchSize ?? 32);
     case "local":
       return new LocalEmbedder(model, dimensions);
     case "mock":
@@ -1860,14 +1873,16 @@ function deserializeEmbedding(data, dimensions) {
   }
   return new Float32Array(bytes.buffer, 0, dimensions);
 }
-var PROVIDER_DEFAULTS, OpenAIEmbedder, LocalEmbedder, MockEmbedder, EmbeddingError;
+var PROVIDER_DEFAULTS, OpenAIEmbedder, GLMEmbedder, LocalEmbedder, MockEmbedder, EmbeddingError;
 var init_embedder = __esm({
   "src/vector/embedder.ts"() {
     "use strict";
     PROVIDER_DEFAULTS = {
       openai: { model: "text-embedding-3-small", dimensions: 1536 },
       local: { model: "bge-m3", dimensions: 1024 },
-      mock: { model: "mock", dimensions: 128 }
+      mock: { model: "mock", dimensions: 128 },
+      glm: { model: "embedding-3", dimensions: 2048 },
+      minimax: { model: "text-embedding-01", dimensions: 1536 }
     };
     OpenAIEmbedder = class {
       dimensions;
@@ -1913,6 +1928,39 @@ var init_embedder = __esm({
           }
         }
         return allEmbeddings;
+      }
+    };
+    GLMEmbedder = class {
+      dimensions;
+      providerType = "glm";
+      apiBase;
+      apiKey;
+      model;
+      constructor(apiBase, apiKey, model, dimensions) {
+        this.apiBase = apiBase;
+        this.apiKey = apiKey;
+        this.model = model;
+        this.dimensions = dimensions;
+      }
+      async embed(text) {
+        const results = await this.embedBatch([text]);
+        return results[0];
+      }
+      async embedBatch(texts) {
+        const response = await fetch(`${this.apiBase}/embeddings`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({ model: this.model, input: texts })
+        });
+        if (!response.ok) {
+          throw new EmbeddingError(`GLM API error: ${response.status} ${response.statusText}`);
+        }
+        const json = await response.json();
+        const sorted = (json.data || json.embeddings || []).sort((a, b) => a.index - b.index);
+        return sorted.map((item) => new Float32Array(item.embedding));
       }
     };
     LocalEmbedder = class {
@@ -2419,13 +2467,82 @@ var init_indexer = __esm({
   }
 });
 
+// src/vector/embedding-config.ts
+var embedding_config_exports = {};
+__export(embedding_config_exports, {
+  detectEmbeddingConfig: () => detectEmbeddingConfig,
+  validateEmbeddingConfig: () => validateEmbeddingConfig
+});
+import { readFileSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
+function detectEmbeddingConfig() {
+  try {
+    const configPath = join(homedir(), ".openclaw", "openclaw.json");
+    const raw = readFileSync(configPath, "utf-8");
+    const config = JSON.parse(raw);
+    const providers = config.models?.providers;
+    if (!providers) return { type: "local" };
+    const zai = providers["zai"];
+    if (zai?.apiKey) {
+      return {
+        type: "glm",
+        apiBase: zai.baseUrl || "https://open.bigmodel.cn/api/paas/v4",
+        apiKey: zai.apiKey,
+        model: "embedding-3",
+        dimensions: 2048
+      };
+    }
+    const minimax = providers["minimax"];
+    if (minimax?.apiKey) {
+      return {
+        type: "minimax",
+        apiBase: minimax.baseUrl || "https://api.minimax.chat/v1",
+        apiKey: minimax.apiKey,
+        model: "text-embedding-01",
+        dimensions: 1536
+      };
+    }
+    for (const [name, provider] of Object.entries(providers)) {
+      if (name === "zai" || name === "minimax") continue;
+      if (provider?.apiKey && provider?.baseUrl) {
+        return {
+          type: "openai",
+          apiBase: provider.baseUrl,
+          apiKey: provider.apiKey,
+          dimensions: 1536
+        };
+      }
+    }
+  } catch {
+  }
+  return { type: "local" };
+}
+async function validateEmbeddingConfig(config) {
+  try {
+    const { createEmbedder: createEmbedder2 } = await Promise.resolve().then(() => (init_embedder(), embedder_exports));
+    const embedder = createEmbedder2(config);
+    const result = await embedder.embed("test");
+    return result.length === embedder.dimensions && result.some((v) => v !== 0);
+  } catch {
+    return false;
+  }
+}
+var init_embedding_config = __esm({
+  "src/vector/embedding-config.ts"() {
+    "use strict";
+  }
+});
+
 // src/vector/index.ts
 var vector_exports = {};
 __export(vector_exports, {
   HybridRetriever: () => HybridRetriever,
   VectorIndexer: () => VectorIndexer,
   VectorSearchSystem: () => VectorSearchSystem,
-  createEmbedder: () => createEmbedder
+  createEmbedder: () => createEmbedder,
+  detectEmbeddingConfig: () => detectEmbeddingConfig,
+  validateEmbeddingConfig: () => validateEmbeddingConfig
 });
 var VectorSearchSystem;
 var init_vector = __esm({
@@ -2436,6 +2553,7 @@ var init_vector = __esm({
     init_retriever();
     init_indexer();
     init_embedder();
+    init_embedding_config();
     init_retriever();
     init_indexer();
     VectorSearchSystem = class {
@@ -13413,7 +13531,19 @@ var index_default = definePluginEntry({
     void (async () => {
       try {
         const mod = await Promise.resolve().then(() => (init_vector(), vector_exports));
-        vectorSystem = new mod.VectorSearchSystem({ embedding: { type: "local" }, search: {} });
+        const { detectEmbeddingConfig: detectEmbeddingConfig2, validateEmbeddingConfig: validateEmbeddingConfig2 } = await Promise.resolve().then(() => (init_embedding_config(), embedding_config_exports));
+        const detectedEmbedding = detectEmbeddingConfig2();
+        let activeEmbeddingConfig = detectedEmbedding;
+        if (detectedEmbedding.type !== "local") {
+          const valid = await validateEmbeddingConfig2(detectedEmbedding);
+          if (!valid) {
+            log.warn(`Embedding provider ${detectedEmbedding.type} validation failed, falling back to local`);
+            activeEmbeddingConfig = { type: "local" };
+          } else {
+            log.info(`Using ${detectedEmbedding.type} embedding provider (model: ${detectedEmbedding.model})`);
+          }
+        }
+        vectorSystem = new mod.VectorSearchSystem({ embedding: activeEmbeddingConfig, search: {} });
         await vectorSystem.init();
         log.info("vector search ready");
         if (memorySystem) {

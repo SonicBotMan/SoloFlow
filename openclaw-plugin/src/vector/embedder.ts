@@ -4,6 +4,8 @@ const PROVIDER_DEFAULTS: Record<EmbeddingProviderType, { model: string; dimensio
   openai: { model: "text-embedding-3-small", dimensions: 1536 },
   local: { model: "bge-m3", dimensions: 1024 },
   mock: { model: "mock", dimensions: 128 },
+  glm: { model: "embedding-3", dimensions: 2048 },
+  minimax: { model: "text-embedding-01", dimensions: 1536 },
 };
 
 export interface Embedder {
@@ -21,6 +23,10 @@ export function createEmbedder(config: EmbeddingProviderConfig): Embedder {
   switch (config.type) {
     case "openai":
       return new OpenAIEmbedder(config.apiBase ?? "https://api.openai.com/v1", config.apiKey ?? "", model, dimensions, config.batchSize ?? 32);
+    case "glm":
+      return new GLMEmbedder(config.apiBase ?? "https://open.bigmodel.cn/api/paas/v4", config.apiKey ?? "", model, dimensions);
+    case "minimax":
+      return new OpenAIEmbedder(config.apiBase ?? "https://api.minimax.chat/v1", config.apiKey ?? "", model, dimensions, config.batchSize ?? 32);
     case "local":
       return new LocalEmbedder(model, dimensions);
     case "mock":
@@ -86,6 +92,46 @@ class OpenAIEmbedder implements Embedder {
 
 interface OpenAIEmbeddingResponse {
   data: Array<{ embedding: number[]; index: number }>;
+}
+
+class GLMEmbedder implements Embedder {
+  readonly dimensions: number;
+  readonly providerType: EmbeddingProviderType = "glm";
+
+  private readonly apiBase: string;
+  private readonly apiKey: string;
+  private readonly model: string;
+
+  constructor(apiBase: string, apiKey: string, model: string, dimensions: number) {
+    this.apiBase = apiBase;
+    this.apiKey = apiKey;
+    this.model = model;
+    this.dimensions = dimensions;
+  }
+
+  async embed(text: string): Promise<Embedding> {
+    const results = await this.embedBatch([text]);
+    return results[0]!;
+  }
+
+  async embedBatch(texts: string[]): Promise<Embedding[]> {
+    const response = await fetch(`${this.apiBase}/embeddings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({ model: this.model, input: texts }),
+    });
+
+    if (!response.ok) {
+      throw new EmbeddingError(`GLM API error: ${response.status} ${response.statusText}`);
+    }
+
+    const json = (await response.json()) as any;
+    const sorted = (json.data || json.embeddings || []).sort((a: any, b: any) => a.index - b.index);
+    return sorted.map((item: any) => new Float32Array(item.embedding));
+  }
 }
 
 class LocalEmbedder implements Embedder {

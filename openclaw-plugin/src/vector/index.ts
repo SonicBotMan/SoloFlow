@@ -213,6 +213,7 @@ export class VectorSearchSystem {
 }
 
 export { createEmbedder, type Embedder } from "./embedder.js";
+export { detectEmbeddingConfig, validateEmbeddingConfig } from "./embedding-config.js";
 export { HybridRetriever, type RetrievalStore } from "./retriever.js";
 export { VectorIndexer } from "./indexer.js";
 
