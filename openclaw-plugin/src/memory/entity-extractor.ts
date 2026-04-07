@@ -87,7 +87,7 @@ export class EntityExtractor {
         try {
           llmEntities = await this.llmExtractor(para.content);
           method = "combined";
-        } catch {
+        } catch (e) { console.warn(`error: ${e}`);
           // LLM not available, regex only
         }
       }
@@ -150,7 +150,7 @@ export class EntityExtractor {
               });
             }
           }
-        } catch {
+        } catch (e) { console.warn(`error: ${e}`);
           // Pattern error, skip
         }
       }

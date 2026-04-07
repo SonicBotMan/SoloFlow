@@ -87,7 +87,7 @@ export class MCPInventory {
         if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
           sources.push(parsed.mcpServers);
         }
-      } catch { /* not found or invalid */ }
+      } catch (e) { console.warn(`not found or invalid: ${e}`); }
     }
 
     // 3. openclaw.json top-level mcpServers
@@ -97,7 +97,7 @@ export class MCPInventory {
       if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
         sources.push(parsed.mcpServers);
       }
-    } catch { /* not found */ }
+    } catch (e) { console.warn(`not found: ${e}`); }
 
     return sources;
   }
@@ -112,7 +112,7 @@ export class MCPInventory {
 
       // Update last_seen
       this.db.prepare("UPDATE mcp_servers SET last_seen_at=? WHERE id=?").run(Date.now(), serverId);
-    } catch { /* non-critical */ }
+    } catch (e) { console.warn(`non-critical: ${e}`); }
   }
 
   /** Get usage stats for an MCP server */

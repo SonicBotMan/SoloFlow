@@ -68,9 +68,9 @@ export function createMCPServer(services: MCPServerServices): {
 
     return () => {
       for (const name of registeredRpcNames) {
-        try { api.rpc.unregister(name); } catch { /* best effort */ }
+        try { api.rpc.unregister(name); } catch (e) { console.warn(`best effort: ${e}`); }
       }
-      try { api.services.unregister("soloflow.mcp-server"); } catch { /* best effort */ }
+      try { api.services.unregister("soloflow.mcp-server"); } catch (e) { console.warn(`best effort: ${e}`); }
     };
   }
 

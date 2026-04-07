@@ -355,7 +355,7 @@ export class VectorIndexer implements RetrievalStore {
   private configToText(config: Record<string, unknown>): string {
     try {
       return JSON.stringify(config);
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return String(config);
     }
   }

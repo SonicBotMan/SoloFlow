@@ -249,7 +249,8 @@ var init_discipline = __esm({
               }
               if (output) break;
             }
-          } catch {
+          } catch (e) {
+            console.warn(`error: ${e}`);
           }
           return {
             stepId: step2.id,
@@ -369,7 +370,8 @@ var init_hooks = __esm({
         for (const handler of set) {
           try {
             handler(context);
-          } catch {
+          } catch (e) {
+            console.warn(`error: ${e}`);
           }
         }
       }
@@ -380,7 +382,8 @@ var init_hooks = __esm({
         const promises = [...set].map(async (handler) => {
           try {
             await handler(context);
-          } catch {
+          } catch (e) {
+            console.warn(`error: ${e}`);
           }
         });
         await Promise.all(promises);
@@ -427,7 +430,8 @@ var init_entity_extractor = __esm({
             try {
               llmEntities = await this.llmExtractor(para.content);
               method = "combined";
-            } catch {
+            } catch (e) {
+              console.warn(`error: ${e}`);
             }
           }
           const regexTexts = new Set(regexEntities.map((e) => e.text.toLowerCase()));
@@ -480,7 +484,8 @@ var init_entity_extractor = __esm({
                   });
                 }
               }
-            } catch {
+            } catch (e) {
+              console.warn(`error: ${e}`);
             }
           }
         }
@@ -702,7 +707,8 @@ var init_episodic_memory = __esm({
         if (this.deletePersistCallback) {
           try {
             this.deletePersistCallback(workflow.id);
-          } catch {
+          } catch (e) {
+            console.warn(`non-critical: ${e}`);
           }
         }
         const now2 = Date.now();
@@ -733,7 +739,8 @@ var init_episodic_memory = __esm({
         if (this.persistCallback) {
           try {
             this.persistCallback(entry);
-          } catch {
+          } catch (e) {
+            console.warn(`non-critical: ${e}`);
           }
         }
         this.triggerCompressionIfNeeded();
@@ -829,7 +836,8 @@ var init_episodic_memory = __esm({
               };
               this.store.set(id, compressedEntry);
               compressed++;
-            } catch {
+            } catch (e) {
+              console.warn(`error: ${e}`);
               const compressedEntry = {
                 ...entry,
                 rawData: void 0,
@@ -1028,7 +1036,8 @@ var init_semantic_memory = __esm({
             this.store.set(sem.id, updated);
             try {
               await this.persistToAdapter(updated);
-            } catch {
+            } catch (e) {
+              console.warn(`non-critical: ${e}`);
             }
           }
         }
@@ -1054,7 +1063,8 @@ var init_semantic_memory = __esm({
         this.store.set(entry.id, updated);
         try {
           this.persistToAdapter(updated);
-        } catch {
+        } catch (e) {
+          console.warn(`non-critical: ${e}`);
         }
         return updated;
       }
@@ -1152,7 +1162,8 @@ var init_semantic_memory = __esm({
             entry,
             score: entry.retrievability
           }));
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return this.queryLocal(query);
         }
       }
@@ -1160,7 +1171,8 @@ var init_semantic_memory = __esm({
         if (!this.adapter?.connected) return;
         try {
           await this.adapter.storeSemantic(entry);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
       }
       findByKey(key) {
@@ -1201,7 +1213,8 @@ var init_bridge = __esm({
           );
           this.compressorBackend = new mod.DAGCompressor();
           this._connected = true;
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           this._connected = false;
         }
       }
@@ -1268,7 +1281,8 @@ var init_bridge = __esm({
         if (this.semanticBackend) {
           try {
             await this.semanticBackend.close();
-          } catch {
+          } catch (e) {
+            console.warn(`error: ${e}`);
           }
         }
         this.semanticBackend = null;
@@ -1279,7 +1293,8 @@ var init_bridge = __esm({
         try {
           const moduleName = "lobster-press";
           return await import(moduleName);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return null;
         }
       }
@@ -1371,7 +1386,8 @@ var init_unified_retriever = __esm({
                 allCandidates.push({ id, tier: "episodic", score: 0.6, entry });
               }
             }
-          } catch {
+          } catch (e) {
+            console.warn(`FTS5 not available: ${e}`);
           }
         }
         if (this.vectorSearchFn) {
@@ -1395,7 +1411,8 @@ var init_unified_retriever = __esm({
                 });
               }
             }
-          } catch {
+          } catch (e) {
+            console.warn(`Vector not available: ${e}`);
           }
         }
         for (const r of semanticResults) {
@@ -1558,7 +1575,8 @@ var init_r3mem_store = __esm({
             confidence: row.confidence,
             sourceId: row.source_paragraph_id || row.source_document_id
           }));
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return [];
         }
       }
@@ -1575,7 +1593,8 @@ var init_r3mem_store = __esm({
             content: row.content,
             createdAt: row.created_at
           }));
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return [];
         }
       }
@@ -1593,7 +1612,8 @@ var init_r3mem_store = __esm({
             entityTypes[row.type] = row.c;
           }
           return { documentCount: docCount, paragraphCount: paraCount, entityCount, entityTypes };
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return { documentCount: 0, paragraphCount: 0, entityCount: 0, entityTypes: {} };
         }
       }
@@ -1603,7 +1623,8 @@ var init_r3mem_store = __esm({
           this.db.prepare("DELETE FROM r3mem_paragraphs WHERE document_id = ?").run(documentId);
           const result = this.db.prepare("DELETE FROM r3mem_documents WHERE id = ?").run(documentId);
           return result.changes > 0;
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return false;
         }
       }
@@ -1611,7 +1632,8 @@ var init_r3mem_store = __esm({
       markCompressed(documentId) {
         try {
           this.db.prepare("UPDATE r3mem_documents SET compressed = 1 WHERE id = ?").run(documentId);
-        } catch {
+        } catch (e) {
+          console.warn(`non-critical: ${e}`);
         }
       }
     };
@@ -1745,7 +1767,8 @@ var init_memory = __esm({
         if (this._r3memStore) {
           try {
             this._r3memStore.storeDecomposition(doc, result.paragraphs, result.entities);
-          } catch {
+          } catch (e) {
+            console.warn(`non-critical: ${e}`);
           }
         }
         return result;
@@ -2452,7 +2475,8 @@ var init_indexer = __esm({
       configToText(config) {
         try {
           return JSON.stringify(config);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return String(config);
         }
       }
@@ -2514,7 +2538,8 @@ function detectEmbeddingConfig() {
         };
       }
     }
-  } catch {
+  } catch (e) {
+    console.warn(`error: ${e}`);
   }
   return { type: "local" };
 }
@@ -2524,7 +2549,8 @@ async function validateEmbeddingConfig(config) {
     const embedder = createEmbedder2(config);
     const result = await embedder.embed("test");
     return result.length === embedder.dimensions && result.some((v) => v !== 0);
-  } catch {
+  } catch (e) {
+    console.warn(`error: ${e}`);
     return false;
   }
 }
@@ -10518,7 +10544,8 @@ var init_sqlite_store = __esm({
         try {
           const text = this.episodicEntryToText(entry);
           this.db.prepare("INSERT OR REPLACE INTO episodic_fts(rowid, content) VALUES (?, ?)").run(entry.id, text);
-        } catch {
+        } catch (e) {
+          console.warn(`FTS5 may not be available: ${e}`);
         }
       }
       /** Delete all episodic entries for a workflow */
@@ -10551,7 +10578,8 @@ var init_sqlite_store = __esm({
           return this.db.prepare(
             "SELECT rowid FROM episodic_fts WHERE episodic_fts MATCH ? ORDER BY rank LIMIT ?"
           ).all(query, limit).map((r) => r.rowid);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return [];
         }
       }
@@ -10559,7 +10587,8 @@ var init_sqlite_store = __esm({
       removeEpisodicFTS(id) {
         try {
           this.db.prepare("DELETE FROM episodic_fts WHERE rowid = ?").run(id);
-        } catch {
+        } catch (e) {
+          console.warn(`non-critical: ${e}`);
         }
       }
       episodicEntryToText(entry) {
@@ -10672,7 +10701,8 @@ var init_evolution_store = __esm({
         try {
           const row = this.db.prepare("SELECT * FROM evolved_templates WHERE id = ?").get(id);
           return row ? this.rowToTemplate(row) : null;
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return null;
         }
       }
@@ -10680,7 +10710,8 @@ var init_evolution_store = __esm({
         try {
           const rows = type ? this.db.prepare("SELECT * FROM evolved_templates WHERE type = ? ORDER BY quality_score DESC, created_at DESC").all(type) : this.db.prepare("SELECT * FROM evolved_templates ORDER BY quality_score DESC, created_at DESC").all();
           return rows.map((r) => this.rowToTemplate(r));
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return [];
         }
       }
@@ -10696,7 +10727,8 @@ var init_evolution_store = __esm({
           sql += " ORDER BY quality_score DESC, created_at DESC LIMIT ?";
           params.push(limit);
           return this.db.prepare(sql).all(...params).map((r) => this.rowToTemplate(r));
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return [];
         }
       }
@@ -10715,13 +10747,15 @@ var init_evolution_store = __esm({
           last_used_at = ?, quality_score = ?, updated_at = ?
         WHERE id = ?
       `).run(useCount, successCount, failCount, now2, qualityScore, now2, id);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
       }
       delete(id) {
         try {
           this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
       }
       bumpVersion(id, updated) {
@@ -10766,14 +10800,16 @@ var init_evolution_store = __esm({
             JSON.stringify(mergedExamples),
             id
           );
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
       }
       count(type) {
         try {
           const row = type ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type) : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
           return row.cnt;
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return 0;
         }
       }
@@ -10833,7 +10869,8 @@ var init_analyzer = __esm({
               createdAt: e.createdAt
             });
           }
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
         const existingTemplates = [];
         try {
@@ -10841,7 +10878,8 @@ var init_analyzer = __esm({
           for (const t of all) {
             existingTemplates.push({ id: t.id, name: t.name, type: t.type, triggers: t.triggers, tools_required: t.tools_required });
           }
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
         if (episodicEntries.length === 0) {
           return { templates: 0, skills: 0 };
@@ -10943,7 +10981,8 @@ Output ONLY valid JSON (no markdown, no explanation):
           const raw = fs3.readFileSync(configPath, "utf-8");
           const config = JSON.parse(raw);
           _EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           _EvolutionAnalyzer.providerConfig = {};
         }
         return _EvolutionAnalyzer.providerConfig;
@@ -10987,7 +11026,8 @@ Output ONLY valid JSON (no markdown, no explanation):
         let parsed;
         try {
           parsed = JSON.parse(jsonStr);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return { templates: 0, skills: 0 };
         }
         let wfCount = 0;
@@ -11004,7 +11044,8 @@ Output ONLY valid JSON (no markdown, no explanation):
             if (!merged) {
               try {
                 await this.onTemplateFound(template);
-              } catch {
+              } catch (e) {
+                console.warn(`non-critical: ${e}`);
               }
             }
             wfCount++;
@@ -11020,7 +11061,8 @@ Output ONLY valid JSON (no markdown, no explanation):
             if (!merged) {
               try {
                 await this.onTemplateFound(template);
-              } catch {
+              } catch (e) {
+                console.warn(`non-critical: ${e}`);
               }
             }
             skCount++;
@@ -11096,7 +11138,8 @@ Output ONLY valid JSON (no markdown, no explanation):
               return { merged: false };
             }
           }
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
         return { merged: false };
       }
@@ -11113,7 +11156,8 @@ Output ONLY valid JSON (no markdown, no explanation):
           if (cleaned > 0) {
             this.api.logger.info(`evolution cleanup: archived ${cleaned} low-quality template(s)`);
           }
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
         }
       }
     };
@@ -11211,7 +11255,8 @@ var init_skill_inventory = __esm({
               const skill = this.parseSkillDir(skillPath, entry.name);
               if (skill) skills.push(skill);
             }
-          } catch {
+          } catch (e) {
+            console.warn(`skip inaccessible dirs: ${e}`);
           }
         }
         return skills;
@@ -11241,7 +11286,8 @@ var init_skill_inventory = __esm({
             version,
             installedAt: Math.floor(stat.birthtimeMs)
           };
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           return null;
         }
       }
@@ -11272,7 +11318,8 @@ var init_skill_inventory = __esm({
         INSERT INTO skill_usage (skill_id, tool_name, success, duration_ms, called_at)
         VALUES (?, ?, ?, ?, ?)
       `).run(skillId, toolName, success ? 1 : 0, durationMs ?? null, Date.now());
-        } catch {
+        } catch (e) {
+          console.warn(`non-critical: ${e}`);
         }
       }
       /** Get usage stats for a skill */
@@ -11363,7 +11410,8 @@ var init_skill_analyzer = __esm({
               insight.recommendation,
               now2
             );
-          } catch {
+          } catch (e) {
+            console.warn(`dedup by time + type: ${e}`);
           }
         }
         return { insights: insights.length, suggestions: suggestions.length };
@@ -11498,7 +11546,8 @@ var init_mcp_inventory = __esm({
             if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
               sources.push(parsed.mcpServers);
             }
-          } catch {
+          } catch (e) {
+            console.warn(`not found or invalid: ${e}`);
           }
         }
         try {
@@ -11507,7 +11556,8 @@ var init_mcp_inventory = __esm({
           if (parsed.mcpServers && Object.keys(parsed.mcpServers).length > 0) {
             sources.push(parsed.mcpServers);
           }
-        } catch {
+        } catch (e) {
+          console.warn(`not found: ${e}`);
         }
         return sources;
       }
@@ -11519,7 +11569,8 @@ var init_mcp_inventory = __esm({
         VALUES (?, ?, ?, ?, ?)
       `).run(serverId, toolName, success ? 1 : 0, durationMs ?? null, Date.now());
           this.db.prepare("UPDATE mcp_servers SET last_seen_at=? WHERE id=?").run(Date.now(), serverId);
-        } catch {
+        } catch (e) {
+          console.warn(`non-critical: ${e}`);
         }
       }
       /** Get usage stats for an MCP server */
@@ -11767,7 +11818,8 @@ var init_websocket = __esm({
         let msg;
         try {
           msg = JSON.parse(raw);
-        } catch {
+        } catch (e) {
+          console.warn(`error: ${e}`);
           this.sendTo(wsId, { type: "error", message: "Invalid JSON" });
           return;
         }
@@ -11935,7 +11987,8 @@ function createWorkflowRoutes(services, _templates) {
       const id = asWorkflowId(req.params["id"] ?? "");
       try {
         services.workflowService.delete(id);
-      } catch {
+      } catch (e) {
+        console.warn(`error: ${e}`);
         throw new HttpError(404, `Workflow not found: ${String(id)}`);
       }
       return jsonResponse(204, null);
@@ -12197,7 +12250,8 @@ function createJwtAuthMiddleware(options) {
         type: "jwt"
       };
       return next();
-    } catch {
+    } catch (e) {
+      console.warn(`error: ${e}`);
       return jsonError(401, "Unauthorized", "Invalid JWT token");
     }
   };
@@ -12340,19 +12394,23 @@ function registerApiWithPlugin(api, services, config) {
     server.close();
     try {
       api.rpc.unregister("soloflow.api.handle");
-    } catch {
+    } catch (e) {
+      console.warn(`best effort: ${e}`);
     }
     try {
       api.rpc.unregister("soloflow.api.ws-message");
-    } catch {
+    } catch (e) {
+      console.warn(`best effort: ${e}`);
     }
     try {
       api.services.unregister("soloflow.api-server");
-    } catch {
+    } catch (e) {
+      console.warn(`best effort: ${e}`);
     }
     try {
       api.services.unregister("soloflow.websocket-server");
-    } catch {
+    } catch (e) {
+      console.warn(`best effort: ${e}`);
     }
   };
 }
@@ -14307,8 +14365,8 @@ var index_default = definePluginEntry({
               if (raw.trim()) {
                 try {
                   body = JSON.parse(raw);
-                } catch {
-                  body = raw;
+                } catch (e) {
+                  log.warn(`error: ${e}`);
                 }
               }
             }

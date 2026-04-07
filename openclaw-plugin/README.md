@@ -7,11 +7,10 @@
 **Turn chaotic multi-step AI tasks into structured, observable, retryable workflows.**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Bun](https://img.shields.io/badge/runtime-bun%20%3E%3D1.0-black?logo=bun)](https://bun.sh)
+[![Node.js](https://img.shields.io/badge/runtime-Node.js%20%3E%3D22-339933?logo=node.js)](https://nodejs.org)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](./tests)
-[![Bundle](https://img.shields.io/badge/bundle-0.27MB-orange)](./dist)
-[![Modules](https://img.shields.io/badge/modules-180%2B-blueviolet)](./src)
+[![Bundle](https://img.shields.io/badge/bundle-~500KB-orange)](./dist)
+[![Tools](https://img.shields.io/badge/tools-15%20registered-blue)](./src)
 
 ```
   ███████╗███████╗ ██████╗ ███╗   ██╗ ██████╗ ███████╗██╗         ██████╗ ██╗      ██████╗
@@ -24,12 +23,11 @@
 
 | Metric | Value |
 |:-------|:------|
-| Tests | 175 passing |
-| Modules | 180+ |
-| Bundle size | 0.27MB |
+| Bundle size | ~500KB |
+| Source files | 78 TypeScript files |
 | Language | TypeScript (strict) |
-| Runtime | Bun >= 1.0 |
-| Zero dependencies | 2 runtime deps (`jose`, `yaml`) |
+| Runtime | Node.js >= 22 |
+| Registered tools | 15 |
 
 </div>
 
@@ -133,7 +131,7 @@ The AI agent infrastructure market is growing fast. Gartner projects that by 202
 | Cognitive memory (3-tier) | Yes | No | No | Partial | No |
 | Forgetting curve | Yes | No | No | No | No |
 | Skill auto-evolution | Yes | No | No | No | No |
-| Visual builder | Phase 3 | No | Yes (Studio) | No | Yes |
+| Visual builder | ✅ | No | Yes (Studio) | No | Yes |
 | Agent marketplace | Phase 4 | No | No | No | Yes |
 | OpenClaw integration | Native | No | No | No | No |
 | Multi-user RBAC | Phase 4 | No | No | No | Yes |
@@ -240,6 +238,50 @@ src/
 
 ---
 
+### Cognitive Memory Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    SoloFlow Memory System                │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌──────────────┐    ┌──────────────────────────────┐  │
+│  │   Working     │    │      Episodic Memory         │  │
+│  │   Memory      │    │  ┌─────────────────────────┐ │  │
+│  │  (session)    │    │  │  FTS5 Full-Text Search   │ │  │
+│  │  ──────────── │    │  │  + Vector Embeddings     │ │  │
+│  │  • Context    │    │  │  + Semantic Forgetting   │ │  │
+│  │  • Scratch    │    │  │  + C-HLR+ Half-Life      │ │  │
+│  │  • Current    │    │  └─────────────────────────┘ │  │
+│  │    Task       │    │  DAG Tree Compression        │  │
+│  └──────┬───────┘    └──────────────┬───────────────┘  │
+│         │                           │                   │
+│         ▼                           ▼                   │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │              Unified Retriever (RRF Fusion)       │  │
+│  │     FTS5 + Vector + Semantic + InMemory          │  │
+│  └──────────────────────┬───────────────────────────┘  │
+│                         │                               │
+│                         ▼                               │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │             R³Mem Entity Graph                    │  │
+│  │  Document → Paragraph → Entity Extraction         │  │
+│  │  • Person / Project / Tool / Concept              │  │
+│  │  • Entities outlive documents                     │  │
+│  │  • Auto-inject on workflow completion             │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │            Semantic Memory (Long-term)            │  │
+│  │  • Knowledge facts with confidence scores         │  │
+│  │  • Spaced repetition + forgetting curve           │  │
+│  │  • SQLite + optional LobsterPress compression     │  │
+│  └──────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Unique Innovations
 
 ### 1. Discipline-Aware Routing
@@ -342,6 +384,16 @@ Generated skills produce `SKILL.md` documentation automatically, making them sha
 
 ### 4. DAG + FSM Hybrid
 
+### 5. Visual Builder
+
+Drag-and-drop DAG workflow editor accessible at `/soloflow/builder`. SVG-based canvas with:
+- Draggable nodes with dependency connections
+- Real-time execution status (auto-polling every 2s)
+- Template gallery for one-click workflow creation
+- Dark theme, zero external dependencies
+
+---
+
 The DAG (Directed Acyclic Graph) defines *what* steps exist and *in what order* they can run. The FSM (Finite State Machine) defines *what states* a workflow can be in and *which transitions* are legal.
 
 ```
@@ -391,7 +443,7 @@ The `LobsterPressAdapter` interface bridges SoloFlow's memory to the LobsterPres
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) >= 1.0.0
+- [Node.js](https://nodejs.org) >= 22
 - [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) >= 2.0.0 with Gateway >= 2.0.0
 
 ### Install
@@ -401,8 +453,8 @@ The `LobsterPressAdapter` interface bridges SoloFlow's memory to the LobsterPres
 git clone https://github.com/SonicBotMan/SoloFlow.git
 cd SoloFlow/openclaw-plugin
 
-bun install
-bun run build
+npm install
+npm run build
 ```
 
 ### Configure
@@ -479,23 +531,48 @@ import { codeReviewWorkflow } from "./examples/code-review-workflow";
 
 ---
 
+## Registered Tools
+
+| Tool | Description |
+|------|-------------|
+| `soloflow_create` | Create a new workflow |
+| `soloflow_start` | Start workflow execution |
+| `soloflow_status` | Get workflow status |
+| `soloflow_list` | List all workflows (filter by status/discipline) |
+| `soloflow_cancel` | Cancel a running workflow |
+| `soloflow_ready_steps` | Get steps ready to execute |
+| `soloflow_advance_step` | Mark step as completed |
+| `soloflow_memory` | Query cognitive memory |
+| `soloflow_evolve` | Trigger skill auto-evolution |
+| `soloflow_templates` | List evolved templates/skills |
+| `soloflow_skills_list` | List skill inventory |
+| `soloflow_skills_usage` | Get skill usage analytics |
+| `soloflow_skills_scan` | Scan and update skill inventory |
+| `mcp_servers` | List MCP servers and tools |
+| `mcp_stats` | Get MCP usage statistics |
+
+---
+
 ## Roadmap
 
-### Phase 1: Foundation (current)
+### Phase 1: Foundation ✅ DONE
 
-DAG scheduling, FSM state machine, four discipline agents, 10 RPC methods, lifecycle hooks, Prometheus-style planner, slash commands, 175 tests.
+15 registered tools, cognitive memory system, skill evolution engine, Visual Builder, DAG scheduling, FSM state machine, four discipline agents, lifecycle hooks, slash commands.
 
-### Phase 2: Intelligence
+### Phase 2: Intelligence ✅ DONE
 
-Three-tier memory system (Working/Episodic/Semantic), skill evolution with SKILL.md generation, MCP tool integration, vector retrieval for semantic search, LobsterPress backend adapter.
+C-HLR+ half-life regression, R³Mem entity graph, unified retriever (RRF fusion), auto-evolution engine, LobsterPress backend adapter, semantic forgetting.
 
-### Phase 3: Visualization
+### Phase 3: Visualization ✅ DONE
 
-React Flow visual workflow builder, YAML sync (bidirectional), real-time execution viewer, drag-and-drop step composition, live DAG rendering.
+SVG-based visual workflow builder at `/soloflow/builder`, real-time execution viewer, template gallery, dark theme, zero external dependencies.
 
-### Phase 4: Platform
+### Phase 4: Platform (current)
 
-Multi-user support (JWT auth, RBAC), REST API, WebSocket real-time updates, plugin marketplace, template sharing, community ratings, tenant isolation.
+- GitHub publishing (pending account recovery)
+- OpenClaw Skill Market listing
+- Multi-user RBAC
+- Plugin marketplace
 
 ---
 

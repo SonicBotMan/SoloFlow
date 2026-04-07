@@ -52,7 +52,7 @@ export function detectEmbeddingConfig(): EmbeddingProviderConfig {
         };
       }
     }
-  } catch {
+  } catch (e) { console.warn(`error: ${e}`);
     // Config not readable
   }
 
@@ -69,7 +69,7 @@ export async function validateEmbeddingConfig(config: EmbeddingProviderConfig): 
     const embedder = createEmbedder(config);
     const result = await embedder.embed("test");
     return result.length === embedder.dimensions && result.some((v) => v !== 0);
-  } catch {
+  } catch (e) { console.warn(`error: ${e}`);
     return false;
   }
 }

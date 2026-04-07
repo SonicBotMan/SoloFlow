@@ -80,7 +80,7 @@ export class UnifiedRetriever {
             allCandidates.push({ id, tier: "episodic", score: 0.6, entry });
           }
         }
-      } catch { /* FTS5 not available */ }
+      } catch (e) { console.warn(`FTS5 not available: ${e}`); }
     }
 
     // Source 3: Vector search
@@ -105,7 +105,7 @@ export class UnifiedRetriever {
             });
           }
         }
-      } catch { /* Vector not available */ }
+      } catch (e) { console.warn(`Vector not available: ${e}`); }
     }
 
     // Source 4: Semantic memory (already scored by forgetting curve)

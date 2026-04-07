@@ -45,7 +45,7 @@ export class SkillAnalyzer {
           insight.recommendation,
           now
         );
-      } catch { /* dedup by time + type */ }
+      } catch (e) { console.warn(`dedup by time + type: ${e}`); }
     }
 
     return { insights: insights.length, suggestions: suggestions.length };

@@ -119,7 +119,7 @@ export class SkillEvolutionSystem {
     for (const listener of this.listeners) {
       try {
         listener(event);
-      } catch {
+      } catch (e) { console.warn(`error: ${e}`);
         // swallow listener errors
       }
     }

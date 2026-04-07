@@ -178,7 +178,7 @@ export class MemorySystem {
     if (this._r3memStore) {
       try {
         this._r3memStore.storeDecomposition(doc, result.paragraphs, result.entities);
-      } catch { /* non-critical */ }
+      } catch (e) { console.warn(`non-critical: ${e}`); }
     }
     return result;
   }

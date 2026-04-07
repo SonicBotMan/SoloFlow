@@ -205,7 +205,7 @@ export class SqliteStore {
       const text = this.episodicEntryToText(entry);
       this.db.prepare("INSERT OR REPLACE INTO episodic_fts(rowid, content) VALUES (?, ?)")
         .run(entry.id, text);
-    } catch { /* FTS5 may not be available */ }
+    } catch (e) { console.warn(`FTS5 may not be available: ${e}`); }
   }
 
   /** Delete all episodic entries for a workflow */
@@ -240,7 +240,7 @@ export class SqliteStore {
       return (this.db.prepare(
         "SELECT rowid FROM episodic_fts WHERE episodic_fts MATCH ? ORDER BY rank LIMIT ?"
       ).all(query, limit) as any[]).map((r) => r.rowid as string);
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return [];
     }
   }
@@ -249,7 +249,7 @@ export class SqliteStore {
   removeEpisodicFTS(id: string): void {
     try {
       this.db.prepare("DELETE FROM episodic_fts WHERE rowid = ?").run(id);
-    } catch { /* non-critical */ }
+    } catch (e) { console.warn(`non-critical: ${e}`); }
   }
 
   private episodicEntryToText(entry: any): string {

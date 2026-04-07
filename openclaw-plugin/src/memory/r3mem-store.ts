@@ -158,7 +158,7 @@ export class R3MemStore {
         confidence: row.confidence,
         sourceId: row.source_paragraph_id || row.source_document_id,
       }));
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return [];
     }
   }
@@ -176,7 +176,7 @@ export class R3MemStore {
         content: row.content,
         createdAt: row.created_at,
       }));
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return [];
     }
   }
@@ -197,7 +197,7 @@ export class R3MemStore {
       }
 
       return { documentCount: docCount, paragraphCount: paraCount, entityCount, entityTypes };
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return { documentCount: 0, paragraphCount: 0, entityCount: 0, entityTypes: {} as Record<EntityType, number> };
     }
   }
@@ -208,7 +208,7 @@ export class R3MemStore {
       this.db.prepare("DELETE FROM r3mem_paragraphs WHERE document_id = ?").run(documentId);
       const result = this.db.prepare("DELETE FROM r3mem_documents WHERE id = ?").run(documentId);
       return result.changes > 0;
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return false;
     }
   }
@@ -217,6 +217,6 @@ export class R3MemStore {
   markCompressed(documentId: string): void {
     try {
       this.db.prepare("UPDATE r3mem_documents SET compressed = 1 WHERE id = ?").run(documentId);
-    } catch { /* non-critical */ }
+    } catch (e) { console.warn(`non-critical: ${e}`); }
   }
 }

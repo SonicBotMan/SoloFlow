@@ -86,7 +86,7 @@ export function createJwtAuthMiddleware(options: JwtAuthOptions): Middleware {
       };
 
       return next();
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return jsonError(401, "Unauthorized", "Invalid JWT token");
     }
   };

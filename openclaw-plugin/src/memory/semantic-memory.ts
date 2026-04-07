@@ -114,7 +114,7 @@ export class SemanticMemory {
           retrievability: this.computeRetrievability(consolidated.createdAt, now, consolidated.stability, consolidated.importance),
         };
         this.store.set(sem.id, updated);
-        try { await this.persistToAdapter(updated); } catch { /* non-critical */ }
+        try { await this.persistToAdapter(updated); } catch (e) { console.warn(`non-critical: ${e}`); }
       }
     }
 
@@ -141,7 +141,7 @@ export class SemanticMemory {
       updatedAt: now,
     };
     this.store.set(entry.id, updated);
-    try { this.persistToAdapter(updated); } catch { /* non-critical */ }
+    try { this.persistToAdapter(updated); } catch (e) { console.warn(`non-critical: ${e}`); }
     return updated;
   }
 
@@ -266,7 +266,7 @@ export class SemanticMemory {
         entry,
         score: entry.retrievability,
       }));
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return this.queryLocal(query);
     }
   }
@@ -275,7 +275,7 @@ export class SemanticMemory {
     if (!this.adapter?.connected) return;
     try {
       await this.adapter.storeSemantic(entry);
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // adapter write failure — local copy is still valid
     }
   }

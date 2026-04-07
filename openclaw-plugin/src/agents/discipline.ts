@@ -275,7 +275,7 @@ export class DisciplineAgent {
             }
             if (output) break;
         }
-      } catch {
+      } catch (e) { console.warn(`error: ${e}`);
         // getSessionMessages may fail — that's ok, return null output
       }
 

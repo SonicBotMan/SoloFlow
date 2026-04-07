@@ -89,7 +89,7 @@ export class SkillInventory {
           const skill = this.parseSkillDir(skillPath, entry.name);
           if (skill) skills.push(skill);
         }
-      } catch { /* skip inaccessible dirs */ }
+      } catch (e) { console.warn(`skip inaccessible dirs: ${e}`); }
     }
     return skills;
   }
@@ -121,7 +121,7 @@ export class SkillInventory {
         version,
         installedAt: Math.floor(stat.birthtimeMs),
       };
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return null;
     }
   }
@@ -157,7 +157,7 @@ export class SkillInventory {
         INSERT INTO skill_usage (skill_id, tool_name, success, duration_ms, called_at)
         VALUES (?, ?, ?, ?, ?)
       `).run(skillId, toolName, success ? 1 : 0, durationMs ?? null, Date.now());
-    } catch { /* non-critical */ }
+    } catch (e) { console.warn(`non-critical: ${e}`); }
   }
 
   /** Get usage stats for a skill */

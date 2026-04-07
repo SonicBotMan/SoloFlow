@@ -64,7 +64,7 @@ export class HookSystem {
     for (const handler of set) {
       try {
         handler(context);
-      } catch {
+      } catch (e) { console.warn(`error: ${e}`);
         // swallow handler errors to protect the emitter
       }
     }
@@ -77,7 +77,7 @@ export class HookSystem {
     const promises = [...set].map(async (handler) => {
       try {
         await handler(context);
-      } catch {
+      } catch (e) { console.warn(`error: ${e}`);
         // swallow handler errors to protect the emitter
       }
     });

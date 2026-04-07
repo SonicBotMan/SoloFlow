@@ -43,7 +43,7 @@ export class LobsterPressBridge implements LobsterPressAdapter {
       );
       this.compressorBackend = new mod.DAGCompressor();
       this._connected = true;
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       this._connected = false;
     }
   }
@@ -119,7 +119,7 @@ export class LobsterPressBridge implements LobsterPressAdapter {
     if (this.semanticBackend) {
       try {
         await this.semanticBackend.close();
-      } catch {
+      } catch (e) { console.warn(`error: ${e}`);
         // best-effort close
       }
     }
@@ -132,7 +132,7 @@ export class LobsterPressBridge implements LobsterPressAdapter {
     try {
       const moduleName = "lobster-press";
       return await import(moduleName) as LobsterPressModule;
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return null;
     }
   }

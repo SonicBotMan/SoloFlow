@@ -151,9 +151,9 @@ export function registerApiWithPlugin(
 
   return () => {
     server.close();
-    try { api.rpc.unregister("soloflow.api.handle"); } catch { /* best effort */ }
-    try { api.rpc.unregister("soloflow.api.ws-message"); } catch { /* best effort */ }
-    try { api.services.unregister("soloflow.api-server"); } catch { /* best effort */ }
-    try { api.services.unregister("soloflow.websocket-server"); } catch { /* best effort */ }
+    try { api.rpc.unregister("soloflow.api.handle"); } catch (e) { console.warn(`best effort: ${e}`); }
+    try { api.rpc.unregister("soloflow.api.ws-message"); } catch (e) { console.warn(`best effort: ${e}`); }
+    try { api.services.unregister("soloflow.api-server"); } catch (e) { console.warn(`best effort: ${e}`); }
+    try { api.services.unregister("soloflow.websocket-server"); } catch (e) { console.warn(`best effort: ${e}`); }
   };
 }

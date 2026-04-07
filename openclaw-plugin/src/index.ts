@@ -1048,7 +1048,7 @@ export default definePluginEntry({
               for await (const chunk of req) chunks.push(chunk as Buffer);
               const raw = Buffer.concat(chunks).toString("utf8");
               if (raw.trim()) {
-                try { body = JSON.parse(raw); } catch { body = raw; }
+                try { body = JSON.parse(raw); } catch (e) { log.warn(`error: ${e}`); }
               }
             }
 

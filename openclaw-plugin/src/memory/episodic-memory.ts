@@ -35,7 +35,7 @@ export class EpisodicMemory {
       }
     }
     if (this.deletePersistCallback) {
-      try { this.deletePersistCallback(workflow.id); } catch { /* non-critical */ }
+      try { this.deletePersistCallback(workflow.id); } catch (e) { console.warn(`non-critical: ${e}`); }
     }
 
     const now = Date.now();
@@ -68,7 +68,7 @@ export class EpisodicMemory {
 
     this.store.set(entry.id, entry);
     if (this.persistCallback) {
-      try { this.persistCallback(entry); } catch { /* non-critical */ }
+      try { this.persistCallback(entry); } catch (e) { console.warn(`non-critical: ${e}`); }
     }
     this.triggerCompressionIfNeeded();
     this.evictIfNeeded();
@@ -187,7 +187,7 @@ export class EpisodicMemory {
           };
           this.store.set(id, compressedEntry);
           compressed++;
-        } catch {
+        } catch (e) { console.warn(`error: ${e}`);
           // Graceful degradation: fall back to simple compression
           const compressedEntry: EpisodicEntry = {
             ...entry,

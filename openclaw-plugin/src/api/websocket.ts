@@ -84,7 +84,7 @@ export class WebSocketServer {
     let msg: WsClientMessage;
     try {
       msg = JSON.parse(raw) as WsClientMessage;
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       this.sendTo(wsId, { type: "error", message: "Invalid JSON" });
       return;
     }

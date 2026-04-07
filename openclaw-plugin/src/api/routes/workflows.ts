@@ -132,7 +132,7 @@ export function createWorkflowRoutes(services: ApiServices, _templates: Template
       const id = asWorkflowId(req.params["id"] ?? "");
       try {
         services.workflowService.delete(id);
-      } catch {
+      } catch (e) { console.warn(`error: ${e}`);
         throw new HttpError(404, `Workflow not found: ${String(id)}`);
       }
       return jsonResponse(204, null);

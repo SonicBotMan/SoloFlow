@@ -1112,7 +1112,7 @@ html, body {
 // SOLOFLOW VISUAL BUILDER — Application
 // ============================================
 
-const API_BASE = '/soloflow/api';
+const API_BASE = '/soloflow';
 
 const DISCIPLINES = {
   deep:      { emoji: '🧠', label: 'Deep',      color: 'purple' },
@@ -1189,6 +1189,10 @@ const API = {
 
   createWorkflow(data) {
     return API.request('/workflows', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  updateWorkflow(id, data) {
+    return API.request(`/workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
 
   deleteWorkflow(id) {
@@ -1625,7 +1629,8 @@ const App = {
   async refreshWorkflows() {
     try {
       const data = await API.listWorkflows(State.filter);
-      State.workflows = (data.workflows || data || []);
+      // Backend returns { data: [...], total }
+      State.workflows = (data.data || data.workflows || data || []);
       this.renderWorkflowList();
     } catch (e) { /* toast already shown */ }
   },
@@ -1689,18 +1694,26 @@ const App = {
       const wf = await API.createWorkflow({
         name,
         description: desc,
-        steps: [],
+        steps: [{ id: 'step-1', name: 'Step 1', discipline: 'quick', dependencies: [], config: { prompt: 'Describe the task' } }],
       });
       Modal.close();
       Toast.success(`Workflow "${name}" created`);
       await this.refreshWorkflows();
       if (wf && wf.id) this.loadWorkflow(wf.id);
-    } catch (e) { /* toast */ }
+    } catch (e) { Toast.error('Create failed: ' + (e.message || e)); }
   },
 
   async loadWorkflow(id) {
     try {
       const wf = await API.getWorkflow(id);
+      // Map backend fields to frontend fields
+      if (wf.steps) {
+        wf.steps = wf.steps.map(s => ({
+          ...s,
+          action: s.config?.prompt || s.action || '',
+          status: s.state || s.status || 'pending',
+        }));
+      }
       State.currentWorkflow = wf;
       State.selectedStep = null;
       State.nodePositions = {};
@@ -1764,23 +1777,21 @@ const App = {
   async saveWorkflow() {
     if (!State.currentWorkflow) return;
     try {
-      // Reconstruct steps with current positions stored as metadata hint (positions aren't part of the API)
-      // We just save the step data (name, discipline, action, dependencies)
       const steps = (State.currentWorkflow.steps || []).map(s => ({
         id: s.id,
         name: s.name,
         discipline: s.discipline,
-        action: s.action,
         dependencies: s.dependencies || [],
+        config: { prompt: s.action || '' },
       }));
-      await API.createWorkflow({
+      // Use PUT to update existing workflow
+      await API.updateWorkflow(State.currentWorkflow.id, {
         name: State.currentWorkflow.name,
         description: State.currentWorkflow.description,
-        steps,
       });
       Toast.success('Workflow saved');
       await this.refreshWorkflows();
-    } catch (e) { /* toast */ }
+    } catch (e) { Toast.error('Save failed: ' + (e.message || e)); }
   },
 
   // --- Execution ---

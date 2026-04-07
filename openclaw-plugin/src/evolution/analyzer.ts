@@ -78,7 +78,7 @@ export class EvolutionAnalyzer {
           createdAt: e.createdAt,
         });
       }
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // episodic access may vary
     }
 
@@ -89,7 +89,7 @@ export class EvolutionAnalyzer {
       for (const t of all) {
         existingTemplates.push({ id: t.id, name: t.name, type: t.type, triggers: t.triggers, tools_required: t.tools_required });
       }
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // store may not be ready
     }
 
@@ -209,7 +209,7 @@ Output ONLY valid JSON (no markdown, no explanation):
       const raw = fs.readFileSync(configPath, "utf-8");
       const config = JSON.parse(raw);
       EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       EvolutionAnalyzer.providerConfig = {};
     }
     return EvolutionAnalyzer.providerConfig;
@@ -261,7 +261,7 @@ Output ONLY valid JSON (no markdown, no explanation):
     let parsed: any;
     try {
       parsed = JSON.parse(jsonStr);
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return { templates: 0, skills: 0 };
     }
 
@@ -280,7 +280,7 @@ Output ONLY valid JSON (no markdown, no explanation):
 
         const { merged } = this.smartMerge(template);
         if (!merged) {
-          try { await this.onTemplateFound(template); } catch { /* non-critical */ }
+          try { await this.onTemplateFound(template); } catch (e) { console.warn(`non-critical: ${e}`); }
         }
         wfCount++;
         wfNames.push(wf.name);
@@ -296,7 +296,7 @@ Output ONLY valid JSON (no markdown, no explanation):
 
         const { merged } = this.smartMerge(template);
         if (!merged) {
-          try { await this.onTemplateFound(template); } catch { /* non-critical */ }
+          try { await this.onTemplateFound(template); } catch (e) { console.warn(`non-critical: ${e}`); }
         }
         skCount++;
         skNames.push(sk.name);
@@ -381,7 +381,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           return { merged: false };
         }
       }
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // non-critical
     }
 
@@ -401,7 +401,7 @@ Output ONLY valid JSON (no markdown, no explanation):
       if (cleaned > 0) {
         this.api.logger.info(`evolution cleanup: archived ${cleaned} low-quality template(s)`);
       }
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // non-critical
     }
   }

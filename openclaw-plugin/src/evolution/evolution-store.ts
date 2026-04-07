@@ -91,7 +91,7 @@ export class EvolutionStore {
     try {
       const row = this.db.prepare("SELECT * FROM evolved_templates WHERE id = ?").get(id);
       return row ? this.rowToTemplate(row) : null;
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return null;
     }
   }
@@ -102,7 +102,7 @@ export class EvolutionStore {
         ? this.db.prepare("SELECT * FROM evolved_templates WHERE type = ? ORDER BY quality_score DESC, created_at DESC").all(type)
         : this.db.prepare("SELECT * FROM evolved_templates ORDER BY quality_score DESC, created_at DESC").all();
       return (rows as any[]).map(r => this.rowToTemplate(r));
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return [];
     }
   }
@@ -119,7 +119,7 @@ export class EvolutionStore {
       sql += " ORDER BY quality_score DESC, created_at DESC LIMIT ?";
       params.push(limit);
       return (this.db.prepare(sql).all(...params) as any[]).map(r => this.rowToTemplate(r));
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return [];
     }
   }
@@ -139,7 +139,7 @@ export class EvolutionStore {
           last_used_at = ?, quality_score = ?, updated_at = ?
         WHERE id = ?
       `).run(useCount, successCount, failCount, now, qualityScore, now, id);
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // non-critical
     }
   }
@@ -147,7 +147,7 @@ export class EvolutionStore {
   delete(id: string): void {
     try {
       this.db.prepare("DELETE FROM evolved_templates WHERE id = ?").run(id);
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // non-critical
     }
   }
@@ -198,7 +198,7 @@ export class EvolutionStore {
         JSON.stringify(mergedExamples),
         id
       );
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       // non-critical
     }
   }
@@ -209,7 +209,7 @@ export class EvolutionStore {
         ? this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates WHERE type = ?").get(type)
         : this.db.prepare("SELECT COUNT(*) as cnt FROM evolved_templates").get();
       return (row as any).cnt;
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return 0;
     }
   }

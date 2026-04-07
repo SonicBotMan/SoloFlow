@@ -24,7 +24,7 @@ export class SkillEvolver {
     let llm: LlmService;
     try {
       llm = this.api.services.get<LlmService>("openclaw.llm");
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return this.generateFromPattern(pattern, context);
     }
 
@@ -48,7 +48,7 @@ export class SkillEvolver {
       });
 
       return this.parseLlmResponse(response.content, pattern);
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return this.generateFromPattern(pattern, context);
     }
   }
@@ -170,7 +170,7 @@ export class SkillEvolver {
         updatedAt: Date.now(),
         sourceWorkflowIds: pattern.workflowIds,
       };
-    } catch {
+    } catch (e) { console.warn(`error: ${e}`);
       return null;
     }
   }
