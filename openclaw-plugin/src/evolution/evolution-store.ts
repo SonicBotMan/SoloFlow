@@ -69,7 +69,7 @@ export class EvolutionStore {
       (id, type, name, description, steps, pattern, sources,
        use_count, success_count, fail_count, last_used_at, last_iterated_at,
        quality_score, version, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       template.id,
       template.type,
