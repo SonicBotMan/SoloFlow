@@ -1806,8 +1806,8 @@ var init_indexer = __esm({
         if (!this.db) throw new Error("VectorIndexer not initialized. Call init() first.");
       }
       async openDatabase() {
-        const { default: Database } = await import("better-sqlite3");
-        return new Database(this.dbPath);
+        const { default: Database2 } = await import("better-sqlite3");
+        return new Database2(this.dbPath);
       }
     };
   }
@@ -2070,17 +2070,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path) {
-      const ctrl = callVisitor(key, node, visitor, path);
+    function visit_(key, node, visitor, path3) {
+      const ctrl = callVisitor(key, node, visitor, path3);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path, ctrl);
-        return visit_(key, ctrl, visitor, path);
+        replaceNode(key, path3, ctrl);
+        return visit_(key, ctrl, visitor, path3);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path = Object.freeze(path.concat(node));
+          path3 = Object.freeze(path3.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path);
+            const ci = visit_(i, node.items[i], visitor, path3);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -2091,13 +2091,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path = Object.freeze(path.concat(node));
-          const ck = visit_("key", node.key, visitor, path);
+          path3 = Object.freeze(path3.concat(node));
+          const ck = visit_("key", node.key, visitor, path3);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path);
+          const cv = visit_("value", node.value, visitor, path3);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -2118,17 +2118,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path) {
-      const ctrl = await callVisitor(key, node, visitor, path);
+    async function visitAsync_(key, node, visitor, path3) {
+      const ctrl = await callVisitor(key, node, visitor, path3);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path, ctrl);
-        return visitAsync_(key, ctrl, visitor, path);
+        replaceNode(key, path3, ctrl);
+        return visitAsync_(key, ctrl, visitor, path3);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path = Object.freeze(path.concat(node));
+          path3 = Object.freeze(path3.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path);
+            const ci = await visitAsync_(i, node.items[i], visitor, path3);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -2139,13 +2139,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path = Object.freeze(path.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path);
+          path3 = Object.freeze(path3.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path3);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path);
+          const cv = await visitAsync_("value", node.value, visitor, path3);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -2172,23 +2172,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path) {
+    function callVisitor(key, node, visitor, path3) {
       if (typeof visitor === "function")
-        return visitor(key, node, path);
+        return visitor(key, node, path3);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path);
+        return visitor.Map?.(key, node, path3);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path);
+        return visitor.Seq?.(key, node, path3);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path);
+        return visitor.Pair?.(key, node, path3);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path);
+        return visitor.Scalar?.(key, node, path3);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path);
+        return visitor.Alias?.(key, node, path3);
       return void 0;
     }
-    function replaceNode(key, path, node) {
-      const parent = path[path.length - 1];
+    function replaceNode(key, path3, node) {
+      const parent = path3[path3.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -2796,10 +2796,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path, value) {
+    function collectionFromPath(schema, path3, value) {
       let v = value;
-      for (let i = path.length - 1; i >= 0; --i) {
-        const k = path[i];
+      for (let i = path3.length - 1; i >= 0; --i) {
+        const k = path3[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -2818,7 +2818,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path) => path == null || typeof path === "object" && !!path[Symbol.iterator]().next().done;
+    var isEmptyPath = (path3) => path3 == null || typeof path3 === "object" && !!path3[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -2848,11 +2848,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path, value) {
-        if (isEmptyPath(path))
+      addIn(path3, value) {
+        if (isEmptyPath(path3))
           this.add(value);
         else {
-          const [key, ...rest] = path;
+          const [key, ...rest] = path3;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -2866,8 +2866,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path) {
-        const [key, ...rest] = path;
+      deleteIn(path3) {
+        const [key, ...rest] = path3;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -2881,8 +2881,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path, keepScalar) {
-        const [key, ...rest] = path;
+      getIn(path3, keepScalar) {
+        const [key, ...rest] = path3;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -2900,8 +2900,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path) {
-        const [key, ...rest] = path;
+      hasIn(path3) {
+        const [key, ...rest] = path3;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -2911,8 +2911,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path, value) {
-        const [key, ...rest] = path;
+      setIn(path3, value) {
+        const [key, ...rest] = path3;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -5424,9 +5424,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path, value) {
+      addIn(path3, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path, value);
+          this.contents.addIn(path3, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -5501,14 +5501,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path) {
-        if (Collection.isEmptyPath(path)) {
+      deleteIn(path3) {
+        if (Collection.isEmptyPath(path3)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path3) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -5523,10 +5523,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path, keepScalar) {
-        if (Collection.isEmptyPath(path))
+      getIn(path3, keepScalar) {
+        if (Collection.isEmptyPath(path3))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path3, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -5537,10 +5537,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path) {
-        if (Collection.isEmptyPath(path))
+      hasIn(path3) {
+        if (Collection.isEmptyPath(path3))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path3) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -5557,13 +5557,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path, value) {
-        if (Collection.isEmptyPath(path)) {
+      setIn(path3, value) {
+        if (Collection.isEmptyPath(path3)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path3), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path, value);
+          this.contents.setIn(path3, value);
         }
       }
       /**
@@ -7520,9 +7520,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path) => {
+    visit.itemAtPath = (cst, path3) => {
       let item = cst;
-      for (const [field, index] of path) {
+      for (const [field, index] of path3) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -7531,23 +7531,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path) => {
-      const parent = visit.itemAtPath(cst, path.slice(0, -1));
-      const field = path[path.length - 1][0];
+    visit.parentCollection = (cst, path3) => {
+      const parent = visit.itemAtPath(cst, path3.slice(0, -1));
+      const field = path3[path3.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path, item, visitor) {
-      let ctrl = visitor(item, path);
+    function _visit(path3, item, visitor) {
+      let ctrl = visitor(item, path3);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path3.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -7558,10 +7558,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path);
+            ctrl = ctrl(item, path3);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path3) : ctrl;
     }
     exports.visit = visit;
   }
@@ -8846,14 +8846,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs = this.flowScalar(this.type);
+              const fs2 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs, sep: [] });
+                map.items.push({ start, key: fs2, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs);
+                this.stack.push(fs2);
               } else {
-                Object.assign(it, { key: fs, sep: [] });
+                Object.assign(it, { key: fs2, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -8981,13 +8981,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs = this.flowScalar(this.type);
+              const fs2 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs, sep: [] });
+                fc.items.push({ start: [], key: fs2, sep: [] });
               else if (it.sep)
-                this.stack.push(fs);
+                this.stack.push(fs2);
               else
-                Object.assign(it, { key: fs, sep: [] });
+                Object.assign(it, { key: fs2, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -9295,10 +9295,237 @@ var require_dist = __commonJS({
   }
 });
 
+// src/store/sqlite-store.ts
+var sqlite_store_exports = {};
+__export(sqlite_store_exports, {
+  SqliteStore: () => SqliteStore
+});
+import Database from "better-sqlite3";
+import path from "node:path";
+import fs from "node:fs";
+var SqliteStore;
+var init_sqlite_store = __esm({
+  "src/store/sqlite-store.ts"() {
+    "use strict";
+    SqliteStore = class {
+      db;
+      cache = /* @__PURE__ */ new Map();
+      constructor(dataDir) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        const dbPath = path.join(dataDir, "workflows.db");
+        this.db = new Database(dbPath);
+        this.db.pragma("journal_mode = WAL");
+        this.db.pragma("synchronous = NORMAL");
+        this.migrate();
+      }
+      migrate() {
+        this.db.exec(`
+      CREATE TABLE IF NOT EXISTS workflows (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT 'idle',
+        current_steps TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        metadata TEXT NOT NULL DEFAULT '{}'
+      );
+
+      CREATE TABLE IF NOT EXISTS workflow_steps (
+        workflow_id TEXT NOT NULL,
+        step_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        discipline TEXT NOT NULL,
+        dependencies TEXT NOT NULL DEFAULT '[]',
+        config TEXT NOT NULL DEFAULT '{}',
+        state TEXT NOT NULL DEFAULT 'pending',
+        result TEXT,
+        error TEXT,
+        started_at INTEGER,
+        completed_at INTEGER,
+        PRIMARY KEY (workflow_id, step_id),
+        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS dag_edges (
+        workflow_id TEXT NOT NULL,
+        edge_from TEXT NOT NULL,
+        edge_to TEXT NOT NULL,
+        PRIMARY KEY (workflow_id, edge_from, edge_to),
+        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS dag_layers (
+        workflow_id TEXT NOT NULL,
+        layer_index INTEGER NOT NULL,
+        step_id TEXT NOT NULL,
+        PRIMARY KEY (workflow_id, layer_index, step_id),
+        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+      );
+    `);
+      }
+      /** Load all workflows from SQLite into memory cache */
+      loadAll() {
+        const rows = this.db.prepare("SELECT * FROM workflows").all();
+        for (const row of rows) {
+          const wf = this.rowToWorkflow(row);
+          this.cache.set(wf.id, wf);
+        }
+      }
+      rowToWorkflow(row) {
+        const stepRows = this.db.prepare("SELECT * FROM workflow_steps WHERE workflow_id = ?").all(row.id);
+        const steps = /* @__PURE__ */ new Map();
+        for (const sr of stepRows) {
+          steps.set(sr.step_id, {
+            id: sr.step_id,
+            name: sr.name,
+            discipline: sr.discipline,
+            dependencies: JSON.parse(sr.dependencies),
+            config: JSON.parse(sr.config),
+            state: sr.state,
+            result: sr.result !== null ? JSON.parse(sr.result) : void 0,
+            error: sr.error ?? void 0,
+            startedAt: sr.started_at ?? void 0,
+            completedAt: sr.completed_at ?? void 0
+          });
+        }
+        const edgeRows = this.db.prepare("SELECT * FROM dag_edges WHERE workflow_id = ?").all(row.id);
+        const edges = edgeRows.map((er) => ({ from: er.edge_from, to: er.edge_to }));
+        const layerRows = this.db.prepare("SELECT * FROM dag_layers WHERE workflow_id = ? ORDER BY layer_index, step_id").all(row.id);
+        const layers = [];
+        let currentLayer = [];
+        let currentLayerIndex = -1;
+        for (const lr of layerRows) {
+          if (lr.layer_index !== currentLayerIndex) {
+            if (currentLayer.length > 0) layers.push(currentLayer);
+            currentLayer = [];
+            currentLayerIndex = lr.layer_index;
+          }
+          currentLayer.push(lr.step_id);
+        }
+        if (currentLayer.length > 0) layers.push(currentLayer);
+        const nodes = /* @__PURE__ */ new Map();
+        for (const [id, step2] of steps) {
+          nodes.set(id, {
+            id,
+            dependencies: step2.dependencies,
+            discipline: step2.discipline,
+            action: step2.config["prompt"] ?? step2.name
+          });
+        }
+        const dag = { nodes, edges, layers };
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          steps,
+          dag,
+          state: row.state,
+          currentSteps: JSON.parse(row.current_steps),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          metadata: JSON.parse(row.metadata)
+        };
+      }
+      get(id) {
+        return this.cache.get(id);
+      }
+      set(id, workflow) {
+        this.cache.set(id, workflow);
+        this.persist(workflow);
+      }
+      delete(id) {
+        this.cache.delete(id);
+        this.db.prepare("DELETE FROM workflows WHERE id = ?").run(id);
+        return true;
+      }
+      has(id) {
+        return this.cache.has(id);
+      }
+      values() {
+        return this.cache.values();
+      }
+      get size() {
+        return this.cache.size;
+      }
+      [Symbol.iterator]() {
+        return this.cache[Symbol.iterator]();
+      }
+      persist(wf) {
+        const existing = this.db.prepare("SELECT id FROM workflows WHERE id = ?").get(wf.id);
+        if (existing) {
+          this.db.prepare(`
+        UPDATE workflows SET name = ?, description = ?, state = ?, current_steps = ?,
+        created_at = ?, updated_at = ?, metadata = ? WHERE id = ?
+      `).run(
+            wf.name,
+            wf.description,
+            wf.state,
+            JSON.stringify(wf.currentSteps),
+            wf.createdAt,
+            wf.updatedAt,
+            JSON.stringify(wf.metadata),
+            wf.id
+          );
+          this.db.prepare("DELETE FROM workflow_steps WHERE workflow_id = ?").run(wf.id);
+          this.db.prepare("DELETE FROM dag_edges WHERE workflow_id = ?").run(wf.id);
+          this.db.prepare("DELETE FROM dag_layers WHERE workflow_id = ?").run(wf.id);
+        } else {
+          this.db.prepare(`
+        INSERT INTO workflows (id, name, description, state, current_steps, created_at, updated_at, metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+            wf.id,
+            wf.name,
+            wf.description,
+            wf.state,
+            JSON.stringify(wf.currentSteps),
+            wf.createdAt,
+            wf.updatedAt,
+            JSON.stringify(wf.metadata)
+          );
+        }
+        const insertStep = this.db.prepare(`
+      INSERT INTO workflow_steps (workflow_id, step_id, name, discipline, dependencies, config, state, result, error, started_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+        for (const step2 of wf.steps.values()) {
+          insertStep.run(
+            wf.id,
+            step2.id,
+            step2.name,
+            step2.discipline,
+            JSON.stringify(step2.dependencies),
+            JSON.stringify(step2.config),
+            step2.state,
+            step2.result !== void 0 ? JSON.stringify(step2.result) : null,
+            step2.error ?? null,
+            step2.startedAt ?? null,
+            step2.completedAt ?? null
+          );
+        }
+        const insertEdge = this.db.prepare("INSERT INTO dag_edges (workflow_id, edge_from, edge_to) VALUES (?, ?, ?)");
+        for (const edge of wf.dag.edges) {
+          insertEdge.run(wf.id, edge.from, edge.to);
+        }
+        const insertLayer = this.db.prepare("INSERT INTO dag_layers (workflow_id, layer_index, step_id) VALUES (?, ?, ?)");
+        wf.dag.layers.forEach((layer, idx) => {
+          for (const stepId of layer) {
+            insertLayer.run(wf.id, idx, stepId);
+          }
+        });
+      }
+      close() {
+        this.db.close();
+      }
+    };
+  }
+});
+
 // src/api/router.ts
-function matchPattern(pattern, path) {
+function matchPattern(pattern, path3) {
   const patternParts = pattern.split("/");
-  const pathParts = path.split("/");
+  const pathParts = path3.split("/");
   if (patternParts.length !== pathParts.length) return null;
   const params = {};
   for (let i = 0; i < patternParts.length; i++) {
@@ -9368,10 +9595,10 @@ var init_router = __esm({
           return jsonError(status, "Internal Server Error", message);
         }
       }
-      matchRoute(method, path) {
+      matchRoute(method, path3) {
         for (const route of this.routes) {
           if (route.method !== method) continue;
-          const params = matchPattern(route.pattern, path);
+          const params = matchPattern(route.pattern, path3);
           if (params !== null) {
             return { ...route, params };
           }
@@ -10155,8 +10382,13 @@ function now() {
   return Date.now();
 }
 var WorkflowService = class {
-  store = /* @__PURE__ */ new Map();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  store;
   listeners = /* @__PURE__ */ new Set();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(store) {
+    this.store = store ?? /* @__PURE__ */ new Map();
+  }
   // ── Event helpers ──────────────────────────────────────────────────
   /** Subscribe to state events. Returns an unsubscribe function. */
   subscribe(listener) {
@@ -10844,6 +11076,8 @@ init_hooks();
 init_discipline();
 init_memory();
 init_vector();
+import path2 from "node:path";
+import os from "node:os";
 
 // src/visual/yaml-sync.ts
 var import_yaml = __toESM(require_dist(), 1);
@@ -10966,10 +11200,10 @@ function validateWorkflow(dag) {
   const WHITE = 0, GRAY = 1, BLACK = 2;
   const color = /* @__PURE__ */ new Map();
   for (const id of nodeIds) color.set(id, WHITE);
-  const path = [];
+  const path3 = [];
   function dfs(id) {
     color.set(id, GRAY);
-    path.push(id);
+    path3.push(id);
     const node = dag.nodes.get(id);
     if (node) {
       for (const dep of node.dependencies) {
@@ -10978,14 +11212,14 @@ function validateWorkflow(dag) {
       }
     }
     color.set(id, BLACK);
-    path.pop();
+    path3.pop();
     return false;
   }
   for (const id of nodeIds) {
-    path.length = 0;
+    path3.length = 0;
     if (color.get(id) === WHITE && dfs(id)) {
       errors.push(
-        `Cycle detected: ${path.map((s) => s).join(" \u2192 ")} \u2192 ${path[0] ?? id}`
+        `Cycle detected: ${path3.map((s) => s).join(" \u2192 ")} \u2192 ${path3[0] ?? id}`
       );
     }
   }
@@ -11121,7 +11355,7 @@ function previewWorkflow(dag) {
 
 // src/index.ts
 var PLUGIN_NAME = "soloflow";
-var PLUGIN_VERSION = "0.4.0";
+var PLUGIN_VERSION = "0.5.0";
 var index_default = definePluginEntry({
   id: "workflow-orchestration",
   name: "SoloFlow",
@@ -11137,6 +11371,19 @@ var index_default = definePluginEntry({
     const workflowService = new WorkflowService();
     const scheduler = new Scheduler(workflowService);
     const templateRegistry = new TemplateRegistry();
+    const dataDir = path2.join(os.homedir(), ".openclaw", "data", "soloflow");
+    let sqliteStore = null;
+    void (async () => {
+      try {
+        const { SqliteStore: SqliteStore2 } = await Promise.resolve().then(() => (init_sqlite_store(), sqlite_store_exports));
+        sqliteStore = new SqliteStore2(dataDir);
+        sqliteStore.loadAll();
+        workflowService.store = sqliteStore;
+        log.info(`SQLite store loaded from ${dataDir}`);
+      } catch (e) {
+        log.warn(`SQLite store disabled, using in-memory: ${e}`);
+      }
+    })();
     let memorySystem = null;
     let vectorSystem = null;
     let hookSystem2 = null;
@@ -11594,6 +11841,7 @@ var index_default = definePluginEntry({
         workflowSubscription?.();
         unregisterBuiltinHooks?.();
         hookSystem2?.clear();
+        sqliteStore?.close();
         vectorSystem?.close().catch(() => {
         });
         memorySystem?.close().catch(() => {
@@ -11604,7 +11852,7 @@ var index_default = definePluginEntry({
     } catch {
     }
     log.info(
-      `activated (v0.4) \u2014 7 tools registered, subsystems loading async`
+      `activated (v0.5) \u2014 7 tools registered, subsystems loading async`
     );
   }
 });

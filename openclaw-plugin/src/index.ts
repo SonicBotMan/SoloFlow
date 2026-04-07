@@ -16,6 +16,8 @@ import { WorkflowService } from "./services/workflow-service.js";
 import { Scheduler } from "./services/scheduler.js";
 import { TemplateRegistry } from "./services/template-registry.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import path from "node:path";
+import os from "node:os";
 
 import type {
   AgentDiscipline,
@@ -31,7 +33,7 @@ import type {
 // ─── Plugin metadata ────────────────────────────────────────────────────
 
 const PLUGIN_NAME = "soloflow";
-const PLUGIN_VERSION = "0.4.0";
+const PLUGIN_VERSION = "0.5.0";
 
 // ─── Entry point ────────────────────────────────────────────────────────
 
@@ -55,6 +57,24 @@ export default definePluginEntry({
     const workflowService = new WorkflowService();
     const scheduler = new Scheduler(workflowService);
     const templateRegistry = new TemplateRegistry();
+
+    // ── 1b. SQLite persistence (load async, populate workflowService) ──
+    const dataDir = path.join(os.homedir(), ".openclaw", "data", "soloflow");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let sqliteStore: any = null;
+    void (async () => {
+      try {
+        const { SqliteStore } = await import("./store/sqlite-store.js");
+        sqliteStore = new SqliteStore(dataDir);
+        sqliteStore.loadAll();
+        // Replace the in-memory store with the SQLite-backed one
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (workflowService as any).store = sqliteStore;
+        log.info(`SQLite store loaded from ${dataDir}`);
+      } catch (e) {
+        log.warn(`SQLite store disabled, using in-memory: ${e}`);
+      }
+    })();
 
     // ── 2. Phase 2 subsystems (behind try-catch walls) ──────────────
 
@@ -582,6 +602,7 @@ export default definePluginEntry({
         workflowSubscription?.();
         unregisterBuiltinHooks?.();
         hookSystem?.clear();
+        sqliteStore?.close();
         vectorSystem?.close().catch(() => {});
         memorySystem?.close().catch(() => {});
         apiServerClose?.();
@@ -592,7 +613,7 @@ export default definePluginEntry({
     }
 
     log.info(
-      `activated (v0.4) — 7 tools registered, subsystems loading async`,
+      `activated (v0.5) — 7 tools registered, subsystems loading async`,
     );
   },
 });

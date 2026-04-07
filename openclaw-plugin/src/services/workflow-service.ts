@@ -54,8 +54,14 @@ function now(): number {
 type StateListener = (event: StateEvent) => void;
 
 export class WorkflowService {
-  private readonly store = new Map<WorkflowId, Workflow>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private readonly store: any;
   private readonly listeners = new Set<StateListener>();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(store?: any) {
+    this.store = store ?? new Map<WorkflowId, Workflow>();
+  }
 
   // ── Event helpers ──────────────────────────────────────────────────
 
@@ -133,7 +139,7 @@ export class WorkflowService {
 
   /** List workflows with optional filtering and pagination. */
   list(filter?: WorkflowFilter): Workflow[] {
-    let results = Array.from(this.store.values());
+    let results: Workflow[] = Array.from(this.store.values()) as Workflow[];
 
     if (filter) {
       if (filter.status !== undefined) {
