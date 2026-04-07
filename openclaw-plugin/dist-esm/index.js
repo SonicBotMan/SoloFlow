@@ -13624,14 +13624,17 @@ var index_default = definePluginEntry({
             result: s.result,
             durationMs: s.startedAt && s.completedAt ? s.completedAt - s.startedAt : void 0
           }));
+          const completedCount = steps.filter((s) => s.state === "completed").length;
+          const failedCount = steps.filter((s) => s.state === "failed").length;
+          const totalCount = steps.length;
           return {
             content: [{ type: "text", text: JSON.stringify({
               id: wf.id,
               name: wf.name,
               state: wf.state,
-              progress: execStatus?.progress,
-              completedSteps: execStatus?.completedSteps?.length ?? 0,
-              failedSteps: execStatus?.failedSteps?.length ?? 0,
+              progress: execStatus?.progress ?? (totalCount > 0 ? completedCount / totalCount : void 0),
+              completedSteps: execStatus?.completedSteps?.length ?? completedCount,
+              failedSteps: execStatus?.failedSteps?.length ?? failedCount,
               steps
             }, null, 2) }],
             details: { workflowId: wf.id, state: wf.state }
@@ -13800,6 +13803,18 @@ var index_default = definePluginEntry({
               const wfSnapshot = workflowService.get(wfId);
               if (wfSnapshot) {
                 await memorySystem.storeWorkflowExecution(wfSnapshot);
+                if (newState === "completed" || newState === "failed") {
+                  const stepTexts = Array.from(wfSnapshot.steps.values()).map((s) => `[${s.name}] ${s.state}: ${typeof s.result === "string" ? s.result : JSON.stringify(s.result ?? "")}`).join("\n\n");
+                  if (stepTexts.length > 50) {
+                    memorySystem.decomposeDocument({
+                      id: wfSnapshot.id,
+                      content: stepTexts,
+                      sourceType: "workflow_result",
+                      createdAt: Date.now()
+                    }).catch(() => {
+                    });
+                  }
+                }
               }
             } catch {
             }
