@@ -9516,6 +9516,34 @@ function runMigrations(db, logger) {
         `);
         db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(4, Date.now());
       }
+    },
+    {
+      version: 5,
+      up: (db2) => {
+        db2.exec(`
+          CREATE TABLE IF NOT EXISTS mcp_servers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            location TEXT NOT NULL,
+            tools TEXT NOT NULL DEFAULT '[]',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            last_seen_at INTEGER NOT NULL,
+            discovered_at INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS mcp_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 1,
+            duration_ms INTEGER,
+            called_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_mcp_usage_server ON mcp_usage(server_id);
+          CREATE INDEX IF NOT EXISTS idx_mcp_usage_time ON mcp_usage(called_at);
+        `);
+        db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(5, Date.now());
+      }
     }
   ];
   for (const m of migrations) {
@@ -10598,6 +10626,130 @@ var init_skill_analyzer = __esm({
         return this.db.prepare(`
       SELECT * FROM skill_insights ORDER BY discovered_at DESC, confidence DESC LIMIT ?
     `).all(limit);
+      }
+    };
+  }
+});
+
+// src/evolution/mcp-inventory.ts
+var mcp_inventory_exports = {};
+__export(mcp_inventory_exports, {
+  MCPInventory: () => MCPInventory
+});
+var MCPInventory;
+var init_mcp_inventory = __esm({
+  "src/evolution/mcp-inventory.ts"() {
+    "use strict";
+    MCPInventory = class {
+      db;
+      api;
+      constructor(db, api) {
+        this.db = db;
+        this.api = api;
+      }
+      /** Scan MCP servers from api.config and update inventory */
+      scan() {
+        const config = this.api.config ?? {};
+        const mcpServers = config.mcpServers ?? {};
+        const now2 = Date.now();
+        let added = 0, updated = 0;
+        for (const [serverId, serverConfig] of Object.entries(mcpServers)) {
+          const cfg = serverConfig;
+          const name = cfg.name ?? serverId;
+          const location = cfg.command ?? cfg.url ?? serverId;
+          const tools = Array.isArray(cfg.tools) ? cfg.tools.map((t) => typeof t === "string" ? t : t.name ?? "unknown") : [];
+          const description = cfg.description ?? `MCP server: ${name}`;
+          const existing = this.db.prepare("SELECT id FROM mcp_servers WHERE id=?").get(serverId);
+          if (!existing) {
+            this.db.prepare(`
+          INSERT INTO mcp_servers (id, name, description, location, tools, enabled, last_seen_at, discovered_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(serverId, name, description, location, JSON.stringify(tools), 1, now2, now2);
+            added++;
+          } else {
+            this.db.prepare(`
+          UPDATE mcp_servers SET name=?, description=?, location=?, tools=?, last_seen_at=?
+          WHERE id=?
+        `).run(name, description, location, JSON.stringify(tools), now2, serverId);
+            updated++;
+          }
+        }
+        return { added, updated };
+      }
+      /** Record a tool call against an MCP server */
+      recordUsage(serverId, toolName, success, durationMs) {
+        try {
+          this.db.prepare(`
+        INSERT INTO mcp_usage (server_id, tool_name, success, duration_ms, called_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(serverId, toolName, success ? 1 : 0, durationMs ?? null, Date.now());
+          this.db.prepare("UPDATE mcp_servers SET last_seen_at=? WHERE id=?").run(Date.now(), serverId);
+        } catch {
+        }
+      }
+      /** Get usage stats for an MCP server */
+      getUsageStats(serverId, days = 30) {
+        const since = Date.now() - days * 24 * 60 * 60 * 1e3;
+        return this.db.prepare(`
+      SELECT
+        COUNT(*) as total_calls,
+        SUM(CASE WHEN success=1 THEN 1 ELSE 0 END) as successes,
+        SUM(CASE WHEN success=0 THEN 1 ELSE 0 END) as failures,
+        AVG(duration_ms) as avg_duration_ms
+      FROM mcp_usage
+      WHERE server_id = ? AND called_at > ?
+    `).get(serverId, since) ?? { total_calls: 0, successes: 0, failures: 0, avg_duration_ms: null };
+      }
+      /** Get all tool call stats across all servers */
+      getToolStats(days = 30) {
+        const since = Date.now() - days * 24 * 60 * 60 * 1e3;
+        return this.db.prepare(`
+      SELECT server_id, tool_name,
+        COUNT(*) as call_count,
+        SUM(CASE WHEN success=1 THEN 1 ELSE 0 END) as successes,
+        AVG(duration_ms) as avg_duration_ms
+      FROM mcp_usage
+      WHERE called_at > ?
+      GROUP BY server_id, tool_name
+      ORDER BY call_count DESC
+    `).all(since);
+      }
+      /** Get server rankings by usage */
+      getServerRankings(days = 30) {
+        const since = Date.now() - days * 24 * 60 * 60 * 1e3;
+        return this.db.prepare(`
+      SELECT ms.id, ms.name, ms.tools, ms.last_seen_at,
+        COUNT(mu.id) as total_calls,
+        SUM(CASE WHEN mu.success=1 THEN 1 ELSE 0 END) as successes,
+        AVG(mu.duration_ms) as avg_duration_ms
+      FROM mcp_servers ms
+      LEFT JOIN mcp_usage mu ON ms.id = mu.server_id AND mu.called_at > ?
+      GROUP BY ms.id
+      ORDER BY total_calls DESC
+    `).all(since);
+      }
+      /** Get all servers */
+      getAll() {
+        return this.db.prepare("SELECT * FROM mcp_servers ORDER BY name").all().map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          location: r.location,
+          tools: JSON.parse(r.tools || "[]"),
+          enabled: !!r.enabled,
+          lastSeenAt: r.last_seen_at,
+          discoveredAt: r.discovered_at
+        }));
+      }
+      /** Auto-detect which MCP server a tool belongs to */
+      detectServerForTool(toolName) {
+        const servers = this.getAll();
+        for (const server of servers) {
+          if (server.tools.some((t) => t.toLowerCase() === toolName.toLowerCase())) {
+            return server.id;
+          }
+        }
+        return null;
       }
     };
   }
@@ -12460,6 +12612,7 @@ var index_default = definePluginEntry({
     let evolutionAnalyzer = null;
     let skillInventory = null;
     let skillAnalyzer = null;
+    let mcpInventory = null;
     let hookSystem2 = null;
     let unregisterBuiltinHooks = null;
     let workflowSubscription = null;
@@ -12510,6 +12663,14 @@ var index_default = definePluginEntry({
             log.info(`skill inventory: ${scanResult.added + scanResult.updated} skills scanned`);
           } catch (e) {
             log.warn(`skill inventory disabled: ${e}`);
+          }
+          try {
+            const { MCPInventory: MCPInventory2 } = await Promise.resolve().then(() => (init_mcp_inventory(), mcp_inventory_exports));
+            mcpInventory = new MCPInventory2(store.database, { config: api.config, logger: log });
+            const mcpResult = mcpInventory.scan();
+            log.info(`mcp inventory: ${mcpResult.added + mcpResult.updated} servers registered`);
+          } catch (e) {
+            log.warn(`mcp inventory disabled: ${e}`);
           }
           const scheduleNextEvolution = () => {
             const now2 = /* @__PURE__ */ new Date();
@@ -13121,6 +13282,52 @@ var index_default = definePluginEntry({
         }
       }
     );
+    api.registerTool({
+      name: "mcp_servers",
+      description: "List all registered MCP servers and their tools.",
+      label: "SoloFlow: MCP Servers",
+      parameters: Type.Object({
+        server_id: Type.Optional(Type.String())
+      }),
+      async execute(_toolCallId, params) {
+        if (!mcpInventory) {
+          return { content: [{ type: "text", text: "MCP inventory not available" }], details: { error: true } };
+        }
+        try {
+          mcpInventory.scan();
+          if (params.server_id) {
+            const stats = mcpInventory.getUsageStats(params.server_id);
+            const servers2 = mcpInventory.getAll().filter((s) => s.id === params.server_id);
+            return { content: [{ type: "text", text: JSON.stringify({ server: servers2[0] ?? null, stats }, null, 2) }] };
+          }
+          const servers = mcpInventory.getAll();
+          return { content: [{ type: "text", text: JSON.stringify({ total: servers.length, servers }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: "text", text: `Error: ${e}` }], details: { error: true } };
+        }
+      }
+    });
+    api.registerTool({
+      name: "mcp_stats",
+      description: "Get MCP server usage statistics and tool rankings.",
+      label: "SoloFlow: MCP Stats",
+      parameters: Type.Object({
+        days: Type.Optional(Type.Integer({ minimum: 1, maximum: 90, default: 30 }))
+      }),
+      async execute(_toolCallId, params) {
+        if (!mcpInventory) {
+          return { content: [{ type: "text", text: "MCP inventory not available" }], details: { error: true } };
+        }
+        try {
+          const days = params.days ?? 30;
+          const rankings = mcpInventory.getServerRankings(days);
+          const toolStats = mcpInventory.getToolStats(days);
+          return { content: [{ type: "text", text: JSON.stringify({ days, rankings, topTools: toolStats.slice(0, 20) }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: "text", text: `Error: ${e}` }], details: { error: true } };
+        }
+      }
+    });
     api.registerGatewayMethod("soloflow.metrics", async (opts) => {
       const wfs = workflowService.list();
       opts.respond(true, {
@@ -13213,7 +13420,7 @@ var index_default = definePluginEntry({
     } catch {
     }
     log.info(
-      `activated (v0.8) \u2014 13 tools registered, memory + evolution + skills active`
+      `activated (v0.8) \u2014 15 tools registered, memory + evolution + skills + MCP active`
     );
     if (skillInventory) {
       const originalExecute = api.executeTool?.bind(api);

@@ -78,6 +78,7 @@ export default definePluginEntry({
     let skillInventory: any = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let skillAnalyzer: any = null;
+    let mcpInventory: any = null;
     let hookSystem: any = null;
     let unregisterBuiltinHooks: (() => void) | null = null;
     let workflowSubscription: (() => void) | null = null;
@@ -146,6 +147,16 @@ export default definePluginEntry({
             log.info(`skill inventory: ${scanResult.added + scanResult.updated} skills scanned`);
           } catch (e) {
             log.warn(`skill inventory disabled: ${e}`);
+          }
+
+          // MCP server inventory (reads from api.config at each scan)
+          try {
+            const { MCPInventory } = await import("./evolution/mcp-inventory.js");
+            mcpInventory = new MCPInventory(store.database, { config: api.config, logger: log });
+            const mcpResult = mcpInventory.scan();
+            log.info(`mcp inventory: ${mcpResult.added + mcpResult.updated} servers registered`);
+          } catch (e) {
+            log.warn(`mcp inventory disabled: ${e}`);
           }
 
           // Auto-evolution: schedule daily at 02:00 Beijing time (18:00 UTC)
@@ -821,6 +832,56 @@ export default definePluginEntry({
       },
     );
 
+    // ── 5. MCP server management tools ─────────────────────────────
+    api.registerTool({
+      name: "mcp_servers",
+      description: "List all registered MCP servers and their tools.",
+      label: "SoloFlow: MCP Servers",
+      parameters: Type.Object({
+        server_id: Type.Optional(Type.String()),
+      }),
+      async execute(_toolCallId: string, params: any) {
+        if (!mcpInventory) {
+          return { content: [{ type: "text" as const, text: "MCP inventory not available" }], details: { error: true } };
+        }
+        try {
+          // Refresh from config
+          mcpInventory.scan();
+          if (params.server_id) {
+            const stats = mcpInventory.getUsageStats(params.server_id);
+            const servers = mcpInventory.getAll().filter((s: any) => s.id === params.server_id);
+            return { content: [{ type: "text" as const, text: JSON.stringify({ server: servers[0] ?? null, stats }, null, 2) }] };
+          }
+          const servers = mcpInventory.getAll();
+          return { content: [{ type: "text" as const, text: JSON.stringify({ total: servers.length, servers }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: "text" as const, text: `Error: ${e}` }], details: { error: true } };
+        }
+      },
+    });
+
+    api.registerTool({
+      name: "mcp_stats",
+      description: "Get MCP server usage statistics and tool rankings.",
+      label: "SoloFlow: MCP Stats",
+      parameters: Type.Object({
+        days: Type.Optional(Type.Integer({ minimum: 1, maximum: 90, default: 30 })),
+      }),
+      async execute(_toolCallId: string, params: any) {
+        if (!mcpInventory) {
+          return { content: [{ type: "text" as const, text: "MCP inventory not available" }], details: { error: true } };
+        }
+        try {
+          const days = params.days ?? 30;
+          const rankings = mcpInventory.getServerRankings(days);
+          const toolStats = mcpInventory.getToolStats(days);
+          return { content: [{ type: "text" as const, text: JSON.stringify({ days, rankings, topTools: toolStats.slice(0, 20) }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: "text" as const, text: `Error: ${e}` }], details: { error: true } };
+        }
+      },
+    });
+
     // ── 4. Gateway methods (lightweight RPC) ────────────────────────
 
     api.registerGatewayMethod("soloflow.metrics", async (opts: { respond: (success: boolean, data: unknown) => void }) => {
@@ -931,7 +992,7 @@ export default definePluginEntry({
     }
 
     log.info(
-      `activated (v0.8) — 13 tools registered, memory + evolution + skills active`,
+      `activated (v0.8) — 15 tools registered, memory + evolution + skills + MCP active`,
     );
 
     // ── 6b. Skill usage tracking wrapper ───────────────────────────

@@ -189,6 +189,34 @@ export function runMigrations(db: any, logger?: { warn: (msg: string) => void })
         `);
         db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(4, Date.now());
       }
+    },
+    {
+      version: 5,
+      up: (db) => {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS mcp_servers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            location TEXT NOT NULL,
+            tools TEXT NOT NULL DEFAULT '[]',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            last_seen_at INTEGER NOT NULL,
+            discovered_at INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS mcp_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 1,
+            duration_ms INTEGER,
+            called_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_mcp_usage_server ON mcp_usage(server_id);
+          CREATE INDEX IF NOT EXISTS idx_mcp_usage_time ON mcp_usage(called_at);
+        `);
+        db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(5, Date.now());
+      }
     }
   ];
 
