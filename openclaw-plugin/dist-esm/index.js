@@ -9837,7 +9837,7 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (!responseText) {
           return { templates: 0, skills: 0 };
         }
-        return this.parseAndSave(responseText, filterType);
+        return await this.parseAndSave(responseText, filterType);
       }
       /**
        * Direct HTTP call to LLM API.
@@ -9927,7 +9927,7 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (zai?.models?.[0]?.id) return zai.models[0].id;
         return "glm-5";
       }
-      parseAndSave(responseText, filterType) {
+      async parseAndSave(responseText, filterType) {
         let jsonStr = responseText.trim();
         const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (jsonMatch && jsonMatch[1]) {
@@ -9975,7 +9975,7 @@ Output ONLY valid JSON (no markdown, no explanation):
               createdAt: now2,
               updatedAt: now2
             };
-            void this.onTemplateFound(template);
+            await this.onTemplateFound(template);
             wfCount++;
           }
         }
@@ -10000,7 +10000,7 @@ Output ONLY valid JSON (no markdown, no explanation):
               createdAt: now2,
               updatedAt: now2
             };
-            void this.onTemplateFound(template);
+            await this.onTemplateFound(template);
             skCount++;
           }
         }

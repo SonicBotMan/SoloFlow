@@ -97,7 +97,7 @@ Output ONLY valid JSON (no markdown, no explanation):
     }
 
     // 5. Parse response and save templates
-    return this.parseAndSave(responseText, filterType);
+    return await this.parseAndSave(responseText, filterType);
   }
 
   /**
@@ -202,7 +202,7 @@ Output ONLY valid JSON (no markdown, no explanation):
     return "glm-5";
   }
 
-  private parseAndSave(responseText: string, filterType?: string): EvolutionResult {
+  private async parseAndSave(responseText: string, filterType?: string): Promise<EvolutionResult> {
     let jsonStr = responseText.trim();
 
     // Strip markdown code blocks if present
@@ -258,7 +258,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           createdAt: now,
           updatedAt: now,
         };
-        void this.onTemplateFound(template);
+        await this.onTemplateFound(template);
         wfCount++;
       }
     }
@@ -285,7 +285,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           createdAt: now,
           updatedAt: now,
         };
-        void this.onTemplateFound(template);
+        await this.onTemplateFound(template);
         skCount++;
       }
     }
