@@ -158,17 +158,48 @@ export class EpisodicMemory {
     let compressed = 0;
 
     for (const [id, entry] of this.store) {
-      if (!entry.compressed && entry.createdAt < threshold) {
-        const compressedEntry: EpisodicEntry = {
-          ...entry,
-          rawData: undefined,
-          compressed: true,
-          source: "compressed_dag",
-          tags: [...entry.tags, "compressed"],
-          updatedAt: Date.now(),
-        };
-        this.store.set(id, compressedEntry);
-        compressed++;
+      if (!entry.compressed && entry.createdAt < threshold && entry.rawData) {
+        try {
+          const raw = entry.rawData as any;
+          const steps = raw?.steps ?? [];
+
+          // Extract key results from raw steps before discarding
+          const keyResults: string[] = [];
+          for (const step of steps) {
+            if (step.result && step.state === "completed") {
+              const r = String(step.result);
+              keyResults.push(r.length > 150 ? r.slice(0, 147) + "..." : r);
+            } else if (step.error) {
+              keyResults.push(`ERROR: ${String(step.error).slice(0, 150)}`);
+            }
+          }
+
+          const condensedResults = keyResults.length > 0 ? keyResults.join("\n") : undefined;
+
+          const compressedEntry: EpisodicEntry = {
+            ...entry,
+            rawData: undefined,
+            compressed: true,
+            source: "compressed_dag",
+            tags: [...entry.tags, "compressed"],
+            condensedResults,
+            updatedAt: Date.now(),
+          };
+          this.store.set(id, compressedEntry);
+          compressed++;
+        } catch {
+          // Graceful degradation: fall back to simple compression
+          const compressedEntry: EpisodicEntry = {
+            ...entry,
+            rawData: undefined,
+            compressed: true,
+            source: "compressed_dag",
+            tags: [...entry.tags, "compressed"],
+            updatedAt: Date.now(),
+          };
+          this.store.set(id, compressedEntry);
+          compressed++;
+        }
       }
     }
 
@@ -218,7 +249,9 @@ export class EpisodicMemory {
       ...entry.tags,
       ...entry.stepSummary.map((s) => `${s.name} ${s.discipline} ${s.success ? "success" : "failure"}`),
     ];
-    // Also index raw data (step results)
+    if (entry.condensedResults) {
+      parts.push(entry.condensedResults);
+    }
     if (entry.rawData && typeof entry.rawData === 'object' && Array.isArray((entry.rawData as any).steps)) {
       for (const step of (entry.rawData as any).steps) {
         if (step.result) {

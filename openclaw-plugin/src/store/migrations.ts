@@ -3,7 +3,7 @@
  * Versioned schema migration system for the workflows database.
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 6;
 
 export function runMigrations(db: any, logger?: { warn: (msg: string) => void }): void {
   const log = logger ?? { warn: (msg: string) => console.warn(`[migrations] ${msg}`) };
@@ -216,6 +216,31 @@ export function runMigrations(db: any, logger?: { warn: (msg: string) => void })
           CREATE INDEX IF NOT EXISTS idx_mcp_usage_time ON mcp_usage(called_at);
         `);
         db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(5, Date.now());
+      }
+    },
+    {
+      version: 6,
+      up: (db) => {
+        // Add condensed_results column to episodic_memory
+        try {
+          db.exec("ALTER TABLE episodic_memory ADD COLUMN condensed_results TEXT");
+        } catch (e: any) {
+          if (!e.message?.includes("duplicate column name")) {
+            log.warn(`migration v6: add column failed: ${e.message}`);
+          }
+        }
+        // FTS5 full-text search
+        try {
+          db.exec(`
+            CREATE VIRTUAL TABLE IF NOT EXISTS episodic_fts USING fts5(
+              content,
+              tokenize='unicode61'
+            );
+          `);
+        } catch (e: any) {
+          log.warn(`migration v6 FTS5 failed (may not be supported): ${e.message}`);
+        }
+        db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(6, Date.now());
       }
     }
   ];

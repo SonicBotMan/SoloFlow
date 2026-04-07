@@ -181,8 +181,9 @@ export class SqliteStore {
     this.db.prepare(`
       INSERT OR REPLACE INTO episodic_memory
       (id, namespace, workflow_id, workflow_name, final_state, duration_ms,
-       step_summary, compressed, raw_data, source, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       step_summary, compressed, raw_data, source, tags, created_at, updated_at,
+       condensed_results)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       entry.id,
       entry.namespace,
@@ -197,7 +198,14 @@ export class SqliteStore {
       JSON.stringify(entry.tags),
       entry.createdAt,
       entry.updatedAt,
+      entry.condensedResults ?? null,
     );
+    // Index for FTS5
+    try {
+      const text = this.episodicEntryToText(entry);
+      this.db.prepare("INSERT OR REPLACE INTO episodic_fts(rowid, content) VALUES (?, ?)")
+        .run(entry.id, text);
+    } catch { /* FTS5 may not be available */ }
   }
 
   /** Delete all episodic entries for a workflow */
@@ -222,7 +230,37 @@ export class SqliteStore {
       tags: JSON.parse(row.tags),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      condensedResults: row.condensed_results ?? undefined,
     }));
+  }
+
+  /** Search episodic memory via FTS5 full-text search. Returns entry IDs. */
+  searchEpisodicFTS(query: string, limit = 20): string[] {
+    try {
+      return (this.db.prepare(
+        "SELECT rowid FROM episodic_fts WHERE episodic_fts MATCH ? ORDER BY rank LIMIT ?"
+      ).all(query, limit) as any[]).map((r) => r.rowid as string);
+    } catch {
+      return [];
+    }
+  }
+
+  /** Remove an episodic entry from FTS index */
+  removeEpisodicFTS(id: string): void {
+    try {
+      this.db.prepare("DELETE FROM episodic_fts WHERE rowid = ?").run(id);
+    } catch { /* non-critical */ }
+  }
+
+  private episodicEntryToText(entry: any): string {
+    const parts = [
+      entry.workflowName,
+      entry.finalState,
+      ...(entry.tags ?? []),
+      ...(entry.stepSummary ?? []).map((s: any) => `${s.name} ${s.discipline} ${s.success ? "success" : "failure"}`),
+    ];
+    if (entry.condensedResults) parts.push(entry.condensedResults);
+    return parts.join(" ").toLowerCase();
   }
 
   /** Get the raw database connection (for sharing with other stores) */

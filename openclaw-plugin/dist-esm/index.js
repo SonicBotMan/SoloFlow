@@ -642,17 +642,43 @@ var init_episodic_memory = __esm({
         const threshold = Date.now() - this.compressionThresholdMs;
         let compressed = 0;
         for (const [id, entry] of this.store) {
-          if (!entry.compressed && entry.createdAt < threshold) {
-            const compressedEntry = {
-              ...entry,
-              rawData: void 0,
-              compressed: true,
-              source: "compressed_dag",
-              tags: [...entry.tags, "compressed"],
-              updatedAt: Date.now()
-            };
-            this.store.set(id, compressedEntry);
-            compressed++;
+          if (!entry.compressed && entry.createdAt < threshold && entry.rawData) {
+            try {
+              const raw = entry.rawData;
+              const steps = raw?.steps ?? [];
+              const keyResults = [];
+              for (const step2 of steps) {
+                if (step2.result && step2.state === "completed") {
+                  const r = String(step2.result);
+                  keyResults.push(r.length > 150 ? r.slice(0, 147) + "..." : r);
+                } else if (step2.error) {
+                  keyResults.push(`ERROR: ${String(step2.error).slice(0, 150)}`);
+                }
+              }
+              const condensedResults = keyResults.length > 0 ? keyResults.join("\n") : void 0;
+              const compressedEntry = {
+                ...entry,
+                rawData: void 0,
+                compressed: true,
+                source: "compressed_dag",
+                tags: [...entry.tags, "compressed"],
+                condensedResults,
+                updatedAt: Date.now()
+              };
+              this.store.set(id, compressedEntry);
+              compressed++;
+            } catch {
+              const compressedEntry = {
+                ...entry,
+                rawData: void 0,
+                compressed: true,
+                source: "compressed_dag",
+                tags: [...entry.tags, "compressed"],
+                updatedAt: Date.now()
+              };
+              this.store.set(id, compressedEntry);
+              compressed++;
+            }
           }
         }
         return compressed;
@@ -695,6 +721,9 @@ var init_episodic_memory = __esm({
           ...entry.tags,
           ...entry.stepSummary.map((s) => `${s.name} ${s.discipline} ${s.success ? "success" : "failure"}`)
         ];
+        if (entry.condensedResults) {
+          parts.push(entry.condensedResults);
+        }
         if (entry.rawData && typeof entry.rawData === "object" && Array.isArray(entry.rawData.steps)) {
           for (const step2 of entry.rawData.steps) {
             if (step2.result) {
@@ -750,14 +779,24 @@ function cosineSimilarity(a, b) {
   const denom = Math.sqrt(normA) * Math.sqrt(normB);
   return denom === 0 ? 0 : dot / denom;
 }
-var DEFAULT_FORGETTING_CONFIG, SemanticMemory;
+var DAY_MS, YEAR_MS, DEFAULT_FORGETTING_CONFIG, SemanticMemory;
 var init_semantic_memory = __esm({
   "src/memory/semantic-memory.ts"() {
     "use strict";
+    DAY_MS = 24 * 60 * 60 * 1e3;
+    YEAR_MS = 365 * DAY_MS;
     DEFAULT_FORGETTING_CONFIG = {
       base: 1,
-      stability: 14 * 24 * 60 * 60 * 1e3,
-      importanceThreshold: 0.45
+      stability: 14 * DAY_MS,
+      importanceThreshold: 0.45,
+      /** C-HLR+ per-category half-lives */
+      categoryHalfLives: {
+        fact: 14 * DAY_MS,
+        preference: 30 * DAY_MS,
+        skill: 60 * DAY_MS,
+        pattern: 60 * DAY_MS,
+        rule: 120 * DAY_MS
+      }
     };
     SemanticMemory = class {
       store = /* @__PURE__ */ new Map();
@@ -774,7 +813,8 @@ var init_semantic_memory = __esm({
       async storeFact(key, value, importance = 0.5, extra) {
         const existing = this.findByKey(key);
         const now2 = Date.now();
-        const stability = this.computeStability(importance);
+        const category = extra?.category ?? existing?.category ?? "fact";
+        const stability = this.computeStability(importance, category);
         const retrievability = this.computeRetrievability(now2, now2, stability, importance);
         if (existing) {
           const updated = {
@@ -797,7 +837,7 @@ var init_semantic_memory = __esm({
           namespace: this.namespace,
           key,
           value,
-          category: extra?.category ?? "fact",
+          category,
           importance,
           accessCount: 0,
           lastAccessedAt: now2,
@@ -818,14 +858,16 @@ var init_semantic_memory = __esm({
           if ("accessCount" in result.entry) {
             const sem = result.entry;
             const now2 = Date.now();
+            const consolidated = this.consolidate({ ...sem, accessCount: sem.accessCount + 1, lastAccessedAt: now2 });
             const updated = {
-              ...sem,
-              accessCount: sem.accessCount + 1,
-              lastAccessedAt: now2,
-              retrievability: this.computeRetrievability(sem.createdAt, now2, sem.stability, sem.importance),
-              updatedAt: now2
+              ...consolidated,
+              retrievability: this.computeRetrievability(consolidated.createdAt, now2, consolidated.stability, consolidated.importance)
             };
             this.store.set(sem.id, updated);
+            try {
+              await this.persistToAdapter(updated);
+            } catch {
+            }
           }
         }
         return entries;
@@ -841,14 +883,17 @@ var init_semantic_memory = __esm({
           entry.importance
         );
         if (retrievability < this.forgettingConfig.importanceThreshold) return void 0;
+        const consolidated = this.consolidate({ ...entry, accessCount: entry.accessCount + 1, lastAccessedAt: now2 });
         const updated = {
-          ...entry,
-          accessCount: entry.accessCount + 1,
-          lastAccessedAt: now2,
-          retrievability,
+          ...consolidated,
+          retrievability: this.computeRetrievability(consolidated.createdAt, now2, consolidated.stability, consolidated.importance),
           updatedAt: now2
         };
         this.store.set(entry.id, updated);
+        try {
+          this.persistToAdapter(updated);
+        } catch {
+        }
         return updated;
       }
       delete(key) {
@@ -890,8 +935,18 @@ var init_semantic_memory = __esm({
         const decay = this.forgettingConfig.base * Math.exp(-elapsed / stability);
         return Math.max(0, Math.min(1, decay * importance));
       }
-      computeStability(importance) {
-        return this.forgettingConfig.stability * (0.5 + importance);
+      computeStability(importance, category) {
+        const baseStability = this.forgettingConfig.categoryHalfLives?.[category ?? "fact"] ?? this.forgettingConfig.stability;
+        return baseStability * (0.5 + importance);
+      }
+      /** Spaced repetition: each access restrengthens the memory with diminishing returns */
+      consolidate(entry) {
+        const easeFactor = Math.max(0.05, 0.3 / (1 + entry.accessCount * 0.1));
+        const newStability = entry.stability * (1 + easeFactor);
+        return {
+          ...entry,
+          stability: Math.min(newStability, YEAR_MS)
+        };
       }
       queryLocal(query) {
         const now2 = Date.now();
@@ -9544,6 +9599,29 @@ function runMigrations(db, logger) {
         `);
         db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(5, Date.now());
       }
+    },
+    {
+      version: 6,
+      up: (db2) => {
+        try {
+          db2.exec("ALTER TABLE episodic_memory ADD COLUMN condensed_results TEXT");
+        } catch (e) {
+          if (!e.message?.includes("duplicate column name")) {
+            log.warn(`migration v6: add column failed: ${e.message}`);
+          }
+        }
+        try {
+          db2.exec(`
+            CREATE VIRTUAL TABLE IF NOT EXISTS episodic_fts USING fts5(
+              content,
+              tokenize='unicode61'
+            );
+          `);
+        } catch (e) {
+          log.warn(`migration v6 FTS5 failed (may not be supported): ${e.message}`);
+        }
+        db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(6, Date.now());
+      }
     }
   ];
   for (const m of migrations) {
@@ -9742,8 +9820,9 @@ var init_sqlite_store = __esm({
         this.db.prepare(`
       INSERT OR REPLACE INTO episodic_memory
       (id, namespace, workflow_id, workflow_name, final_state, duration_ms,
-       step_summary, compressed, raw_data, source, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       step_summary, compressed, raw_data, source, tags, created_at, updated_at,
+       condensed_results)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
           entry.id,
           entry.namespace,
@@ -9757,8 +9836,14 @@ var init_sqlite_store = __esm({
           entry.source,
           JSON.stringify(entry.tags),
           entry.createdAt,
-          entry.updatedAt
+          entry.updatedAt,
+          entry.condensedResults ?? null
         );
+        try {
+          const text = this.episodicEntryToText(entry);
+          this.db.prepare("INSERT OR REPLACE INTO episodic_fts(rowid, content) VALUES (?, ?)").run(entry.id, text);
+        } catch {
+        }
       }
       /** Delete all episodic entries for a workflow */
       deleteEpisodicByWorkflow(workflowId) {
@@ -9780,8 +9865,36 @@ var init_sqlite_store = __esm({
           source: row.source,
           tags: JSON.parse(row.tags),
           createdAt: row.created_at,
-          updatedAt: row.updated_at
+          updatedAt: row.updated_at,
+          condensedResults: row.condensed_results ?? void 0
         }));
+      }
+      /** Search episodic memory via FTS5 full-text search. Returns entry IDs. */
+      searchEpisodicFTS(query, limit = 20) {
+        try {
+          return this.db.prepare(
+            "SELECT rowid FROM episodic_fts WHERE episodic_fts MATCH ? ORDER BY rank LIMIT ?"
+          ).all(query, limit).map((r) => r.rowid);
+        } catch {
+          return [];
+        }
+      }
+      /** Remove an episodic entry from FTS index */
+      removeEpisodicFTS(id) {
+        try {
+          this.db.prepare("DELETE FROM episodic_fts WHERE rowid = ?").run(id);
+        } catch {
+        }
+      }
+      episodicEntryToText(entry) {
+        const parts = [
+          entry.workflowName,
+          entry.finalState,
+          ...entry.tags ?? [],
+          ...(entry.stepSummary ?? []).map((s) => `${s.name} ${s.discipline} ${s.success ? "success" : "failure"}`)
+        ];
+        if (entry.condensedResults) parts.push(entry.condensedResults);
+        return parts.join(" ").toLowerCase();
       }
       /** Get the raw database connection (for sharing with other stores) */
       get database() {

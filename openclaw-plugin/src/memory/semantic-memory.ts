@@ -8,10 +8,21 @@ import type {
   LobsterPressAdapter,
 } from "./types.js";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const YEAR_MS = 365 * DAY_MS;
+
 const DEFAULT_FORGETTING_CONFIG: ForgettingCurveConfig = {
   base: 1.0,
-  stability: 14 * 24 * 60 * 60 * 1000,
+  stability: 14 * DAY_MS,
   importanceThreshold: 0.45,
+  /** C-HLR+ per-category half-lives */
+  categoryHalfLives: {
+    fact: 14 * DAY_MS,
+    preference: 30 * DAY_MS,
+    skill: 60 * DAY_MS,
+    pattern: 60 * DAY_MS,
+    rule: 120 * DAY_MS,
+  },
 };
 
 export class SemanticMemory {
@@ -45,7 +56,8 @@ export class SemanticMemory {
     const existing = this.findByKey(key);
     const now = Date.now();
 
-    const stability = this.computeStability(importance);
+    const category = extra?.category ?? existing?.category ?? "fact";
+    const stability = this.computeStability(importance, category);
     const retrievability = this.computeRetrievability(now, now, stability, importance);
 
     if (existing) {
@@ -70,7 +82,7 @@ export class SemanticMemory {
       namespace: this.namespace,
       key,
       value,
-      category: extra?.category ?? "fact",
+      category,
       importance,
       accessCount: 0,
       lastAccessedAt: now,
@@ -96,14 +108,13 @@ export class SemanticMemory {
       if ("accessCount" in result.entry) {
         const sem = result.entry as SemanticEntry;
         const now = Date.now();
+        const consolidated = this.consolidate({ ...sem, accessCount: sem.accessCount + 1, lastAccessedAt: now });
         const updated: SemanticEntry = {
-          ...sem,
-          accessCount: sem.accessCount + 1,
-          lastAccessedAt: now,
-          retrievability: this.computeRetrievability(sem.createdAt, now, sem.stability, sem.importance),
-          updatedAt: now,
+          ...consolidated,
+          retrievability: this.computeRetrievability(consolidated.createdAt, now, consolidated.stability, consolidated.importance),
         };
         this.store.set(sem.id, updated);
+        try { await this.persistToAdapter(updated); } catch { /* non-critical */ }
       }
     }
 
@@ -123,14 +134,14 @@ export class SemanticMemory {
     );
     if (retrievability < this.forgettingConfig.importanceThreshold) return undefined;
 
+    const consolidated = this.consolidate({ ...entry, accessCount: entry.accessCount + 1, lastAccessedAt: now });
     const updated: SemanticEntry = {
-      ...entry,
-      accessCount: entry.accessCount + 1,
-      lastAccessedAt: now,
-      retrievability,
+      ...consolidated,
+      retrievability: this.computeRetrievability(consolidated.createdAt, now, consolidated.stability, consolidated.importance),
       updatedAt: now,
     };
     this.store.set(entry.id, updated);
+    try { this.persistToAdapter(updated); } catch { /* non-critical */ }
     return updated;
   }
 
@@ -187,8 +198,20 @@ export class SemanticMemory {
     return Math.max(0, Math.min(1, decay * importance));
   }
 
-  private computeStability(importance: number): number {
-    return this.forgettingConfig.stability * (0.5 + importance);
+  private computeStability(importance: number, category?: SemanticCategory): number {
+    const baseStability = this.forgettingConfig.categoryHalfLives?.[category ?? "fact"]
+      ?? this.forgettingConfig.stability;
+    return baseStability * (0.5 + importance);
+  }
+
+  /** Spaced repetition: each access restrengthens the memory with diminishing returns */
+  private consolidate(entry: SemanticEntry): SemanticEntry {
+    const easeFactor = Math.max(0.05, 0.3 / (1 + entry.accessCount * 0.1));
+    const newStability = entry.stability * (1 + easeFactor);
+    return {
+      ...entry,
+      stability: Math.min(newStability, YEAR_MS),
+    };
   }
 
   private queryLocal(query: MemoryQuery): MemoryResultEntry[] {

@@ -73,6 +73,8 @@ export interface EpisodicEntry extends MemoryEntry {
   compressed: boolean;
   /** Raw execution data — undefined after compression */
   rawData?: unknown;
+  /** Condensed step results preserved after DAG compression */
+  condensedResults?: string;
   source: EpisodicEntrySourceType;
 }
 
@@ -147,6 +149,8 @@ export interface ForgettingCurveConfig {
   stability: number;
   /** Below this threshold entries are candidates for pruning (default: 0.45) */
   importanceThreshold: number;
+  /** Per-category half-life overrides (in ms). C-HLR+ inspired. */
+  categoryHalfLives?: Partial<Record<SemanticCategory, number>>;
 }
 
 // ─── Bridge ───────────────────────────────────────────────────────────
