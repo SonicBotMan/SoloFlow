@@ -531,6 +531,18 @@ var init_episodic_memory = __esm({
         this.compressionThresholdMs = compressionThresholdMs;
       }
       storeExecution(workflow) {
+        for (const [key, entry2] of this.store) {
+          if (entry2.workflowId === workflow.id) {
+            this.store.delete(key);
+            break;
+          }
+        }
+        if (this.deletePersistCallback) {
+          try {
+            this.deletePersistCallback(workflow.id);
+          } catch {
+          }
+        }
         const now2 = Date.now();
         const durationMs = this.computeDuration(workflow);
         const stepSummary = Array.from(workflow.steps.values()).map((step2) => ({
@@ -618,9 +630,13 @@ var init_episodic_memory = __esm({
           this.store.set(entry.id, entry);
         }
       }
+      deletePersistCallback = null;
       /** Set an external persist callback — called on every storeExecution() */
       setPersistCallback(cb) {
         this.persistCallback = cb;
+      }
+      setDeletePersistCallback(cb) {
+        this.deletePersistCallback = cb;
       }
       compressOldEntries() {
         const threshold = Date.now() - this.compressionThresholdMs;
@@ -679,6 +695,13 @@ var init_episodic_memory = __esm({
           ...entry.tags,
           ...entry.stepSummary.map((s) => `${s.name} ${s.discipline} ${s.success ? "success" : "failure"}`)
         ];
+        if (entry.rawData && typeof entry.rawData === "object" && Array.isArray(entry.rawData.steps)) {
+          for (const step2 of entry.rawData.steps) {
+            if (step2.result) {
+              parts.push(String(step2.result));
+            }
+          }
+        }
         return parts.join(" ").toLowerCase();
       }
       triggerCompressionIfNeeded() {
@@ -9571,6 +9594,10 @@ var init_sqlite_store = __esm({
           entry.updatedAt
         );
       }
+      /** Delete all episodic entries for a workflow */
+      deleteEpisodicByWorkflow(workflowId) {
+        this.db.prepare("DELETE FROM episodic_memory WHERE workflow_id = ?").run(workflowId);
+      }
       /** Load all episodic entries (for restoring on startup) */
       loadEpisodicEntries() {
         const rows = this.db.prepare("SELECT * FROM episodic_memory ORDER BY created_at DESC").all();
@@ -11469,6 +11496,9 @@ var index_default = definePluginEntry({
         memorySystem.episodic.setPersistCallback((entry) => {
           store.storeEpisodicEntry(entry);
         });
+        memorySystem.episodic.setDeletePersistCallback((workflowId) => {
+          store.deleteEpisodicByWorkflow(workflowId);
+        });
         log.info(`memory system ready (episodic: ${entries.length} entries restored)`);
       } catch (e) {
         log.warn(`SQLite + memory system disabled: ${e}`);
@@ -11799,15 +11829,6 @@ var index_default = definePluginEntry({
           step2.error = params.error ?? void 0;
           step2.completedAt = Date.now();
           workflowService.update(wf);
-          if (memorySystem && !params.error) {
-            try {
-              const wfSnapshot = workflowService.get(wfId);
-              if (wfSnapshot) {
-                await memorySystem.storeWorkflowExecution(wfSnapshot);
-              }
-            } catch {
-            }
-          }
           const allSteps = Array.from(wf.steps.values());
           const allDone = allSteps.every((s) => s.state === "completed" || s.state === "failed");
           const anyFailed = allSteps.some((s) => s.state === "failed");
@@ -11828,6 +11849,15 @@ var index_default = definePluginEntry({
             }
             const newReady = workflowService.getReadySteps(wfId, completed, running);
             message = `Step ${stepId} completed. ${newReady.length} step(s) now ready: ${newReady.join(", ") || "none"}`;
+          }
+          if (memorySystem && !params.error) {
+            try {
+              const wfSnapshot = workflowService.get(wfId);
+              if (wfSnapshot) {
+                await memorySystem.storeWorkflowExecution(wfSnapshot);
+              }
+            } catch {
+            }
           }
           return {
             content: [{ type: "text", text: JSON.stringify({

@@ -98,6 +98,9 @@ export default definePluginEntry({
         memorySystem.episodic.setPersistCallback((entry: any) => {
           store.storeEpisodicEntry(entry);
         });
+        memorySystem.episodic.setDeletePersistCallback((workflowId: string) => {
+          store.deleteEpisodicByWorkflow(workflowId);
+        });
         log.info(`memory system ready (episodic: ${entries.length} entries restored)`);
       } catch (e) {
         log.warn(`SQLite + memory system disabled: ${e}`);
@@ -467,18 +470,6 @@ export default definePluginEntry({
 
           workflowService.update(wf);
 
-          // Store in episodic memory
-          if (memorySystem && !params.error) {
-            try {
-              const wfSnapshot = workflowService.get(wfId);
-              if (wfSnapshot) {
-                await memorySystem.storeWorkflowExecution(wfSnapshot);
-              }
-            } catch {
-              // memory store failure is non-critical
-            }
-          }
-
           const allSteps = Array.from(wf.steps.values());
           const allDone = allSteps.every(s => s.state === "completed" || s.state === "failed");
           const anyFailed = allSteps.some(s => s.state === "failed");
@@ -501,6 +492,18 @@ export default definePluginEntry({
             }
             const newReady = workflowService.getReadySteps(wfId, completed, running);
             message = `Step ${stepId} completed. ${newReady.length} step(s) now ready: ${newReady.join(", ") || "none"}`;
+          }
+
+          // Store in episodic memory (AFTER state is finalized)
+          if (memorySystem && !params.error) {
+            try {
+              const wfSnapshot = workflowService.get(wfId);
+              if (wfSnapshot) {
+                await memorySystem.storeWorkflowExecution(wfSnapshot);
+              }
+            } catch {
+              // memory store failure is non-critical
+            }
           }
 
           return {

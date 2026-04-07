@@ -27,6 +27,17 @@ export class EpisodicMemory {
   }
 
   storeExecution(workflow: Workflow): EpisodicEntry {
+    // Deduplicate: remove old entry for this workflow (keep only latest)
+    for (const [key, entry] of this.store) {
+      if (entry.workflowId === workflow.id) {
+        this.store.delete(key);
+        break;
+      }
+    }
+    if (this.deletePersistCallback) {
+      try { this.deletePersistCallback(workflow.id); } catch { /* non-critical */ }
+    }
+
     const now = Date.now();
     const durationMs = this.computeDuration(workflow);
 
@@ -131,9 +142,15 @@ export class EpisodicMemory {
     }
   }
 
+  private deletePersistCallback: ((workflowId: string) => void) | null = null;
+
   /** Set an external persist callback — called on every storeExecution() */
   setPersistCallback(cb: (entry: EpisodicEntry) => void): void {
     this.persistCallback = cb;
+  }
+
+  setDeletePersistCallback(cb: (workflowId: string) => void): void {
+    this.deletePersistCallback = cb;
   }
 
   compressOldEntries(): number {
@@ -201,6 +218,14 @@ export class EpisodicMemory {
       ...entry.tags,
       ...entry.stepSummary.map((s) => `${s.name} ${s.discipline} ${s.success ? "success" : "failure"}`),
     ];
+    // Also index raw data (step results)
+    if (entry.rawData && typeof entry.rawData === 'object' && Array.isArray((entry.rawData as any).steps)) {
+      for (const step of (entry.rawData as any).steps) {
+        if (step.result) {
+          parts.push(String(step.result));
+        }
+      }
+    }
     return parts.join(" ").toLowerCase();
   }
 

@@ -262,6 +262,11 @@ export class SqliteStore {
     );
   }
 
+  /** Delete all episodic entries for a workflow */
+  deleteEpisodicByWorkflow(workflowId: string): void {
+    this.db.prepare("DELETE FROM episodic_memory WHERE workflow_id = ?").run(workflowId);
+  }
+
   /** Load all episodic entries (for restoring on startup) */
   loadEpisodicEntries(): any[] {
     const rows = this.db.prepare("SELECT * FROM episodic_memory ORDER BY created_at DESC").all() as any[];
