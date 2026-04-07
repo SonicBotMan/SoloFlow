@@ -1209,7 +1209,7 @@ export default definePluginEntry({
       `activated (v0.8) — 15 tools registered, memory + evolution + skills + MCP active`,
     );
 
-    // ── 6b. Skill usage tracking wrapper ───────────────────────────
+    // ── 6b. Tool usage tracking wrapper (skills + MCP) ──────────────
     if (skillInventory) {
       const originalExecute = (api as any).executeTool?.bind(api);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1217,25 +1217,47 @@ export default definePluginEntry({
         const startTime = Date.now();
         try {
           const result = originalExecute ? await originalExecute(toolName, params) : null;
+          const duration = Date.now() - startTime;
+          // Record skill usage
           try {
             const allSkills = skillInventory.getAll();
             const normalized = toolName.replace(/_/g, " ").toLowerCase();
             const matched = allSkills.find((s: any) =>
               s.tools?.includes(toolName) || s.name.toLowerCase().includes(normalized)
             );
-            skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, Date.now() - startTime);
+            skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, duration);
           } catch (e) {
             log.debug?.(`skill usage record failed: ${e}`);
           }
+          // Record MCP usage if this is an MCP tool
+          try {
+            if (mcpInventory) {
+              const serverId = mcpInventory.detectServerForTool(toolName);
+              if (serverId) {
+                mcpInventory.recordUsage(serverId, toolName, true, duration);
+              }
+            }
+          } catch (e) {
+            log.debug?.(`mcp usage record failed: ${e}`);
+          }
           return result;
         } catch (e) {
+          const duration = Date.now() - startTime;
           try {
-            skillInventory.recordUsage(toolName, toolName, false, Date.now() - startTime);
+            skillInventory.recordUsage(toolName, toolName, false, duration);
           } catch (e) { log.debug?.(`skill usage record failed: ${e}`); }
+          try {
+            if (mcpInventory) {
+              const serverId = mcpInventory.detectServerForTool(toolName);
+              if (serverId) {
+                mcpInventory.recordUsage(serverId, toolName, false, duration);
+              }
+            }
+          } catch (e) { log.debug?.(`mcp usage record failed: ${e}`); }
           throw e;
         }
       };
-      log.info("skill usage tracking enabled");
+      log.info("tool usage tracking enabled (skills + MCP)");
     }
   },
 });
