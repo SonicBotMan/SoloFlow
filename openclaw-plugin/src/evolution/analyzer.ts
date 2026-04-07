@@ -1,7 +1,7 @@
 /**
  * SoloFlow — Evolution Analyzer
  * LLM-powered pattern extraction from workflow execution history.
- * Uses OpenClaw subagent API for analysis.
+ * Uses direct HTTP to configured LLM API (no subagent dependency).
  */
 
 import type { EvolvedTemplate } from "./types.js";
@@ -14,7 +14,6 @@ export interface EvolutionAnalyzerConfig {
   onTemplateFound: (template: EvolvedTemplate) => Promise<void>;
 }
 
-// Result type — named to avoid }> parser confusion with isolatedModules
 export interface EvolutionResult {
   templates: number;
   skills: number;
@@ -91,39 +90,119 @@ Only extract patterns that are genuinely reusable. Skip one-off workflows unless
 Output ONLY valid JSON (no markdown, no explanation):
 {"workflows": [...], "skills": [...]}`;
 
-    // 4. Spawn sub-agent to analyze
-    const sessionKey = `evolution-${Date.now()}`;
+    // 4. Call LLM directly via HTTP (no subagent needed)
+    const responseText = await this.callLLM(prompt);
+    if (!responseText) {
+      return { templates: 0, skills: 0 };
+    }
+
+    // 5. Parse response and save templates
+    return this.parseAndSave(responseText, filterType);
+  }
+
+  /**
+   * Direct HTTP call to LLM API.
+   * Reads config from openclaw.json to get baseUrl + apiKey.
+   * Falls back to GLM-5 free API if no config found.
+   */
+  private async callLLM(prompt: string): Promise<string | null> {
+    // Try to read provider config from the api object
+    const baseUrl = this.getBaseUrl();
+    const apiKey = this.getApiKey();
+
+    if (!baseUrl || !apiKey) {
+      return null;
+    }
+
     try {
-      const { runId } = await this.api.runtime.subagent.run({
-        sessionKey,
-        message: prompt,
-        timeoutMs: 120_000,
-        idempotencyKey: `evo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.getModel(),
+          messages: [
+            {
+              role: "system",
+              content: "You are a workflow pattern analyst. Always respond with valid JSON only. No markdown, no explanation.",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 4096,
+        }),
+        signal: AbortSignal.timeout(120_000),
       });
 
-      const result = await this.api.runtime.subagent.waitForRun({
-        runId,
-        timeoutMs: 130_000,
-      });
-
-      // Cleanup
-      await this.api.runtime.subagent.deleteSession({ sessionKey }).catch(() => {});
-
-      if (result.error) {
-        throw new Error(result.error);
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(`LLM API ${response.status}: ${body.slice(0, 200)}`);
       }
 
-      // 5. Parse response — extract JSON
-      return this.parseAndSave(result.result ?? "", filterType);
+      const data = (await response.json()) as any;
+      return data.choices?.[0]?.message?.content ?? null;
     } catch (e) {
-      // Cleanup on error
-      await this.api.runtime.subagent.deleteSession({ sessionKey }).catch(() => {});
-      throw e;
+      // Log but don't throw — evolution is non-critical
+      const msg = e instanceof Error ? e.message : String(e);
+      this.api.logger.warn(`evolution LLM call failed: ${msg}`);
+      return null;
     }
   }
 
+  /** Cached provider config (read once from disk) */
+  private static providerConfig: any = null;
+
+  private getProviderConfig(): any {
+    if (EvolutionAnalyzer.providerConfig) return EvolutionAnalyzer.providerConfig;
+    try {
+      const fs = require("node:fs") as typeof import("node:fs");
+      const path = require("node:path") as typeof import("node:path");
+      const os = require("node:os") as typeof import("node:os");
+      const configPath = path.join(os.homedir(), ".openclaw", "openclaw.json");
+      const raw = fs.readFileSync(configPath, "utf-8");
+      const config = JSON.parse(raw);
+      EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
+    } catch {
+      EvolutionAnalyzer.providerConfig = {};
+    }
+    return EvolutionAnalyzer.providerConfig;
+  }
+
+  /** Get base URL from openclaw.json providers */
+  private getBaseUrl(): string {
+    const providers = this.getProviderConfig();
+    // Try zai (GLM) first — it's free
+    const zai = providers["zai"];
+    if (zai?.baseUrl) return zai.baseUrl as string;
+    // Try any provider with a baseUrl
+    for (const p of Object.values(providers)) {
+      if ((p as any).baseUrl) return (p as any).baseUrl as string;
+    }
+    return "";
+  }
+
+  /** Get API key from openclaw.json providers */
+  private getApiKey(): string {
+    const providers = this.getProviderConfig();
+    const zai = providers["zai"];
+    if (zai?.apiKey) return zai.apiKey as string;
+    for (const p of Object.values(providers)) {
+      if ((p as any).apiKey) return (p as any).apiKey as string;
+    }
+    return "";
+  }
+
+  /** Get model ID */
+  private getModel(): string {
+    const providers = this.getProviderConfig();
+    const zai = providers["zai"];
+    if (zai?.models?.[0]?.id) return zai.models[0].id as string;
+    return "glm-5";
+  }
+
   private parseAndSave(responseText: string, filterType?: string): EvolutionResult {
-    // Try to extract JSON from the response
     let jsonStr = responseText.trim();
 
     // Strip markdown code blocks if present

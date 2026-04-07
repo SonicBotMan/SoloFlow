@@ -9773,7 +9773,7 @@ var EvolutionAnalyzer;
 var init_analyzer = __esm({
   "src/evolution/analyzer.ts"() {
     "use strict";
-    EvolutionAnalyzer = class {
+    EvolutionAnalyzer = class _EvolutionAnalyzer {
       api;
       memorySystem;
       evolutionStore;
@@ -9833,29 +9833,99 @@ Only extract patterns that are genuinely reusable. Skip one-off workflows unless
 
 Output ONLY valid JSON (no markdown, no explanation):
 {"workflows": [...], "skills": [...]}`;
-        const sessionKey = `evolution-${Date.now()}`;
-        try {
-          const { runId } = await this.api.runtime.subagent.run({
-            sessionKey,
-            message: prompt,
-            timeoutMs: 12e4,
-            idempotencyKey: `evo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-          });
-          const result = await this.api.runtime.subagent.waitForRun({
-            runId,
-            timeoutMs: 13e4
-          });
-          await this.api.runtime.subagent.deleteSession({ sessionKey }).catch(() => {
-          });
-          if (result.error) {
-            throw new Error(result.error);
-          }
-          return this.parseAndSave(result.result ?? "", filterType);
-        } catch (e) {
-          await this.api.runtime.subagent.deleteSession({ sessionKey }).catch(() => {
-          });
-          throw e;
+        const responseText = await this.callLLM(prompt);
+        if (!responseText) {
+          return { templates: 0, skills: 0 };
         }
+        return this.parseAndSave(responseText, filterType);
+      }
+      /**
+       * Direct HTTP call to LLM API.
+       * Reads config from openclaw.json to get baseUrl + apiKey.
+       * Falls back to GLM-5 free API if no config found.
+       */
+      async callLLM(prompt) {
+        const baseUrl = this.getBaseUrl();
+        const apiKey = this.getApiKey();
+        if (!baseUrl || !apiKey) {
+          return null;
+        }
+        try {
+          const response = await fetch(`${baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: this.getModel(),
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a workflow pattern analyst. Always respond with valid JSON only. No markdown, no explanation."
+                },
+                { role: "user", content: prompt }
+              ],
+              temperature: 0.3,
+              max_tokens: 4096
+            }),
+            signal: AbortSignal.timeout(12e4)
+          });
+          if (!response.ok) {
+            const body = await response.text().catch(() => "");
+            throw new Error(`LLM API ${response.status}: ${body.slice(0, 200)}`);
+          }
+          const data = await response.json();
+          return data.choices?.[0]?.message?.content ?? null;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          this.api.logger.warn(`evolution LLM call failed: ${msg}`);
+          return null;
+        }
+      }
+      /** Cached provider config (read once from disk) */
+      static providerConfig = null;
+      getProviderConfig() {
+        if (_EvolutionAnalyzer.providerConfig) return _EvolutionAnalyzer.providerConfig;
+        try {
+          const fs2 = __require("node:fs");
+          const path3 = __require("node:path");
+          const os2 = __require("node:os");
+          const configPath = path3.join(os2.homedir(), ".openclaw", "openclaw.json");
+          const raw = fs2.readFileSync(configPath, "utf-8");
+          const config = JSON.parse(raw);
+          _EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
+        } catch {
+          _EvolutionAnalyzer.providerConfig = {};
+        }
+        return _EvolutionAnalyzer.providerConfig;
+      }
+      /** Get base URL from openclaw.json providers */
+      getBaseUrl() {
+        const providers = this.getProviderConfig();
+        const zai = providers["zai"];
+        if (zai?.baseUrl) return zai.baseUrl;
+        for (const p of Object.values(providers)) {
+          if (p.baseUrl) return p.baseUrl;
+        }
+        return "";
+      }
+      /** Get API key from openclaw.json providers */
+      getApiKey() {
+        const providers = this.getProviderConfig();
+        const zai = providers["zai"];
+        if (zai?.apiKey) return zai.apiKey;
+        for (const p of Object.values(providers)) {
+          if (p.apiKey) return p.apiKey;
+        }
+        return "";
+      }
+      /** Get model ID */
+      getModel() {
+        const providers = this.getProviderConfig();
+        const zai = providers["zai"];
+        if (zai?.models?.[0]?.id) return zai.models[0].id;
+        return "glm-5";
       }
       parseAndSave(responseText, filterType) {
         let jsonStr = responseText.trim();
