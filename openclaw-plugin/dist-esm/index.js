@@ -395,6 +395,168 @@ var init_hooks = __esm({
   }
 });
 
+// src/memory/entity-extractor.ts
+var EntityExtractor;
+var init_entity_extractor = __esm({
+  "src/memory/entity-extractor.ts"() {
+    "use strict";
+    EntityExtractor = class {
+      // Regex patterns for common entity types
+      patterns = /* @__PURE__ */ new Map();
+      llmExtractor = null;
+      constructor() {
+        this.initPatterns();
+      }
+      /** Set an optional LLM-based entity extractor */
+      setLLMExtractor(fn) {
+        this.llmExtractor = fn;
+      }
+      /**
+       * Decompose a document into paragraphs + entities (R³Mem pipeline).
+       * Returns paragraphs with their extracted entities.
+       */
+      async decompose(document) {
+        const start = Date.now();
+        const paragraphs = this.splitIntoParagraphs(document);
+        let allEntities = [];
+        let method = "regex";
+        for (const para of paragraphs) {
+          const regexEntities = this.extractByRegex(para.content, para.id);
+          let llmEntities = [];
+          if (this.llmExtractor && para.content.length > 50) {
+            try {
+              llmEntities = await this.llmExtractor(para.content);
+              method = "combined";
+            } catch {
+            }
+          }
+          const regexTexts = new Set(regexEntities.map((e) => e.text.toLowerCase()));
+          for (const re of regexEntities) {
+            allEntities.push(re);
+          }
+          for (const le of llmEntities) {
+            if (!regexTexts.has(le.text.toLowerCase())) {
+              allEntities.push({ ...le, confidence: le.confidence * 0.8 });
+            }
+          }
+          para.entities = [...regexEntities, ...llmEntities.filter(
+            (le) => !regexTexts.has(le.text.toLowerCase())
+          )];
+        }
+        const seen = /* @__PURE__ */ new Map();
+        for (const entity of allEntities) {
+          const key = `${entity.type}:${entity.text.toLowerCase()}`;
+          const existing = seen.get(key);
+          if (!existing || entity.confidence > existing.confidence) {
+            seen.set(key, entity);
+          }
+        }
+        const dedupedEntities = Array.from(seen.values());
+        return {
+          paragraphs,
+          entities: dedupedEntities,
+          stats: {
+            paragraphCount: paragraphs.length,
+            entityCount: dedupedEntities.length,
+            method,
+            durationMs: Date.now() - start
+          }
+        };
+      }
+      /** Extract entities using regex patterns only */
+      extractByRegex(text, sourceId) {
+        const entities = [];
+        for (const [type, patterns] of this.patterns) {
+          for (const pattern of patterns) {
+            try {
+              for (const match of text.matchAll(pattern)) {
+                const matched = match[1] || match[0] || "";
+                if (matched.length >= 2 && matched.length <= 100) {
+                  entities.push({
+                    text: matched,
+                    type,
+                    confidence: 0.7,
+                    sourceId
+                  });
+                }
+              }
+            } catch {
+            }
+          }
+        }
+        return entities;
+      }
+      /** Query entities by type and/or text */
+      queryEntities(entities, filter) {
+        let results = entities;
+        if (filter?.types?.length) {
+          results = results.filter((e) => filter.types.includes(e.type));
+        }
+        if (filter?.text) {
+          const query = filter.text.toLowerCase();
+          results = results.filter(
+            (e) => e.text.toLowerCase().includes(query) || query.includes(e.text.toLowerCase())
+          );
+        }
+        if (filter?.minConfidence) {
+          results = results.filter((e) => e.confidence >= filter.minConfidence);
+        }
+        const seen = /* @__PURE__ */ new Set();
+        return results.filter((e) => {
+          const key = e.text.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+      splitIntoParagraphs(document) {
+        const content = document.content;
+        const separators = content.includes("\n\n") ? "\n\n" : "\n";
+        const chunks = content.split(separators).filter((c) => c.trim().length > 10);
+        return chunks.map((chunk, idx) => ({
+          id: `para_${document.id}_${idx}`,
+          sourceDocumentId: document.id,
+          index: idx + 1,
+          content: chunk.trim(),
+          createdAt: document.createdAt
+        }));
+      }
+      initPatterns() {
+        this.patterns.set("tool", [
+          /(?:use|using|called|tool|command|run)\s+`([^`]+)`/gi,
+          /(?:called|named)\s+["']([^"']+)["']/gi,
+          /\b(?:npm|npx|pip|cargo|go|docker|kubectl|git|gh|openclaw|mcporter|skillhub)\s+(\S+)/gi,
+          /\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b/g
+          // PascalCase tool names
+        ]);
+        this.patterns.set("project", [
+          /\b([A-Z][a-z]+(?:Press|Flow|Hub|Bot|Kit|Lib|Engine|CLI|API|SDK))\b/g,
+          /(?:repo|project|module)\s+["']?([\w\-./]+)["']?/gi,
+          /([\w\-]+)\/([\w\-]+)(?:\.git)?/g
+          // owner/repo pattern
+        ]);
+        this.patterns.set("person", [
+          /(?:user|author|created by|maintained by|said|says)\s+["']?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)["']?/gi
+        ]);
+        this.patterns.set("organization", [
+          /\b(?:OpenAI|Anthropic|Google|Meta|Microsoft|Apple|Amazon|GitHub|Cloudflare|Vercel|Netlify|OpenClaw)\b/gi
+        ]);
+        this.patterns.set("date", [
+          /\b(\d{4}[-/]\d{2}[-/]\d{2})\b/g,
+          /\b(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)\b/gi,
+          /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2},?\s+\d{4}\b/gi
+        ]);
+        this.patterns.set("concept", [
+          /\b(?:DAG|FSM|RRF|MMR|FTS5|NER|LLM|MCP|API|SDK|RBAC|SQLite|FTS|JSON|YAML|TypeScript|JavaScript|Python)\b/gi
+        ]);
+        this.patterns.set("location", [
+          /\b(?:Beijing|Shanghai|Tokyo|London|New York|San Francisco|Berlin|Paris)\b/gi
+        ]);
+      }
+    };
+  }
+});
+
 // src/memory/working-memory.ts
 var DEFAULT_WORKING_CAPACITY, WorkingMemory;
 var init_working_memory = __esm({
@@ -1267,13 +1429,204 @@ var init_unified_retriever = __esm({
   }
 });
 
+// src/memory/r3mem-store.ts
+var r3mem_store_exports = {};
+__export(r3mem_store_exports, {
+  R3MemStore: () => R3MemStore
+});
+var R3MemStore;
+var init_r3mem_store = __esm({
+  "src/memory/r3mem-store.ts"() {
+    "use strict";
+    R3MemStore = class {
+      db;
+      // better-sqlite3 Database
+      constructor(db) {
+        this.db = db;
+      }
+      /** Initialize tables (called from migrations) */
+      static createTables(db) {
+        try {
+          db.exec(`
+        CREATE TABLE IF NOT EXISTS r3mem_documents (
+          id TEXT PRIMARY KEY,
+          source_type TEXT NOT NULL,
+          content TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          compressed INTEGER DEFAULT 0
+        )
+      `);
+          db.exec(`
+        CREATE TABLE IF NOT EXISTS r3mem_paragraphs (
+          id TEXT PRIMARY KEY,
+          document_id TEXT NOT NULL REFERENCES r3mem_documents(id),
+          para_index INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          UNIQUE(document_id, para_index)
+        )
+      `);
+          db.exec(`
+        CREATE TABLE IF NOT EXISTS r3mem_entities (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          text TEXT NOT NULL,
+          type TEXT NOT NULL,
+          confidence REAL NOT NULL,
+          source_paragraph_id TEXT,
+          source_document_id TEXT,
+          first_seen_at INTEGER NOT NULL,
+          last_seen_at INTEGER NOT NULL,
+          occurrence_count INTEGER DEFAULT 1,
+          UNIQUE(text, type)
+        )
+      `);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_para_doc ON r3mem_paragraphs(document_id)`);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_type ON r3mem_entities(type)`);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_text ON r3mem_entities(text)`);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_doc ON r3mem_entities(source_document_id)`);
+        } catch (e) {
+        }
+      }
+      /** Store a decomposed document with its paragraphs and entities */
+      storeDecomposition(document, paragraphs, entities) {
+        try {
+          this.db.prepare(`
+        INSERT OR REPLACE INTO r3mem_documents (id, source_type, content, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run(document.id, document.sourceType, document.content, document.createdAt);
+          const insertPara = this.db.prepare(`
+        INSERT OR REPLACE INTO r3mem_paragraphs (id, document_id, para_index, content, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+          for (const para of paragraphs) {
+            insertPara.run(para.id, para.sourceDocumentId, para.index, para.content, para.createdAt);
+          }
+          const upsertEntity = this.db.prepare(`
+        INSERT INTO r3mem_entities (text, type, confidence, source_paragraph_id, source_document_id, first_seen_at, last_seen_at, occurrence_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        ON CONFLICT(text, type) DO UPDATE SET
+          confidence = MAX(confidence, excluded.confidence),
+          last_seen_at = MAX(last_seen_at, excluded.last_seen_at),
+          occurrence_count = occurrence_count + 1
+      `);
+          const now2 = Date.now();
+          for (const entity of entities) {
+            upsertEntity.run(
+              entity.text,
+              entity.type,
+              entity.confidence,
+              entity.sourceId,
+              entity.sourceId.startsWith("para_") ? entity.sourceId.slice(5).split("_")[0] : document.id,
+              now2,
+              now2
+            );
+          }
+        } catch (e) {
+        }
+      }
+      /** Query entities with optional filters */
+      queryEntities(filter) {
+        try {
+          let sql = "SELECT * FROM r3mem_entities WHERE 1=1";
+          const params = [];
+          if (filter?.types?.length) {
+            const placeholders = filter.types.map(() => "?").join(",");
+            sql += ` AND type IN (${placeholders})`;
+            params.push(...filter.types);
+          }
+          if (filter?.text) {
+            sql += " AND text LIKE ?";
+            params.push(`%${filter.text}%`);
+          }
+          if (filter?.minConfidence) {
+            sql += " AND confidence >= ?";
+            params.push(filter.minConfidence);
+          }
+          if (filter?.minOccurrences) {
+            sql += " AND occurrence_count >= ?";
+            params.push(filter.minOccurrences);
+          }
+          sql += " ORDER BY occurrence_count DESC, confidence DESC";
+          if (filter?.limit) {
+            sql += " LIMIT ?";
+            params.push(filter.limit);
+          }
+          const rows = this.db.prepare(sql).all(...params);
+          return rows.map((row) => ({
+            text: row.text,
+            type: row.type,
+            confidence: row.confidence,
+            sourceId: row.source_paragraph_id || row.source_document_id
+          }));
+        } catch {
+          return [];
+        }
+      }
+      /** Get paragraphs for a specific document */
+      getParagraphs(documentId) {
+        try {
+          const rows = this.db.prepare(
+            "SELECT * FROM r3mem_paragraphs WHERE document_id = ? ORDER BY para_index"
+          ).all(documentId);
+          return rows.map((row) => ({
+            id: row.id,
+            sourceDocumentId: row.document_id,
+            index: row.para_index,
+            content: row.content,
+            createdAt: row.created_at
+          }));
+        } catch {
+          return [];
+        }
+      }
+      /** Get stats */
+      getStats() {
+        try {
+          const docCount = this.db.prepare("SELECT COUNT(*) as c FROM r3mem_documents").get().c;
+          const paraCount = this.db.prepare("SELECT COUNT(*) as c FROM r3mem_paragraphs").get().c;
+          const entityCount = this.db.prepare("SELECT COUNT(*) as c FROM r3mem_entities").get().c;
+          const typeRows = this.db.prepare(
+            "SELECT type, COUNT(*) as c FROM r3mem_entities GROUP BY type"
+          ).all();
+          const entityTypes = {};
+          for (const row of typeRows) {
+            entityTypes[row.type] = row.c;
+          }
+          return { documentCount: docCount, paragraphCount: paraCount, entityCount, entityTypes };
+        } catch {
+          return { documentCount: 0, paragraphCount: 0, entityCount: 0, entityTypes: {} };
+        }
+      }
+      /** Delete a document and its paragraphs (entities are kept — they've been learned) */
+      deleteDocument(documentId) {
+        try {
+          this.db.prepare("DELETE FROM r3mem_paragraphs WHERE document_id = ?").run(documentId);
+          const result = this.db.prepare("DELETE FROM r3mem_documents WHERE id = ?").run(documentId);
+          return result.changes > 0;
+        } catch {
+          return false;
+        }
+      }
+      /** Mark document as compressed */
+      markCompressed(documentId) {
+        try {
+          this.db.prepare("UPDATE r3mem_documents SET compressed = 1 WHERE id = ?").run(documentId);
+        } catch {
+        }
+      }
+    };
+  }
+});
+
 // src/memory/index.ts
 var memory_exports = {};
 __export(memory_exports, {
+  EntityExtractor: () => EntityExtractor,
   EpisodicMemory: () => EpisodicMemory,
   InMemoryFallbackAdapter: () => InMemoryFallbackAdapter,
   LobsterPressBridge: () => LobsterPressBridge,
   MemorySystem: () => MemorySystem,
+  R3MemStore: () => R3MemStore,
   SemanticMemory: () => SemanticMemory,
   UnifiedRetriever: () => UnifiedRetriever,
   WorkingMemory: () => WorkingMemory
@@ -1282,19 +1635,23 @@ var DEFAULT_NAMESPACE, MemorySystem;
 var init_memory = __esm({
   "src/memory/index.ts"() {
     "use strict";
+    init_entity_extractor();
     init_working_memory();
     init_episodic_memory();
     init_semantic_memory();
     init_bridge();
     init_unified_retriever();
+    init_r3mem_store();
     DEFAULT_NAMESPACE = "default";
     MemorySystem = class {
       working;
       episodic;
       semantic;
+      entityExtractor;
       unifiedRetriever = null;
       bridge = null;
       fallback = null;
+      _r3memStore = null;
       initialized = false;
       namespace;
       config;
@@ -1302,6 +1659,7 @@ var init_memory = __esm({
         this.config = config;
         this.namespace = config.namespace ?? DEFAULT_NAMESPACE;
         this.working = new WorkingMemory(this.namespace, config.workingCapacity);
+        this.entityExtractor = new EntityExtractor();
         this.episodic = new EpisodicMemory(
           this.namespace,
           config.episodicCapacity,
@@ -1376,6 +1734,31 @@ var init_memory = __esm({
       }
       async storeFact(key, value, importance = 0.5, extra) {
         return this.semantic.storeFact(key, value, importance, extra);
+      }
+      /** Initialize R³Mem store with a raw SQLite database */
+      setR3MemStore(store) {
+        this._r3memStore = store;
+      }
+      /** Decompose a document into paragraphs + entities (R³Mem pipeline) */
+      async decomposeDocument(doc) {
+        const result = await this.entityExtractor.decompose(doc);
+        if (this._r3memStore) {
+          try {
+            this._r3memStore.storeDecomposition(doc, result.paragraphs, result.entities);
+          } catch {
+          }
+        }
+        return result;
+      }
+      /** Query entities from R³Mem store */
+      queryEntities(filter) {
+        if (!this._r3memStore) return [];
+        return this._r3memStore.queryEntities(filter);
+      }
+      /** Get R³Mem stats */
+      getR3MemStats() {
+        if (!this._r3memStore) return null;
+        return this._r3memStore.getStats();
       }
       getStats() {
         return {
@@ -9750,6 +10133,53 @@ function runMigrations(db, logger) {
         }
         db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(6, Date.now());
       }
+    },
+    {
+      version: 7,
+      up: (db2) => {
+        try {
+          db2.exec(`
+            CREATE TABLE IF NOT EXISTS r3mem_documents (
+              id TEXT PRIMARY KEY,
+              source_type TEXT NOT NULL,
+              content TEXT NOT NULL,
+              created_at INTEGER NOT NULL,
+              compressed INTEGER DEFAULT 0
+            )
+          `);
+          db2.exec(`
+            CREATE TABLE IF NOT EXISTS r3mem_paragraphs (
+              id TEXT PRIMARY KEY,
+              document_id TEXT NOT NULL REFERENCES r3mem_documents(id),
+              para_index INTEGER NOT NULL,
+              content TEXT NOT NULL,
+              created_at INTEGER NOT NULL,
+              UNIQUE(document_id, para_index)
+            )
+          `);
+          db2.exec(`
+            CREATE TABLE IF NOT EXISTS r3mem_entities (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              text TEXT NOT NULL,
+              type TEXT NOT NULL,
+              confidence REAL NOT NULL,
+              source_paragraph_id TEXT,
+              source_document_id TEXT,
+              first_seen_at INTEGER NOT NULL,
+              last_seen_at INTEGER NOT NULL,
+              occurrence_count INTEGER DEFAULT 1,
+              UNIQUE(text, type)
+            )
+          `);
+          db2.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_para_doc ON r3mem_paragraphs(document_id)`);
+          db2.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_type ON r3mem_entities(type)`);
+          db2.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_text ON r3mem_entities(text)`);
+          db2.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_doc ON r3mem_entities(source_document_id)`);
+        } catch (e) {
+          log.warn(`migration v7: ${e.message}`);
+        }
+        db2.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(7, Date.now());
+      }
     }
   ];
   for (const m of migrations) {
@@ -12903,6 +13333,12 @@ var index_default = definePluginEntry({
         const mod = await Promise.resolve().then(() => (init_memory(), memory_exports));
         memorySystem = new mod.MemorySystem({ disableLobsterPress: true });
         await memorySystem.init();
+        try {
+          const r3mem = await Promise.resolve().then(() => (init_r3mem_store(), r3mem_store_exports));
+          const r3memStore = new r3mem.R3MemStore(store.database);
+          memorySystem.setR3MemStore(r3memStore);
+        } catch {
+        }
         const entries = store.loadEpisodicEntries();
         memorySystem.episodic.restoreEntries(entries);
         memorySystem.episodic.setPersistCallback((entry) => {
@@ -13390,7 +13826,7 @@ var index_default = definePluginEntry({
         label: "SoloFlow: Query Memory",
         parameters: Type.Object({
           query: Type.String({ description: "Search query text" }),
-          tier: Type.Optional(Type.String({ description: "Memory tier: working|episodic|semantic (default: all)" })),
+          tier: Type.Optional(Type.String({ description: "Memory tier: working|episodic|semantic|entity (default: all)" })),
           limit: Type.Optional(Type.Integer({ description: "Max results (default: 10)" }))
         }),
         async execute(_toolCallId, params) {
@@ -13401,6 +13837,24 @@ var index_default = definePluginEntry({
             };
           }
           try {
+            if (params.tier === "entity") {
+              const entities = memorySystem.queryEntities({
+                text: params.query,
+                limit: params.limit ?? 10
+              });
+              return {
+                content: [{ type: "text", text: JSON.stringify({
+                  totalMatches: entities.length,
+                  entries: entities.map((e) => ({
+                    tier: "entity",
+                    text: e.text,
+                    type: e.type,
+                    score: e.confidence.toFixed(3)
+                  }))
+                }, null, 2) }],
+                details: { count: entities.length }
+              };
+            }
             const result = await memorySystem.query({
               text: params.query,
               tiers: params.tier ? [params.tier] : void 0,

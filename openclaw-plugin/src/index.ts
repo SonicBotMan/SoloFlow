@@ -101,6 +101,13 @@ export default definePluginEntry({
         memorySystem = new mod.MemorySystem({ disableLobsterPress: true });
         await memorySystem.init();
 
+        // Initialize R³Mem
+        try {
+          const r3mem = await import("./memory/r3mem-store.js");
+          const r3memStore = new r3mem.R3MemStore(store.database);
+          memorySystem.setR3MemStore(r3memStore);
+        } catch { /* R³Mem init non-critical */ }
+
         // 3. Restore episodic memory from SQLite
         const entries = store.loadEpisodicEntries();
         memorySystem.episodic.restoreEntries(entries);
@@ -650,7 +657,7 @@ export default definePluginEntry({
         label: "SoloFlow: Query Memory",
         parameters: Type.Object({
           query: Type.String({ description: "Search query text" }),
-          tier: Type.Optional(Type.String({ description: "Memory tier: working|episodic|semantic (default: all)" })),
+          tier: Type.Optional(Type.String({ description: "Memory tier: working|episodic|semantic|entity (default: all)" })),
           limit: Type.Optional(Type.Integer({ description: "Max results (default: 10)" })),
         }),
         async execute(_toolCallId: string, params: any) {
@@ -661,6 +668,26 @@ export default definePluginEntry({
             };
           }
           try {
+            // Handle entity tier separately
+            if (params.tier === "entity") {
+              const entities = memorySystem.queryEntities({
+                text: params.query,
+                limit: params.limit ?? 10,
+              });
+              return {
+                content: [{ type: "text" as const, text: JSON.stringify({
+                  totalMatches: entities.length,
+                  entries: entities.map((e: any) => ({
+                    tier: "entity",
+                    text: e.text,
+                    type: e.type,
+                    score: e.confidence.toFixed(3),
+                  })),
+                }, null, 2) }],
+                details: { count: entities.length },
+              };
+            }
+
             const result = await memorySystem.query({
               text: params.query,
               tiers: params.tier ? [params.tier] : undefined,

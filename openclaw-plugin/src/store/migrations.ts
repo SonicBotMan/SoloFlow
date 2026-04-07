@@ -3,7 +3,7 @@
  * Versioned schema migration system for the workflows database.
  */
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export function runMigrations(db: any, logger?: { warn: (msg: string) => void }): void {
   const log = logger ?? { warn: (msg: string) => console.warn(`[migrations] ${msg}`) };
@@ -241,6 +241,54 @@ export function runMigrations(db: any, logger?: { warn: (msg: string) => void })
           log.warn(`migration v6 FTS5 failed (may not be supported): ${e.message}`);
         }
         db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(6, Date.now());
+      }
+    },
+    {
+      version: 7,
+      up: (db) => {
+        // R³Mem three-layer entity extraction tables
+        try {
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS r3mem_documents (
+              id TEXT PRIMARY KEY,
+              source_type TEXT NOT NULL,
+              content TEXT NOT NULL,
+              created_at INTEGER NOT NULL,
+              compressed INTEGER DEFAULT 0
+            )
+          `);
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS r3mem_paragraphs (
+              id TEXT PRIMARY KEY,
+              document_id TEXT NOT NULL REFERENCES r3mem_documents(id),
+              para_index INTEGER NOT NULL,
+              content TEXT NOT NULL,
+              created_at INTEGER NOT NULL,
+              UNIQUE(document_id, para_index)
+            )
+          `);
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS r3mem_entities (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              text TEXT NOT NULL,
+              type TEXT NOT NULL,
+              confidence REAL NOT NULL,
+              source_paragraph_id TEXT,
+              source_document_id TEXT,
+              first_seen_at INTEGER NOT NULL,
+              last_seen_at INTEGER NOT NULL,
+              occurrence_count INTEGER DEFAULT 1,
+              UNIQUE(text, type)
+            )
+          `);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_para_doc ON r3mem_paragraphs(document_id)`);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_type ON r3mem_entities(type)`);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_text ON r3mem_entities(text)`);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_r3mem_entity_doc ON r3mem_entities(source_document_id)`);
+        } catch (e: any) {
+          log.warn(`migration v7: ${e.message}`);
+        }
+        db.prepare("INSERT OR IGNORE INTO _schema_migrations (version, applied_at) VALUES (?, ?)").run(7, Date.now());
       }
     }
   ];

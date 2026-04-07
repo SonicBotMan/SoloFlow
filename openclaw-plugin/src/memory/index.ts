@@ -1,5 +1,14 @@
 import type { Workflow } from "../types.js";
 import type {
+  Entity,
+  EntityType,
+  Paragraph,
+  DocumentLayer,
+} from "./entity-extractor.js";
+import type { R3MemStats } from "./r3mem-store.js";
+import { EntityExtractor } from "./entity-extractor.js";
+import type { R3MemStore } from "./r3mem-store.js";
+import type {
   MemoryNamespace,
   MemoryQuery,
   MemoryResult,
@@ -34,10 +43,12 @@ export class MemorySystem {
   readonly working: WorkingMemory;
   readonly episodic: EpisodicMemory;
   readonly semantic: SemanticMemory;
+  readonly entityExtractor: EntityExtractor;
 
   private unifiedRetriever: UnifiedRetriever | null = null;
   private bridge: LobsterPressBridge | null = null;
   private fallback: InMemoryFallbackAdapter | null = null;
+  private _r3memStore: R3MemStore | null = null;
   private initialized = false;
   private readonly namespace: MemoryNamespace;
   private readonly config: MemorySystemConfig;
@@ -47,6 +58,7 @@ export class MemorySystem {
     this.namespace = config.namespace ?? DEFAULT_NAMESPACE;
 
     this.working = new WorkingMemory(this.namespace, config.workingCapacity);
+    this.entityExtractor = new EntityExtractor();
     this.episodic = new EpisodicMemory(
       this.namespace,
       config.episodicCapacity,
@@ -151,6 +163,44 @@ export class MemorySystem {
     return this.semantic.storeFact(key, value, importance, extra);
   }
 
+  /** Initialize R³Mem store with a raw SQLite database */
+  setR3MemStore(store: R3MemStore): void {
+    this._r3memStore = store;
+  }
+
+  /** Decompose a document into paragraphs + entities (R³Mem pipeline) */
+  async decomposeDocument(doc: DocumentLayer): Promise<{
+    paragraphs: Paragraph[];
+    entities: Entity[];
+    stats: { paragraphCount: number; entityCount: number; method: string; durationMs: number };
+  }> {
+    const result = await this.entityExtractor.decompose(doc);
+    if (this._r3memStore) {
+      try {
+        this._r3memStore.storeDecomposition(doc, result.paragraphs, result.entities);
+      } catch { /* non-critical */ }
+    }
+    return result;
+  }
+
+  /** Query entities from R³Mem store */
+  queryEntities(filter?: {
+    types?: EntityType[];
+    text?: string;
+    minConfidence?: number;
+    minOccurrences?: number;
+    limit?: number;
+  }): Entity[] {
+    if (!this._r3memStore) return [];
+    return this._r3memStore.queryEntities(filter);
+  }
+
+  /** Get R³Mem stats */
+  getR3MemStats(): R3MemStats | null {
+    if (!this._r3memStore) return null;
+    return this._r3memStore.getStats();
+  }
+
   getStats(): MemorySystemStats {
     return {
       namespace: this.namespace,
@@ -206,7 +256,9 @@ export {
   LobsterPressBridge,
   InMemoryFallbackAdapter,
   UnifiedRetriever,
+  EntityExtractor,
 };
+export { R3MemStore } from "./r3mem-store.js";
 
 export type {
   MemoryEntry,
@@ -223,3 +275,12 @@ export type {
   ForgettingCurveConfig,
   LobsterPressAdapter,
 } from "./types.js";
+
+export type {
+  Entity,
+  EntityType,
+  EntityExtractionResult,
+  Paragraph,
+  DocumentLayer,
+} from "./entity-extractor.js";
+export type { R3MemStats } from "./r3mem-store.js";
