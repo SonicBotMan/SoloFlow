@@ -83,6 +83,41 @@ export default definePluginEntry({
     let unregisterBuiltinHooks: (() => void) | null = null;
     let workflowSubscription: (() => void) | null = null;
 
+    // ── R³Mem: Truncate large step results before decomposition ──────
+    const MAX_STEP_RESULT_CHARS = 2000;
+    const MAX_WORKFLOW_CONTENT_CHARS = 50000;
+    const decomposedWorkflows = new Set<string>();
+
+    function decomposeWorkflow(wf: any): Promise<void> {
+      if (!memorySystem) return Promise.resolve();
+      if (decomposedWorkflows.has(wf.id)) return Promise.resolve();
+      decomposedWorkflows.add(wf.id);
+      try {
+        const stepTexts = Array.from(wf.steps.values())
+          .map((s: any) => {
+            const raw = typeof s.result === 'string' ? s.result : JSON.stringify(s.result ?? '');
+            const truncated = raw.length > MAX_STEP_RESULT_CHARS ? raw.slice(0, MAX_STEP_RESULT_CHARS) + '...[truncated]' : raw;
+            return `[${s.name}] ${s.state}: ${truncated}`;
+          })
+          .join("\n\n");
+
+        if (stepTexts.length < 50) return Promise.resolve();
+
+        const content = stepTexts.length > MAX_WORKFLOW_CONTENT_CHARS
+          ? stepTexts.slice(0, MAX_WORKFLOW_CONTENT_CHARS) + '\n...[content truncated]'
+          : stepTexts;
+
+        return memorySystem.decomposeDocument({
+          id: wf.id,
+          content,
+          sourceType: "workflow_result",
+          createdAt: Date.now(),
+        });
+      } catch {
+        return Promise.resolve();
+      }
+    }
+
     // SQLite + Memory system initialization (combined for episodic persistence)
     void (async () => {
       try {
@@ -251,12 +286,14 @@ export default definePluginEntry({
         workflowSubscription = workflowService.subscribe((event: Record<string, unknown>) => {
           try {
             const type = event["type"] as string;
-            if (type === "workflow:completed" && memorySystem) {
+            if ((type === "workflow:completed" || type === "workflow:failed") && memorySystem) {
               const wfId = event["workflowId"] as WorkflowId;
               const wf = workflowService.get(wfId);
               if (wf) {
                 memorySystem.storeWorkflowExecution(wf).catch(() => {});
                 if (vectorSystem) vectorSystem.indexWorkflow(wf).catch(() => {});
+                // Auto-decompose into R³Mem on workflow final states
+                decomposeWorkflow(wf).catch(() => {});
               }
             }
           } catch {
@@ -642,19 +679,7 @@ export default definePluginEntry({
               const wfSnapshot = workflowService.get(wfId);
               if (wfSnapshot) {
                 await memorySystem.storeWorkflowExecution(wfSnapshot);
-                // Auto-decompose into R³Mem when workflow completes
-                if (newState === "completed" || newState === "failed") {
-                  const stepTexts = Array.from(wfSnapshot.steps.values())
-                    .map(s => `[${s.name}] ${s.state}: ${typeof s.result === 'string' ? s.result : JSON.stringify(s.result ?? '')}`).join("\n\n");
-                  if (stepTexts.length > 50) {
-                    memorySystem.decomposeDocument({
-                      id: wfSnapshot.id,
-                      content: stepTexts,
-                      sourceType: "workflow_result",
-                      createdAt: Date.now(),
-                    }).catch(() => {});
-                  }
-                }
+                // R³Mem is handled by the workflow:completed/failed hook
               }
             } catch {
               // memory store failure is non-critical

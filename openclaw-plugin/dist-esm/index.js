@@ -13440,6 +13440,31 @@ var index_default = definePluginEntry({
     let hookSystem2 = null;
     let unregisterBuiltinHooks = null;
     let workflowSubscription = null;
+    const MAX_STEP_RESULT_CHARS = 2e3;
+    const MAX_WORKFLOW_CONTENT_CHARS = 5e4;
+    const decomposedWorkflows = /* @__PURE__ */ new Set();
+    function decomposeWorkflow(wf) {
+      if (!memorySystem) return Promise.resolve();
+      if (decomposedWorkflows.has(wf.id)) return Promise.resolve();
+      decomposedWorkflows.add(wf.id);
+      try {
+        const stepTexts = Array.from(wf.steps.values()).map((s) => {
+          const raw = typeof s.result === "string" ? s.result : JSON.stringify(s.result ?? "");
+          const truncated = raw.length > MAX_STEP_RESULT_CHARS ? raw.slice(0, MAX_STEP_RESULT_CHARS) + "...[truncated]" : raw;
+          return `[${s.name}] ${s.state}: ${truncated}`;
+        }).join("\n\n");
+        if (stepTexts.length < 50) return Promise.resolve();
+        const content = stepTexts.length > MAX_WORKFLOW_CONTENT_CHARS ? stepTexts.slice(0, MAX_WORKFLOW_CONTENT_CHARS) + "\n...[content truncated]" : stepTexts;
+        return memorySystem.decomposeDocument({
+          id: wf.id,
+          content,
+          sourceType: "workflow_result",
+          createdAt: Date.now()
+        });
+      } catch {
+        return Promise.resolve();
+      }
+    }
     void (async () => {
       try {
         const { SqliteStore: SqliteStore2 } = await Promise.resolve().then(() => (init_sqlite_store(), sqlite_store_exports));
@@ -13585,13 +13610,15 @@ var index_default = definePluginEntry({
         workflowSubscription = workflowService.subscribe((event) => {
           try {
             const type = event["type"];
-            if (type === "workflow:completed" && memorySystem) {
+            if ((type === "workflow:completed" || type === "workflow:failed") && memorySystem) {
               const wfId = event["workflowId"];
               const wf = workflowService.get(wfId);
               if (wf) {
                 memorySystem.storeWorkflowExecution(wf).catch(() => {
                 });
                 if (vectorSystem) vectorSystem.indexWorkflow(wf).catch(() => {
+                });
+                decomposeWorkflow(wf).catch(() => {
                 });
               }
             }
@@ -13933,18 +13960,6 @@ var index_default = definePluginEntry({
               const wfSnapshot = workflowService.get(wfId);
               if (wfSnapshot) {
                 await memorySystem.storeWorkflowExecution(wfSnapshot);
-                if (newState === "completed" || newState === "failed") {
-                  const stepTexts = Array.from(wfSnapshot.steps.values()).map((s) => `[${s.name}] ${s.state}: ${typeof s.result === "string" ? s.result : JSON.stringify(s.result ?? "")}`).join("\n\n");
-                  if (stepTexts.length > 50) {
-                    memorySystem.decomposeDocument({
-                      id: wfSnapshot.id,
-                      content: stepTexts,
-                      sourceType: "workflow_result",
-                      createdAt: Date.now()
-                    }).catch(() => {
-                    });
-                  }
-                }
               }
             } catch {
             }
