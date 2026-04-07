@@ -664,7 +664,7 @@ export default definePluginEntry({
           }
           try {
             const templates = evolutionStore.search(
-              params.query,
+              params.query ?? "",
               params.type as any,
               params.limit ?? 20,
             );

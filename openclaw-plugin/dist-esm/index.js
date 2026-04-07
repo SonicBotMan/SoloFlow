@@ -12386,7 +12386,7 @@ var index_default = definePluginEntry({
           }
           try {
             const templates = evolutionStore.search(
-              params.query,
+              params.query ?? "",
               params.type,
               params.limit ?? 20
             );
