@@ -17,6 +17,14 @@ export interface EvolutionAnalyzerConfig {
 export interface EvolutionResult {
   templates: number;
   skills: number;
+  /** Brief summary of what was found */
+  summary?: string;
+  /** Names of new/updated templates */
+  templateNames?: string[];
+  /** Names of new/updated skills */
+  skillNames?: string[];
+  /** Total workflow executions analyzed */
+  analyzed?: number;
 }
 
 /** Jaccard similarity on lowercased word sets */
@@ -259,6 +267,8 @@ Output ONLY valid JSON (no markdown, no explanation):
 
     let wfCount = 0;
     let skCount = 0;
+    const wfNames: string[] = [];
+    const skNames: string[] = [];
     const now = Date.now();
 
     // Process workflow templates
@@ -273,6 +283,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           try { await this.onTemplateFound(template); } catch { /* non-critical */ }
         }
         wfCount++;
+        wfNames.push(wf.name);
       }
     }
 
@@ -288,10 +299,18 @@ Output ONLY valid JSON (no markdown, no explanation):
           try { await this.onTemplateFound(template); } catch { /* non-critical */ }
         }
         skCount++;
+        skNames.push(sk.name);
       }
     }
 
-    return { templates: wfCount, skills: skCount };
+    return {
+      templates: wfCount,
+      skills: skCount,
+      templateNames: wfNames,
+      skillNames: skNames,
+      analyzed: this.evolutionStore.count("workflow") + this.evolutionStore.count("skill"),
+      summary: `Found ${wfCount} workflow templates (${wfNames.join(", ") || "none"}) and ${skCount} skill patterns (${skNames.join(", ") || "none"}).`,
+    };
   }
 
   /** Build an EvolvedTemplate from LLM output with graceful defaults */

@@ -113,7 +113,8 @@ export default definePluginEntry({
           sourceType: "workflow_result",
           createdAt: Date.now(),
         });
-      } catch {
+      } catch (e) {
+        log.debug?.(`R³Mem decompose skipped: ${e}`);
         return Promise.resolve();
       }
     }
@@ -141,7 +142,7 @@ export default definePluginEntry({
           const r3mem = await import("./memory/r3mem-store.js");
           const r3memStore = new r3mem.R3MemStore(store.database);
           memorySystem.setR3MemStore(r3memStore);
-        } catch { /* R³Mem init non-critical */ }
+        } catch (e) { log.debug?.(`R³Mem init non-critical: ${e}`); }
 
         // 3. Restore episodic memory from SQLite
         const entries = store.loadEpisodicEntries();
@@ -201,26 +202,8 @@ export default definePluginEntry({
             log.warn(`mcp inventory disabled: ${e}`);
           }
 
-          // Auto-evolution: schedule daily at 02:00 Beijing time (18:00 UTC)
-          const scheduleNextEvolution = () => {
-            const now = new Date();
-            const beijing = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
-            const target = new Date(beijing);
-            target.setHours(2, 0, 0, 0);
-            if (target <= beijing) target.setDate(target.getDate() + 1);
-            const delay = target.getTime() - beijing.getTime();
-            setTimeout(async () => {
-              try {
-                log.info("auto-evolution scan starting (scheduled 02:00 Beijing)");
-                const result = await evolutionAnalyzer.analyze();
-                log.info(`auto-evolution scan complete: ${result.templates} workflows, ${result.skills} skills extracted`);
-              } catch (e) {
-                log.warn(`auto-evolution scan failed: ${e}`);
-              }
-              scheduleNextEvolution(); // reschedule for next day
-            }, delay);
-          };
-          scheduleNextEvolution();
+          // Evolution: handled by OpenClaw cron (soloflow-nightly-evolve)
+          log.info("evolution system ready — cron job 'soloflow-nightly-evolve' handles daily analysis at 02:00 Beijing");
         } catch (e) {
           log.warn(`evolution system disabled: ${e}`);
         }
@@ -255,13 +238,13 @@ export default definePluginEntry({
           // Wire unified hybrid retrieval
           memorySystem.setUnifiedSources({
             ftsSearch: (query: string, limit: number) => {
-              try { return sqliteStore.searchEpisodicFTS(query, limit); } catch { return []; }
+              try { return sqliteStore.searchEpisodicFTS(query, limit); } catch (e) { log.debug?.(`FTS5 search failed: ${e}`); return []; }
             },
             vectorSearch: async (query: string, limit: number) => {
               try {
                 const results = await vectorSystem.retriever.search(query, limit);
                 return results.map((r: any) => ({ id: r.id, score: r.score }));
-              } catch { return []; }
+              } catch (e) { log.debug?.(`vector search failed: ${e}`); return []; }
             },
             episodicLoader: (id: string) => {
               for (const entry of memorySystem.episodic.all()) {
@@ -296,8 +279,8 @@ export default definePluginEntry({
                 decomposeWorkflow(wf).catch(() => {});
               }
             }
-          } catch {
-            // swallow hook errors
+          } catch (e) {
+            log.debug?.(`hook error: ${e}`);
           }
         });
       } catch (e) {
@@ -504,12 +487,21 @@ export default definePluginEntry({
           status: Type.Optional(
             Type.String({ description: "Filter by status: running|completed|failed|cancelled" }),
           ),
+          discipline: Type.Optional(
+            Type.String({ description: "Filter by step discipline: deep|quick|visual|ultrabrain" }),
+          ),
         }),
         async execute(_toolCallId: string, params: any) {
           const filter = params.status
             ? { status: params.status as WorkflowState }
             : undefined;
-          const wfs = workflowService.list(filter);
+          let wfs = workflowService.list(filter);
+          // Filter by discipline if specified
+          if (params.discipline) {
+            wfs = wfs.filter((w: any) =>
+              Array.from(w.steps.values()).some((s: any) => s.discipline === params.discipline)
+            );
+          }
           return {
             content: [{ type: "text" as const, text: JSON.stringify(
               wfs.map((w) => ({
@@ -588,7 +580,7 @@ export default definePluginEntry({
               id: s.id,
               name: s.name,
               discipline: s.discipline,
-              action: (s.config?.["prompt"] ?? s.name) as string,
+              action: ((s.config?.["prompt"] ?? s.name) as string).slice(0, 200),
               dependencies: s.dependencies,
             };
           });
@@ -668,8 +660,8 @@ export default definePluginEntry({
                   }
                 }
               }
-            } catch {
-              // non-critical
+            } catch (e) {
+              log.debug?.(`skill usage record failed: ${e}`);
             }
           }
 
@@ -681,8 +673,8 @@ export default definePluginEntry({
                 await memorySystem.storeWorkflowExecution(wfSnapshot);
                 // R³Mem is handled by the workflow:completed/failed hook
               }
-            } catch {
-              // memory store failure is non-critical
+            } catch (e) {
+              log.warn(`memory store failed: ${e}`);
             }
           }
 
@@ -1088,8 +1080,8 @@ export default definePluginEntry({
         apiServerClose?.();
         log.info("deactivated");
       });
-    } catch {
-      // hook registration may fail in some SDK versions — non-critical
+    } catch (e) {
+      log.debug?.(`hook registration skipped: ${e}`);
     }
 
     log.info(
@@ -1111,12 +1103,14 @@ export default definePluginEntry({
               s.tools?.includes(toolName) || s.name.toLowerCase().includes(normalized)
             );
             skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, Date.now() - startTime);
-          } catch { /* non-critical */ }
+          } catch (e) {
+            log.debug?.(`skill usage record failed: ${e}`);
+          }
           return result;
         } catch (e) {
           try {
             skillInventory.recordUsage(toolName, toolName, false, Date.now() - startTime);
-          } catch { /* non-critical */ }
+          } catch (e) { log.debug?.(`skill usage record failed: ${e}`); }
           throw e;
         }
       };

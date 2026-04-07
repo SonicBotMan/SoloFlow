@@ -10992,6 +10992,8 @@ Output ONLY valid JSON (no markdown, no explanation):
         }
         let wfCount = 0;
         let skCount = 0;
+        const wfNames = [];
+        const skNames = [];
         const now2 = Date.now();
         if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
           for (const wf of parsed.workflows) {
@@ -11006,6 +11008,7 @@ Output ONLY valid JSON (no markdown, no explanation):
               }
             }
             wfCount++;
+            wfNames.push(wf.name);
           }
         }
         if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
@@ -11021,9 +11024,17 @@ Output ONLY valid JSON (no markdown, no explanation):
               }
             }
             skCount++;
+            skNames.push(sk.name);
           }
         }
-        return { templates: wfCount, skills: skCount };
+        return {
+          templates: wfCount,
+          skills: skCount,
+          templateNames: wfNames,
+          skillNames: skNames,
+          analyzed: this.evolutionStore.count("workflow") + this.evolutionStore.count("skill"),
+          summary: `Found ${wfCount} workflow templates (${wfNames.join(", ") || "none"}) and ${skCount} skill patterns (${skNames.join(", ") || "none"}).`
+        };
       }
       /** Build an EvolvedTemplate from LLM output with graceful defaults */
       buildTemplate(type, raw, now2) {
@@ -13461,7 +13472,8 @@ var index_default = definePluginEntry({
           sourceType: "workflow_result",
           createdAt: Date.now()
         });
-      } catch {
+      } catch (e) {
+        log.debug?.(`R\xB3Mem decompose skipped: ${e}`);
         return Promise.resolve();
       }
     }
@@ -13480,7 +13492,8 @@ var index_default = definePluginEntry({
           const r3mem = await Promise.resolve().then(() => (init_r3mem_store(), r3mem_store_exports));
           const r3memStore = new r3mem.R3MemStore(store.database);
           memorySystem.setR3MemStore(r3memStore);
-        } catch {
+        } catch (e) {
+          log.debug?.(`R\xB3Mem init non-critical: ${e}`);
         }
         const entries = store.loadEpisodicEntries();
         memorySystem.episodic.restoreEntries(entries);
@@ -13527,25 +13540,7 @@ var index_default = definePluginEntry({
           } catch (e) {
             log.warn(`mcp inventory disabled: ${e}`);
           }
-          const scheduleNextEvolution = () => {
-            const now2 = /* @__PURE__ */ new Date();
-            const beijing = new Date(now2.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
-            const target = new Date(beijing);
-            target.setHours(2, 0, 0, 0);
-            if (target <= beijing) target.setDate(target.getDate() + 1);
-            const delay = target.getTime() - beijing.getTime();
-            setTimeout(async () => {
-              try {
-                log.info("auto-evolution scan starting (scheduled 02:00 Beijing)");
-                const result = await evolutionAnalyzer.analyze();
-                log.info(`auto-evolution scan complete: ${result.templates} workflows, ${result.skills} skills extracted`);
-              } catch (e) {
-                log.warn(`auto-evolution scan failed: ${e}`);
-              }
-              scheduleNextEvolution();
-            }, delay);
-          };
-          scheduleNextEvolution();
+          log.info("evolution system ready \u2014 cron job 'soloflow-nightly-evolve' handles daily analysis at 02:00 Beijing");
         } catch (e) {
           log.warn(`evolution system disabled: ${e}`);
         }
@@ -13578,7 +13573,8 @@ var index_default = definePluginEntry({
             ftsSearch: (query, limit) => {
               try {
                 return sqliteStore.searchEpisodicFTS(query, limit);
-              } catch {
+              } catch (e) {
+                log.debug?.(`FTS5 search failed: ${e}`);
                 return [];
               }
             },
@@ -13586,7 +13582,8 @@ var index_default = definePluginEntry({
               try {
                 const results = await vectorSystem.retriever.search(query, limit);
                 return results.map((r) => ({ id: r.id, score: r.score }));
-              } catch {
+              } catch (e) {
+                log.debug?.(`vector search failed: ${e}`);
                 return [];
               }
             },
@@ -13622,7 +13619,8 @@ var index_default = definePluginEntry({
                 });
               }
             }
-          } catch {
+          } catch (e) {
+            log.debug?.(`hook error: ${e}`);
           }
         });
       } catch (e) {
@@ -13807,11 +13805,19 @@ var index_default = definePluginEntry({
         parameters: Type.Object({
           status: Type.Optional(
             Type.String({ description: "Filter by status: running|completed|failed|cancelled" })
+          ),
+          discipline: Type.Optional(
+            Type.String({ description: "Filter by step discipline: deep|quick|visual|ultrabrain" })
           )
         }),
         async execute(_toolCallId, params) {
           const filter = params.status ? { status: params.status } : void 0;
-          const wfs = workflowService.list(filter);
+          let wfs = workflowService.list(filter);
+          if (params.discipline) {
+            wfs = wfs.filter(
+              (w) => Array.from(w.steps.values()).some((s) => s.discipline === params.discipline)
+            );
+          }
           return {
             content: [{ type: "text", text: JSON.stringify(
               wfs.map((w) => ({
@@ -13883,7 +13889,7 @@ var index_default = definePluginEntry({
               id: s.id,
               name: s.name,
               discipline: s.discipline,
-              action: s.config?.["prompt"] ?? s.name,
+              action: (s.config?.["prompt"] ?? s.name).slice(0, 200),
               dependencies: s.dependencies
             };
           });
@@ -13952,7 +13958,8 @@ var index_default = definePluginEntry({
                   }
                 }
               }
-            } catch {
+            } catch (e) {
+              log.debug?.(`skill usage record failed: ${e}`);
             }
           }
           if (memorySystem && !params.error) {
@@ -13961,7 +13968,8 @@ var index_default = definePluginEntry({
               if (wfSnapshot) {
                 await memorySystem.storeWorkflowExecution(wfSnapshot);
               }
-            } catch {
+            } catch (e) {
+              log.warn(`memory store failed: ${e}`);
             }
           }
           return {
@@ -14330,7 +14338,8 @@ var index_default = definePluginEntry({
         apiServerClose?.();
         log.info("deactivated");
       });
-    } catch {
+    } catch (e) {
+      log.debug?.(`hook registration skipped: ${e}`);
     }
     log.info(
       `activated (v0.8) \u2014 15 tools registered, memory + evolution + skills + MCP active`
@@ -14348,13 +14357,15 @@ var index_default = definePluginEntry({
               (s) => s.tools?.includes(toolName) || s.name.toLowerCase().includes(normalized)
             );
             skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, Date.now() - startTime);
-          } catch {
+          } catch (e) {
+            log.debug?.(`skill usage record failed: ${e}`);
           }
           return result;
         } catch (e) {
           try {
             skillInventory.recordUsage(toolName, toolName, false, Date.now() - startTime);
-          } catch {
+          } catch (e2) {
+            log.debug?.(`skill usage record failed: ${e2}`);
           }
           throw e;
         }
