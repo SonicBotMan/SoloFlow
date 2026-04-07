@@ -23,7 +23,7 @@ SoloFlow 是 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 的工
 
 ## 核心架构
 
-### 🧩 纯 DAG 编排器（v0.5）
+### 🧩 纯 DAG 编排器（v0.8）
 
 SoloFlow **不调用 LLM**。它是一个纯编排层：
 
@@ -36,17 +36,20 @@ SoloFlow **不调用 LLM**。它是一个纯编排层：
 
 **子 Agent 拥有完整的 OpenClaw 工具访问权限**：`ezviz_capture`、`image`、`web_search`、`message`、`browser` 等 —— 不局限于编排器内的工具子集。
 
-### 🔧 7 个工具
+### 🔧 10 个工具
 
-| 工具 | 说明 |
-|------|------|
-| `soloflow_create` | 创建工作流（名称、步骤、依赖、discipline） |
-| `soloflow_start` | 启动工作流 |
-| `soloflow_ready_steps` | 🔴 新 — 查询当前可执行的步骤 |
-| `soloflow_advance_step` | 🔴 新 — 标记步骤完成/失败，解锁下游 |
-| `soloflow_status` | 查询工作流状态 |
-| `soloflow_list` | 列出所有工作流 |
-| `soloflow_cancel` | 取消运行中的工作流 |
+| 工具 | 说明 | 版本 |
+|------|------|------|
+| `soloflow_create` | 创建工作流（名称、步骤、依赖、discipline） | v0.5 |
+| `soloflow_start` | 启动工作流 | v0.5 |
+| `soloflow_ready_steps` | 查询当前可执行的步骤（所有依赖已完成） | v0.5 |
+| `soloflow_advance_step` | 标记步骤完成/失败，解锁下游 | v0.5 |
+| `soloflow_status` | 查询工作流状态 | v0.5 |
+| `soloflow_list` | 列出所有工作流 | v0.5 |
+| `soloflow_cancel` | 取消运行中的工作流 | v0.5 |
+| `soloflow_memory` | 查询认知记忆（working / episodic / semantic 三层） | v0.6 |
+| `soloflow_evolve` | 触发 Skill 自动进化分析（LLM 驱动模式提取） | v0.8 |
+| `soloflow_templates` | 搜索已进化的 workflow / skill 模板 | v0.8 |
 
 ### 🎯 Discipline-Aware 路由
 
@@ -67,6 +70,26 @@ SoloFlow **不调用 LLM**。它是一个纯编排层：
 ### 💾 SQLite 持久化
 
 工作流存储在 `~/.openclaw/data/soloflow/workflows.db`，Gateway 重启后自动恢复运行中的工作流。
+
+### 🧠 认知记忆系统（v0.6–v0.7）
+
+三层认知记忆架构，不依赖外部记忆引擎：
+
+- **Working Memory** — 当前任务上下文，工作流运行时活跃
+- **Episodic Memory** — 工作流执行历史，SQLite 持久化（v0.7），支持按 workflowId 去重
+- **Semantic Memory** — 抽象化持久知识，受 Ebbinghaus 遗忘曲线衰减
+
+每次步骤完成时自动存储到 episodic memory，可通过 `soloflow_memory` 工具查询。
+
+### ✨ Skill 自动进化（v0.8）
+
+基于 GLM-5 LLM 的模式提取引擎：
+
+- **EvolutionAnalyzer** — 扫描工作流历史，提取可复用的 workflow 模板和 skill 模式
+- **EvolutionStore** — SQLite 持久化存储进化结果
+- `soloflow_evolve` 手动触发分析，`soloflow_templates` 搜索已进化模板
+- 首次安装自动扫描现有执行记录
+- 可通过 cron 定时触发持续进化
 
 ---
 
