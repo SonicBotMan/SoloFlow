@@ -10872,6 +10872,19 @@ var init_analyzer = __esm({
         } catch (e) {
           console.warn(`error: ${e}`);
         }
+        const conversationEntries = [];
+        try {
+          const recent = this.readRecentMemoryFiles(30);
+          for (const entry of recent) {
+            conversationEntries.push({
+              date: entry.date,
+              content: entry.summary,
+              rawSnippets: entry.snippets
+            });
+          }
+        } catch (e) {
+          console.warn(`error reading conversation history: ${e}`);
+        }
         const existingTemplates = [];
         try {
           const all = this.evolutionStore.getAll();
@@ -10889,13 +10902,23 @@ var init_analyzer = __esm({
 ## Past Workflow Executions (Episodic Memory)
 ${JSON.stringify(episodicEntries.slice(0, 50), null, 2)}
 
+## Recent Conversation History (from memory files \u2014 last 7 days)
+${JSON.stringify(conversationEntries.slice(0, 30), null, 2)}
+
 ## Existing Templates (do NOT duplicate these)
 ${JSON.stringify(existingTemplates, null, 2)}
 
 ## Task
 Identify patterns that appear more than once or represent a complete useful workflow:
 
-1. **Workflow Templates**: Multi-step processes that could be reused. For each, provide:
+1. **From Conversation History** (recent memory files \u2014 look for recurring user requests, repeated tasks, workflows the user asks for repeatedly):
+Analyze the conversation entries for patterns like:
+- Same user request appearing multiple times
+- Complex tasks broken into predictable steps
+- Workflows triggered by specific keywords or situations
+For each pattern found, note: user_trigger, typical_request_text, implied_steps
+
+2. **Workflow Templates**: Multi-step processes that could be reused. For each, provide:
    - name (concise), description (what it does)
    - triggers (array of natural language scenarios, e.g. ["when user asks for X", "when Y needs analysis"])
    - scope (one of: "general", "code-review", "content-creation", "data-analysis", "research", "automation", "communication")
@@ -11159,6 +11182,76 @@ Output ONLY valid JSON (no markdown, no explanation):
         } catch (e) {
           console.warn(`error: ${e}`);
         }
+      }
+      /**
+       * Read recent memory/*.md files (last N days) and extract conversation patterns.
+       * Reads the daily notes written during sessions, which contain condensed
+       * conversation history — the source of truth for what the user actually asks for.
+       */
+      readRecentMemoryFiles(days) {
+        const results = [];
+        try {
+          const fs3 = __require("node:fs");
+          const path4 = __require("node:path");
+          const os3 = __require("node:os");
+          const memoryDir = path4.join(os3.homedir(), ".openclaw", "workspace", "memory");
+          const cutoff = Date.now() - days * 24 * 60 * 60 * 1e3;
+          let files = [];
+          try {
+            files = fs3.readdirSync(memoryDir);
+          } catch {
+            return results;
+          }
+          for (const file of files) {
+            if (!file.endsWith(".md")) continue;
+            const filePath = path4.join(memoryDir, file);
+            let stat;
+            try {
+              stat = fs3.statSync(filePath);
+            } catch {
+              continue;
+            }
+            if (stat.mtimeMs < cutoff) continue;
+            let raw;
+            try {
+              raw = fs3.readFileSync(filePath, "utf8");
+            } catch {
+              continue;
+            }
+            if (raw.includes("[facts]:") && raw.includes("[preferences]:")) {
+              const factsStart = raw.indexOf("[facts]:");
+              const factsEnd = raw.indexOf("[preferences]:", factsStart);
+              if (factsStart >= 0 && factsEnd >= 0) {
+                raw = raw.slice(0, factsStart) + raw.slice(factsEnd + "[preferences]:".length);
+              }
+            }
+            const lines = raw.split("\n");
+            const snippets = [];
+            let buffer = "";
+            let inCode = false;
+            for (const line of lines) {
+              if (line.startsWith("```")) {
+                inCode = !inCode;
+                continue;
+              }
+              if (inCode) continue;
+              if (line.startsWith("# ") || line.startsWith("## ") || line.startsWith("---")) {
+                if (buffer.trim().length > 40) snippets.push(buffer.trim().slice(0, 200));
+                buffer = line.replace(/^#+\s*/, "").trim() + " ";
+              } else if (line.trim().length > 30) {
+                buffer += line.trim() + " ";
+              }
+            }
+            if (buffer.trim().length > 40) snippets.push(buffer.trim().slice(0, 200));
+            const dm = file.match(/(\d{4}-\d{2}-\d{2})/);
+            const date = dm?.[1] ?? file.slice(0, 10);
+            const summary = snippets.slice(0, 3).join(" | ").slice(0, 250);
+            if (summary.length > 20) results.push({ date, summary, snippets: snippets.slice(0, 5) });
+          }
+        } catch {
+        }
+        results.sort((a, b) => b.date.localeCompare(a.date));
+        return results;
       }
     };
   }
@@ -13684,6 +13777,51 @@ var index_default = definePluginEntry({
             log.warn(`mcp inventory disabled: ${e}`);
           }
           log.info("evolution system ready \u2014 cron job 'soloflow-nightly-evolve' handles daily analysis at 02:00 Beijing");
+          try {
+            const fsMod = await import("node:fs");
+            const agentsMdPath = path3.join(os2.homedir(), ".openclaw", "workspace", "AGENTS.md");
+            if (fsMod.existsSync(agentsMdPath)) {
+              const agentsContent = fsMod.readFileSync(agentsMdPath, "utf8");
+              if (!agentsContent.includes("## SoloFlow Workflow Matching")) {
+                const lines = [
+                  "",
+                  "## SoloFlow Workflow Matching",
+                  "",
+                  "When the user's message suggests a multi-step task that might match an existing SoloFlow workflow template, **proactively check** and suggest:",
+                  "",
+                  "1. Extract 2-3 keywords from the user's message",
+                  '2. Call `soloflow_templates(query="<keywords>", limit=3)` to check for matches',
+                  "3. If a match scores well (description triggers align with the message), suggest:",
+                  '   - "I found a workflow template that can help: **<name>** (<N> steps). Want me to run it?"',
+                  "4. Only suggest if the user seems to want help *doing* something, not just asking questions",
+                  "5. Don't call soloflow_templates for simple chitchat, greetings, or meta-conversations",
+                  "",
+                  "**Trigger examples (check templates, not exhaustive):**",
+                  "- Camera/patrol/monitoring/security check -> check camera-related templates",
+                  "- Code review/cleanup/quality/refactor -> check code quality templates",
+                  "- Debug API/error/black box -> check API debugging templates",
+                  "- Daily report/summary/learning -> check report templates",
+                  "- Generate image/design -> check generation templates",
+                  "- Deploy/publish/push -> check deployment templates",
+                  ""
+                ];
+                const injection = lines.join("\n");
+                const toolsIdx = agentsContent.indexOf("\n## Tools");
+                if (toolsIdx !== -1) {
+                  const updated = agentsContent.slice(0, toolsIdx) + "\n" + injection + agentsContent.slice(toolsIdx);
+                  fsMod.writeFileSync(agentsMdPath, updated, "utf8");
+                  log.info("injected SoloFlow workflow matching rules into AGENTS.md");
+                } else {
+                  fsMod.appendFileSync(agentsMdPath, "\n" + injection, "utf8");
+                  log.info("appended SoloFlow workflow matching rules to AGENTS.md");
+                }
+              } else {
+                log.info("AGENTS.md already has SoloFlow workflow matching rules \u2014 skipping");
+              }
+            }
+          } catch (e) {
+            log.debug?.(`AGENTS.md injection skipped: ${e}`);
+          }
         } catch (e) {
           log.warn(`evolution system disabled: ${e}`);
         }
@@ -13760,6 +13898,15 @@ var index_default = definePluginEntry({
                 });
                 decomposeWorkflow(wf).catch(() => {
                 });
+                const templateId = wf.metadata?.["template"];
+                if (templateId && evolutionStore) {
+                  const success = type === "workflow:completed";
+                  try {
+                    evolutionStore.recordUsage(templateId, success);
+                  } catch (e) {
+                    log.debug?.(`recordUsage failed: ${e}`);
+                  }
+                }
               }
             }
           } catch (e) {
@@ -13777,6 +13924,7 @@ var index_default = definePluginEntry({
         label: "SoloFlow: Create Workflow",
         parameters: Type.Object({
           name: Type.String({ description: "Workflow name" }),
+          templateId: Type.Optional(Type.String({ description: "Template this workflow was created from (for usage tracking)" })),
           description: Type.Optional(Type.String({ description: "Workflow description" })),
           steps: Type.Array(
             Type.Object({
@@ -13828,7 +13976,7 @@ var index_default = definePluginEntry({
               currentSteps: [],
               createdAt: now2,
               updatedAt: now2,
-              metadata: {}
+              metadata: params.templateId ? { template: params.templateId } : {}
             };
             const created = workflowService.create(wf);
             return {
@@ -14253,7 +14401,7 @@ var index_default = definePluginEntry({
             const templates = evolutionStore.search(
               params.query ?? "",
               params.type,
-              params.limit ?? 20
+              params.limit ?? 5
             );
             const formatted = templates.map((t) => ({
               id: t.id,
@@ -14506,27 +14654,49 @@ var index_default = definePluginEntry({
         const startTime = Date.now();
         try {
           const result = originalExecute ? await originalExecute(toolName, params) : null;
+          const duration = Date.now() - startTime;
           try {
             const allSkills = skillInventory.getAll();
             const normalized = toolName.replace(/_/g, " ").toLowerCase();
             const matched = allSkills.find(
               (s) => s.tools?.includes(toolName) || s.name.toLowerCase().includes(normalized)
             );
-            skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, Date.now() - startTime);
+            skillInventory.recordUsage(matched?.id ?? toolName, toolName, true, duration);
           } catch (e) {
             log.debug?.(`skill usage record failed: ${e}`);
           }
+          try {
+            if (mcpInventory) {
+              const serverId = mcpInventory.detectServerForTool(toolName);
+              if (serverId) {
+                mcpInventory.recordUsage(serverId, toolName, true, duration);
+              }
+            }
+          } catch (e) {
+            log.debug?.(`mcp usage record failed: ${e}`);
+          }
           return result;
         } catch (e) {
+          const duration = Date.now() - startTime;
           try {
-            skillInventory.recordUsage(toolName, toolName, false, Date.now() - startTime);
+            skillInventory.recordUsage(toolName, toolName, false, duration);
           } catch (e2) {
             log.debug?.(`skill usage record failed: ${e2}`);
+          }
+          try {
+            if (mcpInventory) {
+              const serverId = mcpInventory.detectServerForTool(toolName);
+              if (serverId) {
+                mcpInventory.recordUsage(serverId, toolName, false, duration);
+              }
+            }
+          } catch (e2) {
+            log.debug?.(`mcp usage record failed: ${e2}`);
           }
           throw e;
         }
       };
-      log.info("skill usage tracking enabled");
+      log.info("tool usage tracking enabled (skills + MCP)");
     }
   }
 });

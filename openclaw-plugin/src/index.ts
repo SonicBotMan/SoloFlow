@@ -430,6 +430,12 @@ export default definePluginEntry({
                 if (vectorSystem) vectorSystem.indexWorkflow(wf).catch(() => {});
                 // Auto-decompose into R³Mem on workflow final states
                 decomposeWorkflow(wf).catch(() => {});
+                // Track template usage: bump useCount on successful completion
+                const templateId = wf.metadata?.["template"] as string | undefined;
+                if (templateId && evolutionStore) {
+                  const success = type === "workflow:completed";
+                  try { evolutionStore.recordUsage(templateId, success); } catch (e) { log.debug?.(`recordUsage failed: ${e}`); }
+                }
               }
             }
           } catch (e) {
@@ -451,6 +457,7 @@ export default definePluginEntry({
         label: "SoloFlow: Create Workflow",
         parameters: Type.Object({
           name: Type.String({ description: "Workflow name" }),
+          templateId: Type.Optional(Type.String({ description: "Template this workflow was created from (for usage tracking)" })),
           description: Type.Optional(Type.String({ description: "Workflow description" })),
           steps: Type.Array(
             Type.Object({
@@ -503,7 +510,7 @@ export default definePluginEntry({
               currentSteps: [],
               createdAt: now,
               updatedAt: now,
-              metadata: {},
+              metadata: params.templateId ? { template: params.templateId } : {},
             };
 
             const created = workflowService.create(wf);
