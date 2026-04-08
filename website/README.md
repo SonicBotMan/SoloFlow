@@ -14,3 +14,4 @@ export DEPLOY_PATH=/your/web/root
 ```
 
 If SSH only accepts passwords, enable `PubkeyAuthentication yes` in `/etc/ssh/sshd_config` on the server, reload `sshd`, then `ssh-copy-id -p PORT -i ~/.ssh/id_ed25519.pub user@host`.
+test action trigger
