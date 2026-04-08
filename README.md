@@ -1,150 +1,211 @@
 # SoloFlow ⚡
 
-**OpenClaw 工作流编排插件** —— 将复杂多步骤 AI 任务转化为结构化、可观测、可重试的工作流。
+### Cognitive Workflow Orchestration for AI Agents
+
+**将混乱的多步骤 AI 任务，转化为结构化的、可观测的、可自进化的智能工作流。**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Website](https://img.shields.io/badge/官网-soloflow.pmparker.net-6366f1)](https://soloflow.pmparker.net/)
-[![TypeScript Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](./openclaw-plugin/tests)
-[![Bundle](https://img.shields.io/badge/bundle-%7E0.27MB-orange)](./openclaw-plugin/dist)
+[![Tools](https://img.shields.io/badge/tools-15%20MCP%20tools-3178c6)](./src)
+[![Runtime](https://img.shields.io/badge/runtime-Node.js%20%E2%89%A522-339933?logo=node.js)](https://nodejs.org)
+[![Bundle](https://img.shields.io/badge/bundle-~469KB-orange)](./dist)
 
 ---
 
-SoloFlow 是 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 的工作流编排层：纯 DAG 编排器，负责步骤依赖管理、状态持久化和执行协调。**它不直接调用 LLM** —— 主 OpenClaw Agent 通过 `soloflow_ready_steps` → `sessions_spawn` → `soloflow_advance_step` 驱动实际执行。
+## 它解决什么问题
 
-| 资源 | 链接 |
+AI Agent 框架普遍存在一个矛盾：**结构化** 与 **灵活性** 无法兼得。硬编码的 Pipeline 遇到真实场景就断裂；纯自由式的 Agent 又陷入不可预测的混乱。
+
+真正的痛点更深：
+
+| 痛点 | 现状 |
 |------|------|
-| **产品官网（特性 / 架构 / 对比 / 快速上手）** | [soloflow.pmparker.net](https://soloflow.pmparker.net/) |
-| **官网静态源码** | [website/](./website/)（部署该目录到静态托管即可） |
-| **本仓库** | [github.com/SonicBotMan/SoloFlow](https://github.com/SonicBotMan/SoloFlow) |
-| **发行说明** | [Releases](https://github.com/SonicBotMan/SoloFlow/releases) |
-| **插件详细文档（英文长文）** | [openclaw-plugin/README.md](./openclaw-plugin/README.md) |
+| **无记忆** | 每次任务从零开始，重复问同样的问题，浪费 Token 和时间 |
+| **无分类** | 查个天气和做架构评审用同一种模型，成本高、速度慢 |
+| **无可见性** | 多步骤任务像黑箱运行，某步出错只能靠猜 |
+| **无进化** | 同样的工作流重复手动执行，规律永远不变成能力 |
+| **无恢复** | 第 7 步超时，前功尽弃，从头再来 |
+
+SoloFlow 全部解决。
 
 ---
 
-## 核心架构
+## 核心能力
 
-### 🧩 纯 DAG 编排器（v0.8）
+### 🧠 四层认知记忆系统
 
-SoloFlow **不调用 LLM**。它是一个纯编排层：
+不只是"记住"，是真正模拟人类记忆的科学模型：
 
-1. `soloflow_create` — 定义工作流（DAG + 步骤元数据）
-2. `soloflow_start` — 启动工作流
-3. `soloflow_ready_steps` — 查询就绪步骤（所有依赖已完成）
-4. 主 Agent 对就绪步骤调用 `sessions_spawn` 分发子 Agent
-5. 子 Agent 完成后，主 Agent 调用 `soloflow_advance_step` 标记完成
-6. 循环直到所有步骤完成
+```
+Working Memory          ← 当前任务上下文，运行中实时活跃
+       ↓
+Episodic Memory         ← 执行历史，SQLite 持久化，支持按 workflowId 去重
+       ↓
+Unified Retrieval (RRF)← 统一检索融合，多源记忆协同召回
+       ↓
+Semantic Memory         ← 抽象化持久知识，受 Ebbinghaus 遗忘曲线自然衰减
+```
 
-**子 Agent 拥有完整的 OpenClaw 工具访问权限**：`ezviz_capture`、`image`、`web_search`、`message`、`browser` 等 —— 不局限于编排器内的工具子集。
+每次步骤完成自动存入 Episodic Memory，下次相似任务自动召回相关经验。
 
-### 🔧 10 个工具
+### ⚡ Discipline-Aware 智能路由
 
-| 工具 | 说明 | 版本 |
-|------|------|------|
-| `soloflow_create` | 创建工作流（名称、步骤、依赖、discipline） | v0.5 |
-| `soloflow_start` | 启动工作流 | v0.5 |
-| `soloflow_ready_steps` | 查询当前可执行的步骤（所有依赖已完成） | v0.5 |
-| `soloflow_advance_step` | 标记步骤完成/失败，解锁下游 | v0.5 |
-| `soloflow_status` | 查询工作流状态 | v0.5 |
-| `soloflow_list` | 列出所有工作流 | v0.5 |
-| `soloflow_cancel` | 取消运行中的工作流 | v0.5 |
-| `soloflow_memory` | 查询认知记忆（working / episodic / semantic 三层） | v0.6 |
-| `soloflow_evolve` | 触发 Skill 自动进化分析（LLM 驱动模式提取） | v0.8 |
-| `soloflow_templates` | 搜索已进化的 workflow / skill 模板 | v0.8 |
+每个步骤自动路由到最合适的 Agent 类型，**不错配、不浪费**：
 
-### 🎯 Discipline-Aware 路由
+| Discipline | 适用场景 | 模型策略 |
+|------------|----------|----------|
+| `quick` | 查天气、格式化、翻译 | 轻量快速 |
+| `deep` | 架构评审、深度研究 | 强推理 |
+| `visual` | UI/UX、前端相关 | 设计与代码 |
+| `ultrabrain` | 复杂算法、硬逻辑 | 超深度思考 |
 
-每个步骤可标注 discipline，供主 Agent 选择执行策略：
+### 🔄 自动技能进化
 
-- **quick** — 简单查询、格式化、翻译
-- **deep** — 深度研究、多步推理、架构设计
-- **visual** — UI/UX、视觉与前端相关任务
-- **ultrabrain** — 复杂算法、硬逻辑、强推理类任务
+无需人工干预，系统自动从执行历史中提取可复用模式：
 
-> v0.5 中 discipline 为步骤元数据，实际路由决策由主 Agent 根据 discipline 标签选择合适的模型和思考深度。
+- **EvolutionAnalyzer** — 扫描工作流历史，LLM 驱动模式提取
+- **EvolutionStore** — SQLite 持久化，进化结果永不丢失
+- `soloflow_evolve` 手动触发，`soloflow_templates` 搜索已进化模板
+- Cron 定时驱动，持续自我完善
 
-### ⚙️ DAG + FSM 混合
+### 🎨 可视化构建器
 
-- **DAG** — 拓扑排序表达步骤依赖，同层步骤可并行
-- **FSM** — 状态机管理工作流生命周期：`idle → queued → running → paused → completed / failed / cancelled`
+拖拽式 DAG 编辑器，所见即所得：
 
-### 💾 SQLite 持久化
+- 基于 SVG，无需依赖外部服务
+- 实时显示执行状态（等待中 / 运行中 / 完成 / 失败）
+- 模板画廊，一键导入已有工作流
+- 暗色主题，支持 `/soloflow/builder` 直接访问
 
-工作流存储在 `~/.openclaw/data/soloflow/workflows.db`，Gateway 重启后自动恢复运行中的工作流。
+### 🎰 DAG + FSM 混合引擎
 
-### 🧠 认知记忆系统（v0.6–v0.7）
-
-三层认知记忆架构，不依赖外部记忆引擎：
-
-- **Working Memory** — 当前任务上下文，工作流运行时活跃
-- **Episodic Memory** — 工作流执行历史，SQLite 持久化（v0.7），支持按 workflowId 去重
-- **Semantic Memory** — 抽象化持久知识，受 Ebbinghaus 遗忘曲线衰减
-
-每次步骤完成时自动存储到 episodic memory，可通过 `soloflow_memory` 工具查询。
-
-### ✨ Skill 自动进化（v0.8）
-
-基于 GLM-5 LLM 的模式提取引擎：
-
-- **EvolutionAnalyzer** — 扫描工作流历史，提取可复用的 workflow 模板和 skill 模式
-- **EvolutionStore** — SQLite 持久化存储进化结果
-- `soloflow_evolve` 手动触发分析，`soloflow_templates` 搜索已进化模板
-- 首次安装自动扫描现有执行记录
-- 可通过 cron 定时触发持续进化
+- **DAG** — 拓扑排序表达步骤依赖，同层步骤可完全并行
+- **FSM** — 严格状态机：`idle → queued → running → paused → completed / failed / cancelled`
+- 子 Agent 拥有完整 OpenClaw 工具访问权限，不局限于编排器内工具子集
 
 ---
 
-## 仓库结构
+## 15 个 MCP 工具
+
+| 工具 | 说明 |
+|------|------|
+| `soloflow_create` | 创建工作流（名称、步骤、依赖、discipline） |
+| `soloflow_start` | 启动工作流 |
+| `soloflow_ready_steps` | 查询当前可执行的步骤（所有依赖已完成） |
+| `soloflow_advance_step` | 标记步骤完成/失败，解锁下游 |
+| `soloflow_status` | 查询工作流状态 |
+| `soloflow_list` | 列出所有工作流 |
+| `soloflow_cancel` | 取消运行中的工作流 |
+| `soloflow_memory` | 查询认知记忆（Working / Episodic / Semantic 三层） |
+| `soloflow_evolve` | 触发 Skill 自动进化分析 |
+| `soloflow_templates` | 搜索已进化的 workflow / skill 模板 |
+| `soloflow_skills_list` | 列出所有已注册的 Skill |
+| `soloflow_skills_usage` | 查看 Skill 使用分析 |
+| `soloflow_skills_scan` | 扫描并更新 Skill 清单 |
+| `mcp_servers` | 列出所有 MCP 服务器及其工具 |
+| `mcp_stats` | MCP 服务器使用统计与工具排行 |
+
+---
+
+## 工作原理
 
 ```
-openclaw-plugin/
-├── src/
-│   ├── core/           # DAG + FSM 引擎
-│   ├── agents/         # Discipline 分类与路由
-│   ├── services/       # 工作流服务、调度
-│   ├── memory/         # 记忆层
-│   ├── skills/         # Skill 进化与注册
-│   ├── coordination/   # 多 Agent 协调
-│   ├── mcp/            # MCP 工具实现
-│   ├── api/            # REST / WebSocket
-│   ├── rpc/            # JSON-RPC 接口
-│   ├── commands/       # /workflow 命令
-│   └── hooks/          # 生命周期钩子
-├── tests/              # TypeScript 测试（175 个用例）
-└── dist/               # 构建产物
+soloflow_create   →  定义 DAG 工作流（步骤 + 依赖关系）
+       ↓
+soloflow_start    →  启动工作流，FSM 进入 running
+       ↓
+soloflow_ready_steps → 查询当前可执行的步骤
+       ↓
+主 Agent 通过 sessions_spawn 分发子 Agent
+       ↓
+子 Agent 调用 OpenClaw 完整工具集完成任务
+       ↓
+soloflow_advance_step → 标记完成，触发认知记忆存储
+       ↓
+解锁下游步骤，循环直到全部完成
 ```
+
+子 Agent 可调用：`ezviz_capture`、`image`、`web_search`、`message`、`browser`、`mcp_servers` 等全部 OpenClaw 工具——**不局限于工具子集**。
 
 ---
 
 ## 快速开始
 
-**前置**：Node ≥ 22。将本仓库置于 OpenClaw 插件目录后执行：
+```bash
+# 通过 ClawHub 安装（推荐）
+clawhub install soloflow
+
+# 重启 Gateway 加载插件
+openclaw gateway restart
+
+# 验证
+openclaw status
+# → SoloFlow loaded ✓
+```
+
+或手动构建：
 
 ```bash
 git clone https://github.com/SonicBotMan/SoloFlow.git
 cd SoloFlow/openclaw-plugin
-
 npm install
 npm run build
 ```
 
-构建产物由 `openclaw.plugin.json` 声明，供 OpenClaw 自动加载。具体挂载方式以 [OpenClaw](https://github.com/SonicBotMan/openclaw-portable) 文档为准。
+**前置要求：** Node.js ≥ 22
 
 ---
 
-## 竞品对比
+## 项目架构
+
+```
+openclaw-plugin/
+├── src/
+│   ├── core/              # DAG 编排 + FSM 状态机引擎
+│   ├── agents/            # Discipline 分类与智能路由
+│   ├── services/          # 工作流服务、调度器
+│   ├── memory/             # 四层认知记忆系统
+│   ├── evolution/         # 自动技能进化引擎
+│   ├── skills/            # Skill 注册与生命周期
+│   ├── coordination/       # 多 Agent 协调
+│   ├── mcp/               # MCP 工具实现（15 个工具）
+│   ├── api/               # REST / WebSocket 接口
+│   ├── rpc/               # JSON-RPC 协议
+│   ├── commands/          # /workflow 命令
+│   ├── hooks/             # 生命周期钩子
+│   ├── visual-builder/    # SVG 拖拽式 DAG 编辑器
+│   └── store/             # SQLite 持久化存储
+└── tests/                 # 完整测试套件
+```
+
+---
+
+## 与竞品对比
 
 | 特性 | SoloFlow | CrewAI | LangGraph | AutoGPT | n8n |
 |------|:--------:|:------:|:---------:|:-------:|:---:|
+| 四层认知记忆 | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Discipline-Aware 路由 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 认知记忆系统 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Skill 自动进化 | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 自动技能进化 | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 遗忘曲线衰减 | ✅ | ❌ | ❌ | ❌ | ❌ |
 | DAG + FSM 混合 | ✅ | 部分 | ✅ | ❌ | ✅ |
-| 可视化构建器 | ✅ | ❌ | ❌ | ❌ | ✅ |
-| 多用户/RBAC | ✅ | ❌ | ❌ | ❌ | ✅ |
-| OpenClaw 集成 | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 可视化 DAG 构建器 | ✅ | ❌ | ❌ | ❌ | ✅ |
 | MCP 工具接口 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 遗忘曲线 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 子 Agent 真实工具访问 | ✅ | ✅ | ✅ | ✅ | ❌ |
+| OpenClaw 深度集成 | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 子 Agent 完整工具访问 | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Open Source | ✅ | ✅ | ✅ | ✅ | 部分 |
+
+---
+
+## 资源链接
+
+| 资源 | 链接 |
+|------|------|
+| **产品官网** | [soloflow.pmparker.net](https://soloflow.pmparker.net/) |
+| **官网源码** | [website/](./website/) |
+| **GitHub 仓库** | [github.com/SonicBotMan/SoloFlow](https://github.com/SonicBotMan/SoloFlow) |
+| **插件详细文档** | [openclaw-plugin/README.md](./openclaw-plugin/README.md) |
+| **发行说明** | [Releases](https://github.com/SonicBotMan/SoloFlow/releases) |
 
 ---
 
