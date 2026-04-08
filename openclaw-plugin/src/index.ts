@@ -932,7 +932,7 @@ export default definePluginEntry({
             const templates = evolutionStore.search(
               params.query ?? "",
               params.type as any,
-              params.limit ?? 20,
+              params.limit ?? 5,
             );
             const formatted = templates.map((t: any) => ({
               id: t.id,
