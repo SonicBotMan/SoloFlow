@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SoloFlow — Open Source AI Workflow Orchestration Engine</title>
-  <meta name="description" content="SoloFlow is an open-source AI workflow orchestration engine with cognitive memory, discipline-aware routing, and DAG+FSM hybrid architecture. Lightweight (~469KB dist), 15 MCP tools, cognitive memory, skill evolution, minimal runtime deps (better-sqlite3, jose, yaml).">
+  <meta name="description" content="SoloFlow is an open-source AI workflow orchestration engine with cognitive memory, discipline-aware routing, and DAG+FSM hybrid architecture. Lightweight (~0.27MB dist), 15 MCP tools, minimal runtime deps (jose, yaml, better-sqlite3).">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://soloflow.pmparker.net/">
   
   <!-- Open Graph / Social Sharing -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="SoloFlow — Open Source AI Workflow Orchestration Engine">
-  <meta property="og:description" content="Open-source AI workflow orchestration with cognitive memory, discipline-aware routing, and DAG+FSM hybrid. 15 MCP tools, ~469KB bundle, skill evolution, OpenClaw plugin.">
+  <meta property="og:description" content="Open-source AI workflow orchestration with cognitive memory, discipline-aware routing, and DAG+FSM hybrid. 15 MCP tools, ~469KB bundle, cognitive memory, OpenClaw plugin.">
   <meta property="og:url" content="https://soloflow.pmparker.net/">
   <meta property="og:site_name" content="SoloFlow">
   <meta property="og:locale" content="en_US">
@@ -209,22 +209,22 @@
         <!-- Hero Stats -->
         <div class="hero-stats reveal">
           <div class="stat">
-            <span class="stat-value" data-target="0">0</span>
+            <span class="stat-value" data-target="175">0</span>
             <span class="stat-label" data-i18n="hero.stats.tests">Tests Passing</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="15">0</span>
-            <span class="stat-label" data-i18n="hero.stats.modules">MCP Tools</span>
+            <span class="stat-value" data-target="180" data-suffix="+">0</span>
+            <span class="stat-label" data-i18n="hero.stats.modules">Modules</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="469" data-suffix="KB">0</span>
+            <span class="stat-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</span>
             <span class="stat-label" data-i18n="hero.stats.bundle">Bundle Size</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="2">0</span>
+            <span class="stat-value" data-target="3">0</span>
             <span class="stat-label" data-i18n="hero.stats.deps">Runtime Deps</span>
           </div>
         </div>
@@ -322,7 +322,6 @@
               <div class="feature-number">01</div>
               <h3 data-i18n="features.memory.title">Cognitive Memory System</h3>
               <p data-i18n="features.memory.desc">Four-tier cognitive memory architecture inspired by human cognition. Working memory holds active context, episodic memory stores experiences, and semantic memory accumulates abstracted knowledge — all governed by the Ebbinghaus forgetting curve.</p>
-              <span class="tag" style="background:rgba(110,231,183,0.15);color:#6EE7B7;border:1px solid rgba(110,231,183,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">✅ v0.8 — 4-tier memory, workflow matching, Visual Builder</span>
               <div class="feature-formula glass-chip">
                 <code>R(t) = base × e<sup>(-t / stability)</sup></code>
               </div>
@@ -471,43 +470,10 @@
             <div class="feature-content">
               <div class="feature-number">04</div>
               <h3 data-i18n="features.evolution.title">Skill Auto-Evolution</h3>
-              <p data-i18n="features.evolution.desc">LLM-powered pattern extraction with intelligent merging. Automatically detects repeated patterns across workflow executions, packages them into versioned skill templates with structured manifests (triggers, scope, prerequisites, tools, estimated duration). Nightly analysis cycle runs at 02:00 CST. Jaccard similarity-based deduplication prevents template bloat.</p>
-              <span class="tag" style="background:rgba(110,231,183,0.15);color:#6EE7B7;border:1px solid rgba(110,231,183,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">✅ v0.8 — LLM-powered, SQLite persisted</span>
+              <p data-i18n="features.evolution.desc">Stop reinventing workflows. SoloFlow detects repeated patterns across your agent runs and automatically packages them into versioned, reusable skills — which can be exposed as MCP tools for other agents to consume. Your workflows literally improve themselves.</p>
               <div class="feature-formula glass-chip">
                 <code>pattern → detect → package → skill → MCP tool</code>
               </div>
-            </div>
-          </div>
-
-          <!-- Feature 5: Skill + MCP Inventory -->
-          <div class="feature-row glass-card reveal" style="--delay:4">
-            <div class="feature-visual">
-              <svg class="feature-svg" viewBox="0 0 300 200" fill="none">
-                <g class="inventory-diagram">
-                  <!-- Skills column -->
-                  <rect x="20" y="20" width="120" height="160" rx="8" fill="rgba(110,231,183,0.06)" stroke="rgba(110,231,183,0.3)" stroke-width="1"/>
-                  <text x="80" y="40" text-anchor="middle" fill="#6EE7B7" font-size="10" font-family="var(--font-mono)">SKILLS</text>
-                  <text x="80" y="58" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">100+ scanned</text>
-                  <rect x="30" y="70" width="100" height="14" rx="3" fill="rgba(110,231,183,0.1)"/>
-                  <rect x="30" y="88" width="100" height="14" rx="3" fill="rgba(110,231,183,0.1)"/>
-                  <rect x="30" y="106" width="100" height="14" rx="3" fill="rgba(110,231,183,0.1)"/>
-                  <text x="80" y="145" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-family="var(--font-mono)">usage tracked</text>
-
-                  <!-- MCP column -->
-                  <rect x="160" y="20" width="120" height="160" rx="8" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.3)" stroke-width="1"/>
-                  <text x="220" y="40" text-anchor="middle" fill="#60A5FA" font-size="10" font-family="var(--font-mono)">MCP SERVERS</text>
-                  <text x="220" y="58" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="var(--font-mono)">auto-discovered</text>
-                  <rect x="170" y="70" width="100" height="14" rx="3" fill="rgba(59,130,246,0.1)"/>
-                  <rect x="170" y="88" width="100" height="14" rx="3" fill="rgba(59,130,246,0.1)"/>
-                  <text x="220" y="125" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-family="var(--font-mono)">call stats</text>
-                </g>
-              </svg>
-            </div>
-            <div class="feature-content">
-              <div class="feature-number">05</div>
-              <h3 data-i18n="features.inventory.title">Skill &amp; MCP Inventory</h3>
-              <p data-i18n="features.inventory.desc">Full visibility into your agent's capabilities. Automatically discovers and catalogs all installed skills and MCP servers at startup. Tracks usage patterns, detects redundant tools, and feeds data into the evolution engine for smarter optimization.</p>
-              <span class="tag" style="background:rgba(110,231,183,0.15);color:#6EE7B7;border:1px solid rgba(110,231,183,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">✅ v0.8 — Auto-scan, usage tracking, evolution feed</span>
             </div>
           </div>
         </div>
@@ -537,23 +503,23 @@
               <text x="60" y="35" fill="#6EE7B7" font-size="12" font-family="var(--font-mono)" font-weight="600">MCP TOOL LAYER</text>
               <g transform="translate(60,45)">
                 <rect width="120" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
-                <text x="60" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_create</text>
+                <text x="60" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_run</text>
               </g>
-              <g transform="translate(195,45)">
-                <rect width="110" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
-                <text x="55" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_start</text>
+              <g transform="translate(200,45)">
+                <rect width="130" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="65" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_status</text>
               </g>
-              <g transform="translate(320,45)">
-                <rect width="140" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
-                <text x="70" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_ready_steps</text>
+              <g transform="translate(350,45)">
+                <rect width="120" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="60" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_list</text>
               </g>
-              <g transform="translate(475,45)">
-                <rect width="140" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
-                <text x="70" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_advance_step</text>
+              <g transform="translate(490,45)">
+                <rect width="130" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="65" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_cancel</text>
               </g>
-              <g transform="translate(630,45)">
-                <rect width="100" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
-                <text x="50" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">… +5 more</text>
+              <g transform="translate(640,45)">
+                <rect width="130" height="28" rx="6" fill="rgba(110,231,183,0.1)" stroke="rgba(110,231,183,0.3)" stroke-width="0.8"/>
+                <text x="65" y="18" text-anchor="middle" fill="#6EE7B7" font-size="9" font-family="var(--font-mono)">soloflow_create</text>
               </g>
             </g>
 
@@ -700,7 +666,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6m-6 3h6m-6 3h4"/></svg>
               </div>
               <h4 data-i18n="memory.tiers.working.title">Working Memory</h4>
-              <p data-i18n="memory.tiers.working.desc">Active task context. Holds 7±2 items in focus. Backed by InMemory adapter with instant access. Cleared after task completion — nothing leaks between sessions.</p>
+              <p data-i18n="memory.tiers.working.desc">Active task context. Holds 7±2 items in focus. Fast access, short-lived. Cleared after task completion.</p>
               <div class="tier-meta">
                 <span class="tier-badge" data-i18n="memory.tiers.working.badge">Volatile</span>
                 <span class="tier-capacity">7±2 items</span>
@@ -711,7 +677,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
               <h4 data-i18n="memory.tiers.episodic.title">Episodic Memory</h4>
-              <p data-i18n="memory.tiers.episodic.desc">Time-stamped experiences persisted in SQLite. Enables "remember when" reasoning. Decays via C-HLR+ forgetting curve with per-type half-lives (chitchat 3d → config 120d). Periodic consolidation prevents knowledge loss.</p>
+              <p data-i18n="memory.tiers.episodic.desc">Time-stamped experiences from past runs. Enables "remember when" reasoning. Decays via Ebbinghaus curve with periodic consolidation.</p>
               <div class="tier-meta">
                 <span class="tier-badge" data-i18n="memory.tiers.episodic.badge">Decaying</span>
                 <span class="tier-capacity">Time-stamped</span>
@@ -722,7 +688,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
               </div>
               <h4 data-i18n="memory.tiers.semantic.title">Semantic Memory</h4>
-              <p data-i18n="memory.tiers.semantic.desc">LLM-extracted facts from conversations, stored as stable notes. Survives sessions. Hybrid retrieval via FTS5 + Vector + RRF fusion + MMR diversification. The foundation of skill auto-evolution.</p>
+              <p data-i18n="memory.tiers.semantic.desc">Abstracted, persistent knowledge. Patterns distilled from episodic experience. Survives sessions. Forms the foundation of skill evolution.</p>
               <div class="tier-meta">
                 <span class="tier-badge" data-i18n="memory.tiers.semantic.badge">Persistent</span>
                 <span class="tier-capacity">Unlimited</span>
@@ -768,31 +734,38 @@
           <div class="lobster-modules-grid">
             <div class="lobster-module-card glass-card reveal" style="--delay:0">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </div>
-              <h4>DAG Lossless Compression</h4>
-              <p>Messages are never deleted — only compressed. Tree-structured summaries (leaf → condensed) preserve every fact while reducing context by 90%. Rollback to any point in history.</p>
+              <h4 data-i18n="lobsterPress.moduleList.cmv.name">CMV Triple-Pass Lossless</h4>
+              <p data-i18n="lobsterPress.moduleList.cmv.desc">Three-verification mechanism ensures zero loss in memory compression</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:1">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v4m0 12v4m-9.5-9.5h4m14 0h4M5.64 5.64l2.83 2.83m7.07 7.07l2.83 2.83M5.64 18.36l2.83-2.83m7.07-7.07l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
               </div>
-              <h4>C-HLR+ Adaptive Forgetting</h4>
-              <p>Per-type half-life decay: chitchat fades in 3 days, configuration lasts 120 days. Spaced repetition consolidates important memories. Inspired by the Ebbinghaus forgetting curve.</p>
+              <h4 data-i18n="lobsterPress.moduleList.chlr.name">C-HLR+ Adaptive Forgetting</h4>
+              <p data-i18n="lobsterPress.moduleList.chlr.desc">Intelligently regulates memory decay based on Ebbinghaus curve</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:2">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               </div>
-              <h4>Hybrid Retrieval (FTS5 + Vector)</h4>
-              <p>Full-text search fused with semantic embeddings via Reciprocal Rank Fusion, then diversified with Maximal Marginal Relevance. 14-day time decay prevents stale results from surfacing.</p>
+              <h4 data-i18n="lobsterPress.moduleList.focus.name">Focus Active Compression</h4>
+              <p data-i18n="lobsterPress.moduleList.focus.desc">Smart detection and triggering of memory compression timing</p>
             </div>
             <div class="lobster-module-card glass-card reveal" style="--delay:3">
               <div class="module-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
               </div>
-              <h4>R³Mem Reversible 3-Layer Memory</h4>
-              <p>Working → Episodic → Semantic compression pipeline. Document-level facts are decomposed into paragraph entities, then abstracted into persistent semantic knowledge. Every layer is queryable independently.</p>
+              <h4 data-i18n="lobsterPress.moduleList.r3mem.name">R³Mem Reversible 3-Layer</h4>
+              <p data-i18n="lobsterPress.moduleList.r3mem.desc">Working → Episodic → Semantic memory compression</p>
+            </div>
+            <div class="lobster-module-card glass-card reveal" style="--delay:4">
+              <div class="module-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+              </div>
+              <h4 data-i18n="lobsterPress.moduleList.wmr.name">WMR Tool Framework</h4>
+              <p data-i18n="lobsterPress.moduleList.wmr.desc">Modular tool registration and invocation framework</p>
             </div>
           </div>
 
@@ -857,22 +830,6 @@
                   <td class="cross">✕</td>
                 </tr>
                 <tr>
-                  <td>Skill &amp; MCP Inventory</td>
-                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
-                  <td class="cross">✕</td>
-                  <td class="cross">✕</td>
-                  <td class="cross">✕</td>
-                  <td class="cross">✕</td>
-                </tr>
-                <tr>
-                  <td>Adaptive Forgetting (C-HLR+)</td>
-                  <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
-                  <td class="cross">✕</td>
-                  <td class="cross">✕</td>
-                  <td class="cross">✕</td>
-                  <td class="cross">✕</td>
-                </tr>
-                <tr>
                   <td data-i18n="comparison.features.dagFsm">DAG + FSM Hybrid</td>
                   <td class="check highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></td>
                   <td class="partial">Partial</td>
@@ -924,33 +881,33 @@
       <div class="container">
         <div class="metrics-grid">
           <div class="metric-card glass-card reveal" style="--delay:0">
-            <div class="metric-value" data-target="15" data-suffix="">0</div>
-            <div class="metric-label">MCP Tools</div>
-            <div class="metric-desc">Workflow + Memory + Evolution + Skills + MCP</div>
-            <div class="metric-bar"><div class="metric-fill" style="--fill:90%"></div></div>
+            <div class="metric-value" data-target="175" data-suffix="">0</div>
+            <div class="metric-label" data-i18n="metrics.tests.label">TypeScript Tests</div>
+            <div class="metric-desc" data-i18n="metrics.tests.desc">All passing, strict mode</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:1">
-            <div class="metric-value" data-target="15">0</div>
-            <div class="metric-label" data-i18n="metrics.modules.label">MCP Tools</div>
-            <div class="metric-desc">create, start, ready_steps, advance_step, status, list, cancel, memory, evolve, templates + 5 skill/MCP tools</div>
+            <div class="metric-value" data-target="180" data-suffix="+">0</div>
+            <div class="metric-label" data-i18n="metrics.modules.label">Modules</div>
+            <div class="metric-desc" data-i18n="metrics.modules.desc">Clean, modular architecture</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:90%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:2">
-            <div class="metric-value" data-target="469" data-suffix="KB">0</div>
+            <div class="metric-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</div>
             <div class="metric-label" data-i18n="metrics.bundle.label">Bundle Size</div>
             <div class="metric-desc" data-i18n="metrics.bundle.desc">Incredibly lightweight</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:3%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:3">
-            <div class="metric-value" data-target="6" data-suffix="">0</div>
-            <div class="metric-label">Source Modules</div>
-            <div class="metric-desc">Clean, modular TypeScript</div>
-            <div class="metric-bar"><div class="metric-fill" style="--fill:60%"></div></div>
+            <div class="metric-value" data-target="5" data-suffix="">0</div>
+            <div class="metric-label" data-i18n="metrics.mcp.label">MCP Tools</div>
+            <div class="metric-desc" data-i18n="metrics.mcp.desc">Exposed interface</div>
+            <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:4">
-            <div class="metric-value" data-target="2" data-suffix="">0</div>
+            <div class="metric-value" data-target="3" data-suffix="">0</div>
             <div class="metric-label" data-i18n="metrics.deps.label">Runtime Deps</div>
-            <div class="metric-desc" data-i18n="metrics.deps.desc">better-sqlite3, jose, yaml</div>
+            <div class="metric-desc" data-i18n="metrics.deps.desc">jose, yaml, better-sqlite3</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:8%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:5">
@@ -987,12 +944,15 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                 </button>
               </div>
-              <pre class="code-block"><code class="lang-bash"><span class="code-comment"># Clone SoloFlow into your OpenClaw plugins directory</span>
-<span class="code-cmd">git</span> clone https://github.com/SonicBotMan/SoloFlow.git
-<span class="code-comment"># Install via ClawHub (recommended)</span>
+              <pre class="code-block"><code class="lang-bash"><span class="code-comment"># Install SoloFlow via ClawHub (recommended)</span>
 <span class="code-cmd">clawhub</span> install soloflow
+
 <span class="code-comment"># Restart gateway to load the plugin</span>
-<span class="code-cmd">openclaw</span> gateway restart</code></pre>
+<span class="code-cmd">openclaw</span> gateway restart
+
+<span class="code-comment"># Verify - 15 tools ready ✓</span>
+<span class="code-cmd">openclaw</span> status
+<span class="code-output"># → SoloFlow loaded ✓</span></code></pre>
             </div>
             <div class="code-panel" id="panel-workflow">
               <div class="code-header">
@@ -1002,25 +962,18 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                 </button>
               </div>
-              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Create a workflow via MCP tool</span>
-<span class="code-keyword">const</span> { id } = <span class="code-keyword">await</span> soloflow_create({
-  <span class="code-prop">name</span>: <span class="code-string">"Camera Inspection"</span>,
+              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Create a workflow via RPC</span>
+<span class="code-keyword">const</span> { id } = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.create"</span>, {
   <span class="code-prop">steps</span>: [
-    { <span class="code-prop">id</span>: <span class="code-string">"capture"</span>, <span class="code-prop">name</span>: <span class="code-string">"抓图"</span>,     <span class="code-prop">discipline</span>: <span class="code-string">"quick"</span>,  <span class="code-prop">action</span>: <span class="code-string">"使用 ezviz_capture 抓取摄像头画面"</span> },
-    { <span class="code-prop">id</span>: <span class="code-string">"analyze"</span>,  <span class="code-prop">name</span>: <span class="code-string">"分析"</span>,     <span class="code-prop">discipline</span>: <span class="code-string">"visual"</span>, <span class="code-prop">action</span>: <span class="code-string">"分析摄像头画面"</span>,               <span class="code-prop">dependencies</span>: [<span class="code-string">"capture"</span>] },
-    { <span class="code-prop">id</span>: <span class="code-string">"report"</span>,   <span class="code-prop">name</span>: <span class="code-string">"报告"</span>,     <span class="code-prop">discipline</span>: <span class="code-string">"quick"</span>,  <span class="code-prop">action</span>: <span class="code-string">"生成巡检报告"</span>,                  <span class="code-prop">dependencies</span>: [<span class="code-string">"analyze"</span>] },
+    { <span class="code-prop">id</span>: <span class="code-string">"research"</span>,  <span class="code-prop">name</span>: <span class="code-string">"Research topic"</span>,        <span class="code-prop">discipline</span>: <span class="code-string">"deep"</span>,       <span class="code-prop">dependencies</span>: [],           <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Research AI agent frameworks"</span> } },
+    { <span class="code-prop">id</span>: <span class="code-string">"analyze"</span>,   <span class="code-prop">name</span>: <span class="code-string">"Analyze findings"</span>,      <span class="code-prop">discipline</span>: <span class="code-string">"ultrabrain"</span>, <span class="code-prop">dependencies</span>: [<span class="code-string">"research"</span>], <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Compare and rank by features"</span> } },
+    { <span class="code-prop">id</span>: <span class="code-string">"visualize"</span>, <span class="code-prop">name</span>: <span class="code-string">"Create chart"</span>,         <span class="code-prop">discipline</span>: <span class="code-string">"visual"</span>,    <span class="code-prop">dependencies</span>: [<span class="code-string">"analyze"</span>],  <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Generate comparison table"</span> } },
   ],
 });
 
-<span class="code-comment">// Start and drive execution</span>
-<span class="code-keyword">await</span> soloflow_start({ workflowId: id });
-<span class="code-keyword">const</span> { readySteps } = <span class="code-keyword">await</span> soloflow_ready_steps({ workflowId: id });
-<span class="code-output">// → [{ id: "capture", name: "抓图", discipline: "quick", action: "..." }]</span>
-
-<span class="code-comment">// The agent executes each step using available tools:</span>
-<span class="code-keyword">await</span> soloflow_advance_step({ workflowId: id, stepId: <span class="code-string">"capture"</span>,
-  result: <span class="code-string">"摄像头画面已获取"</span> });
-<span class="code-output">// → Step "analyze" now unlocked</span></code></pre>
+<span class="code-comment">// Start the workflow</span>
+<span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.start"</span>, { id });
+<span class="code-output">// → Workflow queued, DAG execution begins</span></code></pre>
             </div>
             <div class="code-panel" id="panel-run">
               <div class="code-header">
@@ -1030,13 +983,16 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                 </button>
               </div>
-              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Check workflow status</span>
-<span class="code-keyword">const</span> status = <span class="code-keyword">await</span> soloflow_status({ workflowId: id });
-console.<span class="code-fn">log</span>(status);
+              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Check workflow status via MCP tool</span>
+<span class="code-keyword">const</span> status = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.status"</span>, { 
+  <span class="code-prop">id</span>, 
+  <span class="code-prop">verbose</span>: <span class="code-bool">true</span> 
+});
+console.<span class="code-fn">log</span>(status.steps);
 
-<span class="code-comment">// FSM states: idle → queued → running → paused → completed/failed/cancelled</span>
-<span class="code-comment">// Steps execute in parallel where possible (dependency-aware)</span>
-<span class="code-output">// → { state: "completed", steps: [...] }</span></code></pre>
+<span class="code-comment">// FSM states: idle → queued → running → completed/failed/retry</span>
+<span class="code-comment">// Steps execute in parallel where possible with automatic retry</span>
+<span class="code-output">// → { state: 'running', steps: 3, memory: { working: [...], episodic: [...] } }</span></code></pre>
             </div>
           </div>
         </div>
