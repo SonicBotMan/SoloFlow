@@ -85,7 +85,7 @@ export class EvolutionAnalyzer {
     // 1b. Collect conversation history from recent memory files (Hermes-style: agent-curated notes)
     const conversationEntries: any[] = [];
     try {
-      const recent = this.readRecentMemoryFiles(7); // last 7 days
+      const recent = this.readRecentMemoryFiles(30); // last 7 days
       for (const entry of recent) {
         conversationEntries.push({
           date: entry.date,
@@ -441,6 +441,7 @@ Output ONLY valid JSON (no markdown, no explanation):
       const path = require('node:path');
       const os = require('node:os');
       const memoryDir = path.join(os.homedir(), '.openclaw', 'workspace', 'memory');
+      // Snapshot mode: read all files first, then process (consistent snapshot, not live)
       const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
       let files: string[] = [];
       try { files = fs.readdirSync(memoryDir); } catch { return results; }
