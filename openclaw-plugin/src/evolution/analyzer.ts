@@ -82,6 +82,19 @@ export class EvolutionAnalyzer {
       // episodic access may vary
     }
 
+    // 1b. Collect conversation history from recent memory files (Hermes-style: agent-curated notes)
+    const conversationEntries: any[] = [];
+    try {
+      const recent = this.readRecentMemoryFiles(7); // last 7 days
+      for (const entry of recent) {
+        conversationEntries.push({
+          date: entry.date,
+          content: entry.summary,
+          rawSnippets: entry.snippets,
+        });
+      }
+    } catch (e) { console.warn(`error reading conversation history: ${e}`); }
+
     // 2. Collect existing templates (to avoid duplicates)
     const existingTemplates: any[] = [];
     try {
@@ -103,13 +116,23 @@ export class EvolutionAnalyzer {
 ## Past Workflow Executions (Episodic Memory)
 ${JSON.stringify(episodicEntries.slice(0, 50), null, 2)}
 
+## Recent Conversation History (from memory files — last 7 days)
+${JSON.stringify(conversationEntries.slice(0, 30), null, 2)}
+
 ## Existing Templates (do NOT duplicate these)
 ${JSON.stringify(existingTemplates, null, 2)}
 
 ## Task
 Identify patterns that appear more than once or represent a complete useful workflow:
 
-1. **Workflow Templates**: Multi-step processes that could be reused. For each, provide:
+1. **From Conversation History** (recent memory files — look for recurring user requests, repeated tasks, workflows the user asks for repeatedly):
+Analyze the conversation entries for patterns like:
+- Same user request appearing multiple times
+- Complex tasks broken into predictable steps
+- Workflows triggered by specific keywords or situations
+For each pattern found, note: user_trigger, typical_request_text, implied_steps
+
+2. **Workflow Templates**: Multi-step processes that could be reused. For each, provide:
    - name (concise), description (what it does)
    - triggers (array of natural language scenarios, e.g. ["when user asks for X", "when Y needs analysis"])
    - scope (one of: "general", "code-review", "content-creation", "data-analysis", "research", "automation", "communication")
@@ -405,4 +428,61 @@ Output ONLY valid JSON (no markdown, no explanation):
       // non-critical
     }
   }
+
+  /**
+   * Read recent memory/*.md files (last N days) and extract conversation patterns.
+   * Reads the daily notes written during sessions, which contain condensed
+   * conversation history — the source of truth for what the user actually asks for.
+   */
+  private readRecentMemoryFiles(days: number): Array<{date: string; summary: string; snippets: string[]}> {
+    const results: Array<{date: string; summary: string; snippets: string[]}> = [];
+    try {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const os = require('node:os');
+      const memoryDir = path.join(os.homedir(), '.openclaw', 'workspace', 'memory');
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      let files: string[] = [];
+      try { files = fs.readdirSync(memoryDir); } catch { return results; }
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue;
+        const filePath = path.join(memoryDir, file);
+        let stat: any;
+        try { stat = fs.statSync(filePath); } catch { continue; }
+        if (stat.mtimeMs < cutoff) continue;
+        let raw: string;
+        try { raw = fs.readFileSync(filePath, 'utf8'); } catch { continue; }
+        // Strip raw memory retrieval blocks (noisy for pattern analysis)
+        if (raw.includes('[facts]:') && raw.includes('[preferences]:')) {
+          const factsStart = raw.indexOf('[facts]:');
+          const factsEnd = raw.indexOf('[preferences]:', factsStart);
+          if (factsStart >= 0 && factsEnd >= 0) {
+            raw = raw.slice(0, factsStart) + raw.slice(factsEnd + '[preferences]:'.length);
+          }
+        }
+        const lines = raw.split('\n');
+        const snippets: string[] = [];
+        let buffer = '';
+        let inCode = false;
+        for (const line of lines) {
+          if (line.startsWith('```')) { inCode = !inCode; continue; }
+          if (inCode) continue;
+          if (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('---')) {
+            if (buffer.trim().length > 40) snippets.push(buffer.trim().slice(0, 200));
+            buffer = line.replace(/^#+\s*/, '').trim() + ' ';
+          } else if (line.trim().length > 30) {
+            buffer += line.trim() + ' ';
+          }
+        }
+        if (buffer.trim().length > 40) snippets.push(buffer.trim().slice(0, 200));
+        const dm = file.match(/(\d{4}-\d{2}-\d{2})/);
+        const date = dm?.[1] ?? file.slice(0, 10);
+        const summary = snippets.slice(0, 3).join(' | ').slice(0, 250);
+        if (summary.length > 20) results.push({ date, summary, snippets: snippets.slice(0, 5) });
+      }
+    } catch {}
+    results.sort((a, b) => b.date.localeCompare(a.date));
+    return results;
+  }
+
 }
