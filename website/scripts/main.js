@@ -385,7 +385,14 @@
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    }, { threshold: 0.05, rootMargin: '0px 0px 0px 0px' });
+    // Force visible for above-fold hero elements on page load
+    reveals.forEach(function (el) {
+      if (el.getBoundingClientRect().top < window.innerHeight) {
+        el.classList.add('visible');
+        observer.unobserve(el);
+      }
+    });
 
     reveals.forEach(function (el) { observer.observe(el); });
   }
