@@ -321,8 +321,8 @@
             <div class="feature-content">
               <div class="feature-number">01</div>
               <h3 data-i18n="features.memory.title">Cognitive Memory System</h3>
-              <p data-i18n="features.memory.desc">Three-tier memory architecture inspired by human cognition. Working memory holds active context, episodic memory stores experiences, and semantic memory accumulates abstracted knowledge — all governed by the Ebbinghaus forgetting curve.</p>
-              <span class="tag" style="background:rgba(110,231,183,0.15);color:#6EE7B7;border:1px solid rgba(110,231,183,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">✅ v0.6 — SQLite persistent, 3-tier cognitive memory</span>
+              <p data-i18n="features.memory.desc">Four-tier cognitive memory architecture inspired by human cognition. Working memory holds active context, episodic memory stores experiences, and semantic memory accumulates abstracted knowledge — all governed by the Ebbinghaus forgetting curve.</p>
+              <span class="tag" style="background:rgba(110,231,183,0.15);color:#6EE7B7;border:1px solid rgba(110,231,183,0.3);font-size:11px;padding:2px 8px;border-radius:4px;">✅ v0.8 — 4-tier memory, workflow matching, Visual Builder</span>
               <div class="feature-formula glass-chip">
                 <code>R(t) = base × e<sup>(-t / stability)</sup></code>
               </div>
@@ -659,7 +659,7 @@
               </g>
               <g transform="translate(450,42)">
                 <rect width="100" height="24" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
-                <text x="50" y="16" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">175 Tests ✓</text>
+                <text x="50" y="16" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" font-family="var(--font-mono)">15 Tools ✓</text>
               </g>
             </g>
 
@@ -989,13 +989,10 @@
               </div>
               <pre class="code-block"><code class="lang-bash"><span class="code-comment"># Clone SoloFlow into your OpenClaw plugins directory</span>
 <span class="code-cmd">git</span> clone https://github.com/SonicBotMan/SoloFlow.git
-<span class="code-cmd">cd</span> SoloFlow/openclaw-plugin
-
-<span class="code-comment"># Install dependencies</span>
-<span class="code-cmd">npm</span> install
-
-<span class="code-comment"># Build the plugin</span>
-<span class="code-cmd">npm</span> run build</code></pre>
+<span class="code-comment"># Install via ClawHub (recommended)</span>
+<span class="code-cmd">clawhub</span> install soloflow
+<span class="code-comment"># Restart gateway to load the plugin</span>
+<span class="code-cmd">openclaw</span> gateway restart</code></pre>
             </div>
             <div class="code-panel" id="panel-workflow">
               <div class="code-header">
@@ -1020,7 +1017,7 @@
 <span class="code-keyword">const</span> { readySteps } = <span class="code-keyword">await</span> soloflow_ready_steps({ workflowId: id });
 <span class="code-output">// → [{ id: "capture", name: "抓图", discipline: "quick", action: "..." }]</span>
 
-<span class="code-comment">// Main agent spawns sub-agent, then advances:</span>
+<span class="code-comment">// The agent executes each step using available tools:</span>
 <span class="code-keyword">await</span> soloflow_advance_step({ workflowId: id, stepId: <span class="code-string">"capture"</span>,
   result: <span class="code-string">"摄像头画面已获取"</span> });
 <span class="code-output">// → Step "analyze" now unlocked</span></code></pre>
