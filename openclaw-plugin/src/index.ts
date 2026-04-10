@@ -20,6 +20,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 
+import { TaskDetector } from "./skills/task-detector.js";
 import type {
   AgentDiscipline,
   StepId,
@@ -363,6 +364,130 @@ export default definePluginEntry({
       } catch (e) {
         log.warn(`SQLite + memory system disabled: ${e}`);
       }
+
+      // ── Auto workflow recommendation hook ──────────────────────────────
+      // Register hook unconditionally; the handler reads evolutionStore at runtime
+      // to prevent esbuild from dead-code-eliminating this block.
+      try {
+        const taskDetector = new TaskDetector();
+        const _getStore = () => evolutionStore; // closure capture
+
+        api.registerHook("before_prompt_build", async (event: any, ctx: any) => {
+          const store = _getStore();
+          if (!store) return;
+
+          // Skip non-user triggers (heartbeat, cron, memory, subagent)
+          const trigger = ctx?.trigger;
+          if (trigger && trigger !== "user") return;
+
+          const prompt = event?.prompt ?? "";
+          if (!prompt || prompt.length < 3) return;
+
+          // Skip if already mentioning soloflow tools (avoid double-recommend)
+          if (prompt.includes("soloflow_create") || prompt.includes("soloflow_start") ||
+              prompt.includes("soloflow_templates") || prompt.includes("soloflow_status")) {
+            return;
+          }
+
+          // Get templates from evolution store for matching
+          const templates = store.search("", undefined, 30);
+          const templateList = templates.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            triggers: t.triggers ?? [],
+            tags: t.tags ?? [],
+          }));
+
+          const recommendation = taskDetector.recommendWorkflow(prompt, templateList);
+
+          if (recommendation && recommendation.confidence >= 0.7) {
+            const matched = templates.find((t: any) => t.id === recommendation.templateId);
+            if (matched) {
+              const keywords = recommendation.matchedKeywords?.join(", ") ?? "";
+              return {
+                prependContext: [
+                  `\n[SoloFlow Workflow Match]`,
+                  `Detected potential workflow match (confidence: ${(recommendation.confidence * 100).toFixed(0)}%, keywords: ${keywords}):`,
+                  `- **${matched.name}** (${(matched as any).type}): ${matched.description}`,
+                  `- Template ID: ${matched.id}`,
+                  `- Quality: ${((matched as any).qualityScore ?? 0.5).toFixed(2)}, Steps: ${(matched as any).steps?.length ?? "?"}`,
+                  `Consider asking the user if they want to run this workflow via soloflow_start.`,
+                  `[SoloFlow End]\n`,
+                ].join("\n"),
+              };
+            }
+          }
+
+          return undefined; // no match
+        });
+        log.info("auto workflow recommendation hook registered");
+      } catch (e) {
+        log.debug?.(`workflow recommendation hook failed: ${e}`);
+      }
+
+      // 5. API server — needs evolutionStore + skillInventory ready first
+      try {
+        const { createApiServer } = await import("./api/index.js");
+        const apiServer = createApiServer(
+          { workflowService, scheduler, templateRegistry, evolutionStore, skillInventory },
+          { requireAuth: false },
+        );
+        api.registerHttpRoute({
+          path: "/soloflow",
+          match: "prefix",
+          auth: "plugin",
+          handler: async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
+            const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+
+            if (url.pathname === "/soloflow/skills" || url.pathname === "/soloflow/skills/") {
+              try {
+                const fs = await import("node:fs");
+                const __dirname = path.dirname(fileURLToPath(import.meta.url));
+                const html = fs.readFileSync(path.join(__dirname, "visual-builder", "skills.html"), "utf8");
+                res.setHeader("content-type", "text/html; charset=utf-8");
+                res.end(html);
+                return true;
+              } catch (e) { log.warn(`Skill Viewer not available: ${e}`); }
+            }
+
+            if (url.pathname === "/soloflow/builder" || url.pathname === "/soloflow/builder/") {
+              try {
+                const fs = await import("node:fs");
+                const __dirname = path.dirname(fileURLToPath(import.meta.url));
+                const html = fs.readFileSync(path.join(__dirname, "visual-builder", "index.html"), "utf8");
+                res.setHeader("content-type", "text/html; charset=utf-8");
+                res.end(html);
+                return true;
+              } catch (e) { log.warn(`Visual Builder not available: ${e}`); }
+            }
+
+            const internalPath = url.pathname.replace(/^\/soloflow/, "") || "/";
+            const query: Record<string, string> = {};
+            for (const [k, v] of url.searchParams) query[k] = v;
+            const headers: Record<string, string> = {};
+            for (const [k, v] of Object.entries(req.headers)) {
+              if (typeof v === "string") headers[k] = v;
+              else if (Array.isArray(v) && v[0] !== undefined) headers[k] = v[0];
+            }
+            let body: unknown = undefined;
+            if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+              const chunks: Buffer[] = [];
+              for await (const chunk of req) chunks.push(chunk as Buffer);
+              const raw = Buffer.concat(chunks).toString("utf8");
+              if (raw.trim()) { try { body = JSON.parse(raw); } catch (e) { log.warn(`body parse error: ${e}`); } }
+            }
+            const apiReq = { method: (req.method ?? "GET") as any, path: internalPath, params: {}, query, body, headers };
+            const apiRes = await apiServer.handle(apiReq as any);
+            res.statusCode = apiRes.status ?? 200;
+            for (const [k, v] of Object.entries(apiRes.headers ?? {})) res.setHeader(k, v as string | string[]);
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify(apiRes.body));
+            return true;
+          },
+        });
+        log.info(`API server ready at /soloflow`);
+      } catch (e) { log.warn(`API server disabled: ${e}`); }
     })();
 
     // Vector search (better-sqlite3 + FTS5) — lazy init behind try-catch
@@ -1153,93 +1278,6 @@ export default definePluginEntry({
     // ── 5. API server (HTTP via gateway, behind try-catch) ──────────
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let apiServerClose: (() => void) | null = null;
-
-    void (async () => {
-      try {
-        const { createApiServer } = await import("./api/index.js");
-        const apiServer = createApiServer(
-          { workflowService, scheduler, templateRegistry },
-          { requireAuth: false },
-        );
-
-        api.registerHttpRoute({
-          path: "/soloflow",
-          match: "prefix",
-          auth: "plugin",
-          handler: async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
-            // Serve Visual Builder at /soloflow/builder
-            const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-            if (url.pathname === "/soloflow/builder" || url.pathname === "/soloflow/builder/") {
-              try {
-                const fs = await import("node:fs");
-                const __dirname = path.dirname(fileURLToPath(import.meta.url));
-                const builderPath = path.join(__dirname, "visual-builder", "index.html");
-                const html = fs.readFileSync(builderPath, "utf8");
-                res.setHeader("content-type", "text/html; charset=utf-8");
-                res.end(html);
-                return true;
-              } catch (e) {
-                log.warn(`Visual Builder not available: ${e}`);
-              }
-            }
-
-            // Strip /soloflow prefix
-            const internalPath = url.pathname.replace(/^\/soloflow/, "") || "/";
-
-            // Parse query string
-            const query: Record<string, string> = {};
-            for (const [k, v] of url.searchParams) {
-              query[k] = v;
-            }
-
-            // Collect headers (lowercase)
-            const headers: Record<string, string> = {};
-            for (const [k, v] of Object.entries(req.headers)) {
-              if (typeof v === "string") headers[k] = v;
-              else if (Array.isArray(v) && v[0] !== undefined) headers[k] = v[0];
-            }
-
-            // Parse JSON body for POST/PUT/PATCH
-            let body: unknown = undefined;
-            if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
-              const chunks: Buffer[] = [];
-              for await (const chunk of req) chunks.push(chunk as Buffer);
-              const raw = Buffer.concat(chunks).toString("utf8");
-              if (raw.trim()) {
-                try { body = JSON.parse(raw); } catch (e) { log.warn(`error: ${e}`); }
-              }
-            }
-
-            const apiReq = {
-              method: (req.method ?? "GET") as "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
-              path: internalPath,
-              params: {},
-              query,
-              body,
-              headers,
-            };
-
-            const apiRes = await apiServer.handle(apiReq);
-
-            res.statusCode = apiRes.status;
-            for (const [k, v] of Object.entries(apiRes.headers)) {
-              res.setHeader(k, v);
-            }
-            if (!apiRes.headers["content-type"]) {
-              res.setHeader("content-type", "application/json");
-            }
-            res.end(typeof apiRes.body === "string" ? apiRes.body : JSON.stringify(apiRes.body));
-            return true;
-          },
-        });
-
-        apiServerClose = () => apiServer.close();
-        log.info("API server ready at /soloflow");
-      } catch (e) {
-        log.warn(`API server disabled: ${e}`);
-      }
-    })();
 
     // ── 6. Cleanup on deactivate ────────────────────────────────────
 
@@ -1252,7 +1290,6 @@ export default definePluginEntry({
         sqliteStore?.close();
         vectorSystem?.close().catch(() => {});
         memorySystem?.close().catch(() => {});
-        apiServerClose?.();
         log.info("deactivated");
       });
     } catch (e) {

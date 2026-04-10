@@ -10740,7 +10740,10 @@ var init_evolution_store = __esm({
           const useCount = t.useCount + 1;
           const successCount = t.successCount + (success ? 1 : 0);
           const failCount = t.failCount + (success ? 0 : 1);
-          const qualityScore = useCount > 0 ? successCount / useCount : 0.5;
+          const initialQuality = t.qualityScore ?? 0.5;
+          const successRate = useCount > 0 ? successCount / useCount : 0;
+          const usageFactor = Math.log(1 + useCount) / Math.log(1 + 10);
+          const qualityScore = 0.3 * initialQuality + 0.5 * successRate + 0.2 * usageFactor;
           this.db.prepare(`
         UPDATE evolved_templates SET
           use_count = ?, success_count = ?, fail_count = ?,
@@ -10785,7 +10788,7 @@ var init_evolution_store = __esm({
             newVersion,
             updated.description ?? t.description,
             updated.pattern ?? t.pattern ?? null,
-            0.5,
+            Math.max(t.qualityScore ?? 0.5, updated.qualityScore ?? 0.5),
             updated.steps ? JSON.stringify(updated.steps) : t.steps ? JSON.stringify(t.steps) : null,
             updated.tags ? JSON.stringify(updated.tags) : t.tags ? JSON.stringify(t.tags) : null,
             now2,
@@ -10832,6 +10835,31 @@ function calculateOverlap(a, b) {
   }
   const union = (/* @__PURE__ */ new Set([...setA, ...setB])).size;
   return union === 0 ? 0 : intersection / union;
+}
+function editDistanceRatio(a, b) {
+  if (!a || !b) return 1;
+  const la = a.toLowerCase();
+  const lb = b.toLowerCase();
+  const matrix = Array.from(
+    { length: la.length + 1 },
+    (_, i) => Array.from(
+      { length: lb.length + 1 },
+      (_2, j) => i === 0 ? j : j === 0 ? i : 0
+    )
+  );
+  for (let j = 1; j <= lb.length; j++) {
+    for (let i = 1; i <= la.length; i++) {
+      const mI = matrix[i];
+      const mI1 = matrix[i - 1];
+      const cost = la[i - 1] === lb[j - 1] ? 0 : 1;
+      mI[j] = Math.min(
+        mI1[j] + 1,
+        mI[j - 1] + 1,
+        mI1[j - 1] + cost
+      );
+    }
+  }
+  return matrix[la.length][lb.length] / Math.max(la.length, lb.length);
 }
 function extractKeyPhrase(description) {
   if (!description) return null;
@@ -10941,7 +10969,7 @@ Only extract patterns that are genuinely reusable. Skip one-off workflows unless
 
 Output ONLY valid JSON (no markdown, no explanation):
 {"workflows": [...], "skills": [...]}`;
-        const responseText = await this.callLLM(prompt);
+        const responseText = await this.callLLMWithFallback(prompt);
         if (!responseText) {
           return { templates: 0, skills: 0 };
         }
@@ -10953,9 +10981,10 @@ Output ONLY valid JSON (no markdown, no explanation):
        * Direct HTTP call to LLM API.
        * Reads config from openclaw.json to get baseUrl + apiKey.
        */
-      async callLLM(prompt) {
-        const baseUrl = this.getBaseUrl();
-        const apiKey = this.getApiKey();
+      async callLLM(prompt, provider, timeoutMs) {
+        const baseUrl = provider?.baseUrl ?? this.getBaseUrl();
+        const apiKey = provider?.apiKey ?? this.getApiKey();
+        const model = provider?.model ?? this.getModel();
         if (!baseUrl || !apiKey) {
           return null;
         }
@@ -10967,7 +10996,7 @@ Output ONLY valid JSON (no markdown, no explanation):
               "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-              model: this.getModel(),
+              model,
               messages: [
                 {
                   role: "system",
@@ -10978,7 +11007,7 @@ Output ONLY valid JSON (no markdown, no explanation):
               temperature: 0.3,
               max_tokens: 4096
             }),
-            signal: AbortSignal.timeout(12e4)
+            signal: AbortSignal.timeout(timeoutMs ?? 12e4)
           });
           if (!response.ok) {
             const body = await response.text().catch(() => "");
@@ -11061,6 +11090,11 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
           for (const wf of parsed.workflows) {
             if (!wf.name) continue;
+            const quality = this.evaluateTemplateQuality(wf, "workflow");
+            if (!quality.pass) {
+              this.api.logger.info(`evolution: skipping low-quality workflow template "${wf.name}" (score=${quality.score.toFixed(2)})`);
+              continue;
+            }
             const template = this.buildTemplate("workflow", wf, now2);
             if (!template) continue;
             const { merged } = this.smartMerge(template);
@@ -11078,6 +11112,11 @@ Output ONLY valid JSON (no markdown, no explanation):
         if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
           for (const sk of parsed.skills) {
             if (!sk.name) continue;
+            const quality = this.evaluateTemplateQuality(sk, "skill");
+            if (!quality.pass) {
+              this.api.logger.info(`evolution: skipping low-quality skill pattern "${sk.name}" (score=${quality.score.toFixed(2)})`);
+              continue;
+            }
             const template = this.buildTemplate("skill", sk, now2);
             if (!template) continue;
             const { merged } = this.smartMerge(template);
@@ -11124,7 +11163,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           failCount: 0,
           lastUsedAt: null,
           lastIteratedAt: null,
-          qualityScore: 0.5,
+          qualityScore: this.evaluateTemplateQuality(raw, type).score,
           version: 1,
           tags: Array.isArray(raw.tags) ? raw.tags : [],
           createdAt: now2,
@@ -11151,8 +11190,12 @@ Output ONLY valid JSON (no markdown, no explanation):
           for (const ex of existing) {
             const triggerOverlap = calculateOverlap(template.triggers, ex.triggers);
             const toolsOverlap = calculateOverlap(template.tools_required, ex.tools_required);
-            const combinedScore = (triggerOverlap + toolsOverlap) / 2;
-            if (combinedScore >= 0.6) {
+            const nameSimilarity = 1 - editDistanceRatio(template.name, ex.name);
+            const combinedScore = 0.4 * triggerOverlap + 0.3 * toolsOverlap + 0.3 * nameSimilarity;
+            if (combinedScore >= 0.8) {
+              this.evolutionStore.bumpVersion(ex.id, template);
+              return { merged: true };
+            } else if (combinedScore >= 0.6 && ex.name === template.name) {
               this.evolutionStore.bumpVersion(ex.id, template);
               return { merged: true };
             } else if (ex.name === template.name && combinedScore < 0.6) {
@@ -11169,19 +11212,129 @@ Output ONLY valid JSON (no markdown, no explanation):
       cleanupLowQualityTemplates() {
         try {
           const all = this.evolutionStore.getAll();
-          let cleaned = 0;
+          const now2 = Date.now();
+          const sevenDays = 7 * 24 * 60 * 60 * 1e3;
+          let archived = 0;
+          let downgraded = 0;
           for (const t of all) {
-            if ((t.qualityScore ?? 0.5) < 0.3 && t.useCount >= 3) {
+            const age = now2 - (t.createdAt ?? now2);
+            const quality = t.qualityScore ?? 0.5;
+            const successRate = t.useCount > 0 ? (t.successCount ?? 0) / t.useCount : 0;
+            if (age > sevenDays && t.useCount === 0 && quality < 0.4) {
               this.evolutionStore.delete(t.id);
-              cleaned++;
+              archived++;
+              continue;
+            }
+            if (t.useCount >= 3 && successRate < 0.3 && quality > 0.2) {
+              this.evolutionStore.bumpVersion(t.id, {
+                qualityScore: Math.max(0.1, 0.3 * quality + 0.7 * successRate)
+              });
+              downgraded++;
+              continue;
+            }
+            if (quality < 0.3 && t.useCount >= 10) {
+              this.evolutionStore.delete(t.id);
+              archived++;
             }
           }
-          if (cleaned > 0) {
-            this.api.logger.info(`evolution cleanup: archived ${cleaned} low-quality template(s)`);
+          if (archived > 0 || downgraded > 0) {
+            this.api.logger.info(`evolution cleanup: archived ${archived}, downgraded ${downgraded} template(s)`);
           }
         } catch (e) {
           console.warn(`error: ${e}`);
         }
+      }
+      /**
+       * Evaluate template quality from raw LLM output.
+       * Returns { score: 0-1, pass: score >= 0.6 }.
+       */
+      evaluateTemplateQuality(raw, type) {
+        let score = 0;
+        let checks = 0;
+        checks++;
+        const name = typeof raw.name === "string" ? raw.name.trim() : "";
+        if (name.length > 0 && name.length <= 50) score += 1;
+        else if (name.length > 50) score += 0.3;
+        checks++;
+        const desc = typeof raw.description === "string" ? raw.description.trim() : "";
+        if (desc.length >= 30) score += 1;
+        else if (desc.length >= 10) score += 0.4;
+        checks++;
+        const triggers = Array.isArray(raw.triggers) ? raw.triggers : [];
+        if (triggers.length >= 2 && triggers.some((t) => typeof t === "string" && t.length > 10)) score += 1;
+        else if (triggers.length >= 1) score += 0.4;
+        checks++;
+        if (type === "workflow") {
+          const steps = Array.isArray(raw.steps) ? raw.steps : [];
+          if (steps.length >= 2 && steps.some((s) => typeof s.action === "string" && s.action.length > 10)) score += 1;
+          else if (steps.length >= 1) score += 0.3;
+        } else {
+          const pattern = typeof raw.pattern === "string" ? raw.pattern.trim() : "";
+          if (pattern.length >= 20) score += 1;
+          else if (pattern.length >= 5) score += 0.3;
+        }
+        checks++;
+        const examples = Array.isArray(raw.examples) ? raw.examples : [];
+        if (examples.length >= 1 && examples.some((e) => e.input && e.expected_output)) score += 1;
+        else if (examples.length >= 1) score += 0.3;
+        const normalized = checks > 0 ? score / checks : 0;
+        return { score: Math.round(normalized * 100) / 100, pass: normalized >= 0.6 };
+      }
+      /**
+       * LLM call with 3-level fallback chain (MemOS-style degradation).
+       * Level 1: configured evolution model (if any)
+       * Level 2: OpenClaw default model (zai provider)
+       * Level 3: any other configured provider
+       * Each level retries once. Total timeout: 60s.
+       */
+      async callLLMWithFallback(prompt) {
+        const providers = this.getProviderConfig();
+        const providerEntries = Object.entries(providers);
+        const zaiEntry = providerEntries.find(([k]) => k === "zai");
+        const otherEntries = providerEntries.filter(([k]) => k !== "zai");
+        const chain = [];
+        if (zaiEntry) {
+          const [, p] = zaiEntry;
+          chain.push({
+            name: "zai",
+            baseUrl: p.baseUrl,
+            apiKey: p.apiKey,
+            model: p.models?.[0]?.id ?? "glm-5"
+          });
+        }
+        for (const [name, p] of otherEntries) {
+          if (p.baseUrl && p.apiKey) {
+            chain.push({
+              name,
+              baseUrl: p.baseUrl,
+              apiKey: p.apiKey,
+              model: p.models?.[0]?.id ?? "default"
+            });
+          }
+        }
+        if (chain.length === 0) {
+          this.api.logger.warn("evolution: no LLM providers configured");
+          return null;
+        }
+        const totalDeadline = Date.now() + 6e4;
+        for (const provider of chain) {
+          if (Date.now() >= totalDeadline) break;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const timeout = Math.max(5e3, totalDeadline - Date.now());
+              const result = await this.callLLM(prompt, provider, timeout);
+              if (result) {
+                this.api.logger.info(`evolution LLM call succeeded via ${provider.name} (attempt ${attempt + 1})`);
+                return result;
+              }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              this.api.logger.warn(`evolution LLM call failed via ${provider.name} (attempt ${attempt + 1}): ${msg}`);
+            }
+          }
+        }
+        this.api.logger.warn("evolution: all LLM providers exhausted");
+        return null;
       }
       /**
        * Read recent memory/*.md files (last N days) and extract conversation patterns.
@@ -12290,6 +12443,111 @@ var init_templates = __esm({
   }
 });
 
+// src/api/routes/evolved.ts
+function createEvolvedRoutes(evolutionStore, skillInventory) {
+  return {
+    // GET /evolved — list all evolved templates
+    async listEvolved(req) {
+      if (!evolutionStore) return jsonResponse(503, { error: "Evolution system not ready yet, try again in a few seconds" });
+      const type = req.query["type"];
+      const templates = evolutionStore.getAll(type);
+      return jsonResponse(200, {
+        data: templates,
+        total: templates.length,
+        workflows: templates.filter((t) => t.type === "workflow").length,
+        skills: templates.filter((t) => t.type === "skill").length
+      });
+    },
+    // GET /evolved/:id — get single template
+    async getEvolved(req) {
+      if (!evolutionStore) return jsonResponse(503, { error: "Evolution system not ready yet" });
+      const id = req.params["id"] ?? "";
+      const t = evolutionStore.getById(id);
+      if (!t) throw new HttpError(404, `Template not found: ${id}`);
+      return jsonResponse(200, t);
+    },
+    // GET /evolved/search?q=&type= — search templates
+    async searchEvolved(req) {
+      if (!evolutionStore) return jsonResponse(503, { error: "Evolution system not ready yet" });
+      const q = req.query["q"] ?? "";
+      const type = req.query["type"];
+      const results = evolutionStore.search(q, type, 20);
+      return jsonResponse(200, { data: results, query: q, type });
+    },
+    // GET /evolved/stats — aggregate stats
+    async evolveStats(_req) {
+      if (!evolutionStore) return jsonResponse(503, { error: "Evolution system not ready yet" });
+      const workflows = evolutionStore.getAll("workflow");
+      const skills = evolutionStore.getAll("skill");
+      const all = evolutionStore.getAll();
+      const totalUses = all.reduce((s, t) => s + t.useCount, 0);
+      const totalSuccess = all.reduce((s, t) => s + t.successCount, 0);
+      const avgQuality = all.length > 0 ? all.reduce((s, t) => s + t.qualityScore, 0) / all.length : 0;
+      return jsonResponse(200, {
+        total: all.length,
+        workflows: workflows.length,
+        skills: skills.length,
+        totalUses,
+        avgSuccessRate: totalUses > 0 ? totalSuccess / totalUses : 0,
+        avgQualityScore: avgQuality,
+        topTemplates: all.sort((a, b) => b.useCount - a.useCount).slice(0, 5).map((t) => ({
+          id: t.id,
+          name: t.name,
+          type: t.type,
+          useCount: t.useCount,
+          qualityScore: t.qualityScore
+        }))
+      });
+    },
+    // DELETE /evolved/:id
+    async deleteEvolved(req) {
+      if (!evolutionStore) return jsonResponse(503, { error: "Evolution system not ready yet" });
+      const id = req.params["id"] ?? "";
+      evolutionStore.delete(id);
+      return jsonResponse(200, { ok: true, id });
+    },
+    // POST /evolved/:id/record-usage
+    async recordUsage(req) {
+      if (!evolutionStore) return jsonResponse(503, { error: "Evolution system not ready yet" });
+      const id = req.params["id"] ?? "";
+      const body = req.body ?? {};
+      const success = body.success !== false;
+      evolutionStore.recordUsage(id, success);
+      return jsonResponse(200, { ok: true, id, success });
+    },
+    // GET /skills — list all skills (from skillInventory)
+    async listSkills(_req) {
+      if (!skillInventory) {
+        return jsonResponse(200, { data: [], total: 0, note: "Skill inventory not available" });
+      }
+      try {
+        const skills = skillInventory.getAll();
+        return jsonResponse(200, { data: skills, total: skills.length });
+      } catch (e) {
+        return jsonResponse(200, { data: [], total: 0, error: String(e) });
+      }
+    },
+    // GET /skills/search?q= — search skills
+    async searchSkills(req) {
+      if (!skillInventory) {
+        return jsonResponse(200, { data: [], total: 0 });
+      }
+      const q = (req.query["q"] ?? "").toLowerCase();
+      const all = skillInventory.getAll();
+      const results = q ? all.filter(
+        (s) => (s.name ?? "").toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q) || (s.tags ?? []).some((t) => t.toLowerCase().includes(q))
+      ) : all;
+      return jsonResponse(200, { data: results.slice(0, 20), total: results.length, query: q });
+    }
+  };
+}
+var init_evolved = __esm({
+  "src/api/routes/evolved.ts"() {
+    "use strict";
+    init_router();
+  }
+});
+
 // src/api/middleware/auth.ts
 function base64UrlDecode(s) {
   const padded = s.replace(/-/g, "+").replace(/_/g, "/");
@@ -12401,7 +12659,8 @@ function createApiServer(services, config) {
   const wfRoutes = createWorkflowRoutes(services, services.templateRegistry);
   const exRoutes = createExecutionRoutes(services);
   const tplRoutes = createTemplateRoutes(services.templateRegistry);
-  registerRoutes(router, { wfRoutes, exRoutes, tplRoutes });
+  const evoRoutes = createEvolvedRoutes(services.evolutionStore, services.skillInventory);
+  registerRoutes(router, { wfRoutes, exRoutes, tplRoutes, evoRoutes });
   if (config?.requireAuth !== false && (config?.jwt || config?.apiKeys)) {
     if (config.jwt && config.apiKeys) {
       router.use(createCompositeAuthMiddleware(config.jwt, config.apiKeys));
@@ -12441,6 +12700,14 @@ function registerRoutes(router, routes) {
   router.get("/templates", routes.tplRoutes.list);
   router.post("/templates", routes.tplRoutes.create);
   router.get("/templates/:id", routes.tplRoutes.get);
+  router.get("/evolved", routes.evoRoutes.listEvolved);
+  router.get("/evolved/stats", routes.evoRoutes.evolveStats);
+  router.get("/evolved/search", routes.evoRoutes.searchEvolved);
+  router.get("/evolved/:id", routes.evoRoutes.getEvolved);
+  router.delete("/evolved/:id", routes.evoRoutes.deleteEvolved);
+  router.post("/evolved/:id/record-usage", routes.evoRoutes.recordUsage);
+  router.get("/skills", routes.evoRoutes.listSkills);
+  router.get("/skills/search", routes.evoRoutes.searchSkills);
 }
 function errorHandlingMiddleware() {
   return async (_req, next) => {
@@ -12515,6 +12782,7 @@ var init_api = __esm({
     init_workflows();
     init_executions();
     init_templates();
+    init_evolved();
     init_auth();
   }
 });
@@ -13828,6 +14096,76 @@ var index_default = definePluginEntry({
       } catch (e) {
         log.warn(`SQLite + memory system disabled: ${e}`);
       }
+      try {
+        const { createApiServer: createApiServer2 } = await Promise.resolve().then(() => (init_api(), api_exports));
+        const apiServer = createApiServer2(
+          { workflowService, scheduler, templateRegistry, evolutionStore, skillInventory },
+          { requireAuth: false }
+        );
+        api.registerHttpRoute({
+          path: "/soloflow",
+          match: "prefix",
+          auth: "plugin",
+          handler: async (req, res) => {
+            const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+            if (url.pathname === "/soloflow/skills" || url.pathname === "/soloflow/skills/") {
+              try {
+                const fs3 = await import("node:fs");
+                const __dirname = path3.dirname(fileURLToPath(import.meta.url));
+                const html = fs3.readFileSync(path3.join(__dirname, "visual-builder", "skills.html"), "utf8");
+                res.setHeader("content-type", "text/html; charset=utf-8");
+                res.end(html);
+                return true;
+              } catch (e) {
+                log.warn(`Skill Viewer not available: ${e}`);
+              }
+            }
+            if (url.pathname === "/soloflow/builder" || url.pathname === "/soloflow/builder/") {
+              try {
+                const fs3 = await import("node:fs");
+                const __dirname = path3.dirname(fileURLToPath(import.meta.url));
+                const html = fs3.readFileSync(path3.join(__dirname, "visual-builder", "index.html"), "utf8");
+                res.setHeader("content-type", "text/html; charset=utf-8");
+                res.end(html);
+                return true;
+              } catch (e) {
+                log.warn(`Visual Builder not available: ${e}`);
+              }
+            }
+            const internalPath = url.pathname.replace(/^\/soloflow/, "") || "/";
+            const query = {};
+            for (const [k, v] of url.searchParams) query[k] = v;
+            const headers = {};
+            for (const [k, v] of Object.entries(req.headers)) {
+              if (typeof v === "string") headers[k] = v;
+              else if (Array.isArray(v) && v[0] !== void 0) headers[k] = v[0];
+            }
+            let body = void 0;
+            if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+              const chunks = [];
+              for await (const chunk of req) chunks.push(chunk);
+              const raw = Buffer.concat(chunks).toString("utf8");
+              if (raw.trim()) {
+                try {
+                  body = JSON.parse(raw);
+                } catch (e) {
+                  log.warn(`body parse error: ${e}`);
+                }
+              }
+            }
+            const apiReq = { method: req.method ?? "GET", path: internalPath, params: {}, query, body, headers };
+            const apiRes = await apiServer.handle(apiReq);
+            res.statusCode = apiRes.status ?? 200;
+            for (const [k, v] of Object.entries(apiRes.headers ?? {})) res.setHeader(k, v);
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify(apiRes.body));
+            return true;
+          }
+        });
+        log.info(`API server ready at /soloflow`);
+      } catch (e) {
+        log.warn(`API server disabled: ${e}`);
+      }
     })();
     void (async () => {
       try {
@@ -14552,82 +14890,6 @@ var index_default = definePluginEntry({
         vectorReady: vectorSystem !== null
       });
     });
-    let apiServerClose = null;
-    void (async () => {
-      try {
-        const { createApiServer: createApiServer2 } = await Promise.resolve().then(() => (init_api(), api_exports));
-        const apiServer = createApiServer2(
-          { workflowService, scheduler, templateRegistry },
-          { requireAuth: false }
-        );
-        api.registerHttpRoute({
-          path: "/soloflow",
-          match: "prefix",
-          auth: "plugin",
-          handler: async (req, res) => {
-            const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-            if (url.pathname === "/soloflow/builder" || url.pathname === "/soloflow/builder/") {
-              try {
-                const fs3 = await import("node:fs");
-                const __dirname = path3.dirname(fileURLToPath(import.meta.url));
-                const builderPath = path3.join(__dirname, "visual-builder", "index.html");
-                const html = fs3.readFileSync(builderPath, "utf8");
-                res.setHeader("content-type", "text/html; charset=utf-8");
-                res.end(html);
-                return true;
-              } catch (e) {
-                log.warn(`Visual Builder not available: ${e}`);
-              }
-            }
-            const internalPath = url.pathname.replace(/^\/soloflow/, "") || "/";
-            const query = {};
-            for (const [k, v] of url.searchParams) {
-              query[k] = v;
-            }
-            const headers = {};
-            for (const [k, v] of Object.entries(req.headers)) {
-              if (typeof v === "string") headers[k] = v;
-              else if (Array.isArray(v) && v[0] !== void 0) headers[k] = v[0];
-            }
-            let body = void 0;
-            if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
-              const chunks = [];
-              for await (const chunk of req) chunks.push(chunk);
-              const raw = Buffer.concat(chunks).toString("utf8");
-              if (raw.trim()) {
-                try {
-                  body = JSON.parse(raw);
-                } catch (e) {
-                  log.warn(`error: ${e}`);
-                }
-              }
-            }
-            const apiReq = {
-              method: req.method ?? "GET",
-              path: internalPath,
-              params: {},
-              query,
-              body,
-              headers
-            };
-            const apiRes = await apiServer.handle(apiReq);
-            res.statusCode = apiRes.status;
-            for (const [k, v] of Object.entries(apiRes.headers)) {
-              res.setHeader(k, v);
-            }
-            if (!apiRes.headers["content-type"]) {
-              res.setHeader("content-type", "application/json");
-            }
-            res.end(typeof apiRes.body === "string" ? apiRes.body : JSON.stringify(apiRes.body));
-            return true;
-          }
-        });
-        apiServerClose = () => apiServer.close();
-        log.info("API server ready at /soloflow");
-      } catch (e) {
-        log.warn(`API server disabled: ${e}`);
-      }
-    })();
     try {
       api.registerHook("plugin:deactivate", () => {
         log.info("deactivating\u2026");
@@ -14639,7 +14901,6 @@ var index_default = definePluginEntry({
         });
         memorySystem?.close().catch(() => {
         });
-        apiServerClose?.();
         log.info("deactivated");
       });
     } catch (e) {

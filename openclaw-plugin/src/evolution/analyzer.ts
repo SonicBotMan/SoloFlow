@@ -40,6 +40,31 @@ function calculateOverlap(a: string[], b: string[]): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+/** Levenshtein-based edit distance ratio (0 = identical, 1 = completely different) */
+function editDistanceRatio(a: string, b: string): number {
+  if (!a || !b) return 1;
+  const la = a.toLowerCase();
+  const lb = b.toLowerCase();
+  const matrix: number[][] = Array.from({ length: la.length + 1 }, (_, i) =>
+    Array.from({ length: lb.length + 1 }, (_, j) =>
+      i === 0 ? j : j === 0 ? i : 0
+    )
+  );
+  for (let j = 1; j <= lb.length; j++) {
+    for (let i = 1; i <= la.length; i++) {
+    const mI = matrix[i]!;
+      const mI1 = matrix[i - 1]!;
+      const cost = la[i - 1] === lb[j - 1] ? 0 : 1;
+      mI[j] = Math.min(
+        mI1[j]! + 1,
+        mI[j - 1]! + 1,
+        mI1[j - 1]! + cost,
+      );
+    }
+  }
+  return matrix[la.length]![lb.length]! / Math.max(la.length, lb.length);
+}
+
 /** Extract a short key phrase from description (first meaningful noun phrase, max 3 words) */
 function extractKeyPhrase(description: string): string | null {
   if (!description) return null;
@@ -156,8 +181,8 @@ Only extract patterns that are genuinely reusable. Skip one-off workflows unless
 Output ONLY valid JSON (no markdown, no explanation):
 {"workflows": [...], "skills": [...]}`;
 
-    // 4. Call LLM directly via HTTP (no subagent needed)
-    const responseText = await this.callLLM(prompt);
+    // 4. Call LLM with fallback chain (no subagent needed)
+    const responseText = await this.callLLMWithFallback(prompt);
     if (!responseText) {
       return { templates: 0, skills: 0 };
     }
@@ -175,9 +200,10 @@ Output ONLY valid JSON (no markdown, no explanation):
    * Direct HTTP call to LLM API.
    * Reads config from openclaw.json to get baseUrl + apiKey.
    */
-  private async callLLM(prompt: string): Promise<string | null> {
-    const baseUrl = this.getBaseUrl();
-    const apiKey = this.getApiKey();
+  private async callLLM(prompt: string, provider?: { baseUrl: string; apiKey: string; model: string }, timeoutMs?: number): Promise<string | null> {
+    const baseUrl = provider?.baseUrl ?? this.getBaseUrl();
+    const apiKey = provider?.apiKey ?? this.getApiKey();
+    const model = provider?.model ?? this.getModel();
 
     if (!baseUrl || !apiKey) {
       return null;
@@ -191,7 +217,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: this.getModel(),
+          model: model,
           messages: [
             {
               role: "system",
@@ -202,7 +228,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           temperature: 0.3,
           max_tokens: 4096,
         }),
-        signal: AbortSignal.timeout(120_000),
+        signal: AbortSignal.timeout(timeoutMs ?? 120_000),
       });
 
       if (!response.ok) {
@@ -298,6 +324,11 @@ Output ONLY valid JSON (no markdown, no explanation):
     if (parsed.workflows && Array.isArray(parsed.workflows) && filterType !== "skill") {
       for (const wf of parsed.workflows) {
         if (!wf.name) continue;
+        const quality = this.evaluateTemplateQuality(wf, "workflow");
+        if (!quality.pass) {
+          this.api.logger.info(`evolution: skipping low-quality workflow template "${wf.name}" (score=${quality.score.toFixed(2)})`);
+          continue;
+        }
         const template = this.buildTemplate("workflow", wf, now);
         if (!template) continue;
 
@@ -314,6 +345,11 @@ Output ONLY valid JSON (no markdown, no explanation):
     if (parsed.skills && Array.isArray(parsed.skills) && filterType !== "workflow") {
       for (const sk of parsed.skills) {
         if (!sk.name) continue;
+        const quality = this.evaluateTemplateQuality(sk, "skill");
+        if (!quality.pass) {
+          this.api.logger.info(`evolution: skipping low-quality skill pattern "${sk.name}" (score=${quality.score.toFixed(2)})`);
+          continue;
+        }
         const template = this.buildTemplate("skill", sk, now);
         if (!template) continue;
 
@@ -359,7 +395,7 @@ Output ONLY valid JSON (no markdown, no explanation):
       failCount: 0,
       lastUsedAt: null,
       lastIteratedAt: null,
-      qualityScore: 0.5,
+      qualityScore: this.evaluateTemplateQuality(raw, type).score,
       version: 1,
       tags: Array.isArray(raw.tags) ? raw.tags : [],
       createdAt: now,
@@ -391,10 +427,16 @@ Output ONLY valid JSON (no markdown, no explanation):
       for (const ex of existing) {
         const triggerOverlap = calculateOverlap(template.triggers, ex.triggers);
         const toolsOverlap = calculateOverlap(template.tools_required, ex.tools_required);
-        const combinedScore = (triggerOverlap + toolsOverlap) / 2;
+        const nameSimilarity = 1 - editDistanceRatio(template.name, ex.name);
+        // Weighted: triggers 40%, tools 30%, name 30%
+        const combinedScore = 0.4 * triggerOverlap + 0.3 * toolsOverlap + 0.3 * nameSimilarity;
 
-        if (combinedScore >= 0.6) {
-          // Merge: bump version, union triggers/examples
+        if (combinedScore >= 0.8) {
+          // High similarity — merge, preserving best quality score
+          this.evolutionStore.bumpVersion(ex.id, template);
+          return { merged: true };
+        } else if (combinedScore >= 0.6 && ex.name === template.name) {
+          // Moderate similarity with same name — likely same function
           this.evolutionStore.bumpVersion(ex.id, template);
           return { merged: true };
         } else if (ex.name === template.name && combinedScore < 0.6) {
@@ -403,6 +445,7 @@ Output ONLY valid JSON (no markdown, no explanation):
           template.name = `${template.name} (${suffix})`;
           return { merged: false };
         }
+        // combinedScore < 0.6: keep both
       }
     } catch (e) { console.warn(`error: ${e}`);
       // non-critical
@@ -414,19 +457,154 @@ Output ONLY valid JSON (no markdown, no explanation):
   private cleanupLowQualityTemplates(): void {
     try {
       const all = this.evolutionStore.getAll();
-      let cleaned = 0;
+      const now = Date.now();
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      let archived = 0;
+      let downgraded = 0;
       for (const t of all) {
-        if ((t.qualityScore ?? 0.5) < 0.3 && t.useCount >= 3) {
+        const age = now - (t.createdAt ?? now);
+        const quality = t.qualityScore ?? 0.5;
+        const successRate = t.useCount > 0 ? (t.successCount ?? 0) / t.useCount : 0;
+
+        // New template (>7 days old), never used, low quality → archive
+        if (age > sevenDays && t.useCount === 0 && quality < 0.4) {
           this.evolutionStore.delete(t.id);
-          cleaned++;
+          archived++;
+          continue;
+        }
+        // Used templates with very low success rate → downgrade (reduce quality)
+        if (t.useCount >= 3 && successRate < 0.3 && quality > 0.2) {
+          // Mark as downgraded by setting quality to reflect poor success
+          this.evolutionStore.bumpVersion(t.id, {
+            qualityScore: Math.max(0.1, 0.3 * quality + 0.7 * successRate),
+          } as any);
+          downgraded++;
+          continue;
+        }
+        // Legacy: still clean up very old low-quality heavily-used ones
+        if (quality < 0.3 && t.useCount >= 10) {
+          this.evolutionStore.delete(t.id);
+          archived++;
         }
       }
-      if (cleaned > 0) {
-        this.api.logger.info(`evolution cleanup: archived ${cleaned} low-quality template(s)`);
+      if (archived > 0 || downgraded > 0) {
+        this.api.logger.info(`evolution cleanup: archived ${archived}, downgraded ${downgraded} template(s)`);
       }
     } catch (e) { console.warn(`error: ${e}`);
       // non-critical
     }
+  }
+
+  /**
+   * Evaluate template quality from raw LLM output.
+   * Returns { score: 0-1, pass: score >= 0.6 }.
+   */
+  private evaluateTemplateQuality(raw: any, type: "workflow" | "skill"): { score: number; pass: boolean } {
+    let score = 0;
+    let checks = 0;
+
+    // 1. Name check: concise (<= 50 chars)
+    checks++;
+    const name = typeof raw.name === "string" ? raw.name.trim() : "";
+    if (name.length > 0 && name.length <= 50) score += 1;
+    else if (name.length > 50) score += 0.3; // too long but exists
+
+    // 2. Description check: detailed enough (>= 30 chars)
+    checks++;
+    const desc = typeof raw.description === "string" ? raw.description.trim() : "";
+    if (desc.length >= 30) score += 1;
+    else if (desc.length >= 10) score += 0.4;
+
+    // 3. Triggers check: non-empty and meaningful
+    checks++;
+    const triggers = Array.isArray(raw.triggers) ? raw.triggers : [];
+    if (triggers.length >= 2 && triggers.some((t: any) => typeof t === "string" && t.length > 10)) score += 1;
+    else if (triggers.length >= 1) score += 0.4;
+
+    // 4. Steps/pattern check: has actual content
+    checks++;
+    if (type === "workflow") {
+      const steps = Array.isArray(raw.steps) ? raw.steps : [];
+      if (steps.length >= 2 && steps.some((s: any) => typeof s.action === "string" && s.action.length > 10)) score += 1;
+      else if (steps.length >= 1) score += 0.3;
+    } else {
+      const pattern = typeof raw.pattern === "string" ? raw.pattern.trim() : "";
+      if (pattern.length >= 20) score += 1;
+      else if (pattern.length >= 5) score += 0.3;
+    }
+
+    // 5. Examples check: at least one
+    checks++;
+    const examples = Array.isArray(raw.examples) ? raw.examples : [];
+    if (examples.length >= 1 && examples.some((e: any) => e.input && e.expected_output)) score += 1;
+    else if (examples.length >= 1) score += 0.3;
+
+    const normalized = checks > 0 ? score / checks : 0;
+    return { score: Math.round(normalized * 100) / 100, pass: normalized >= 0.6 };
+  }
+
+  /**
+   * LLM call with 3-level fallback chain (MemOS-style degradation).
+   * Level 1: configured evolution model (if any)
+   * Level 2: OpenClaw default model (zai provider)
+   * Level 3: any other configured provider
+   * Each level retries once. Total timeout: 60s.
+   */
+  private async callLLMWithFallback(prompt: string): Promise<string | null> {
+    const providers = this.getProviderConfig();
+    const providerEntries = Object.entries(providers) as [string, any][];
+    const zaiEntry = providerEntries.find(([k]) => k === "zai");
+    const otherEntries = providerEntries.filter(([k]) => k !== "zai");
+
+    // Build fallback chain: zai → others
+    const chain: Array<{ name: string; baseUrl: string; apiKey: string; model: string }> = [];
+    if (zaiEntry) {
+      const [, p] = zaiEntry;
+      chain.push({
+        name: "zai",
+        baseUrl: p.baseUrl,
+        apiKey: p.apiKey,
+        model: p.models?.[0]?.id ?? "glm-5",
+      });
+    }
+    for (const [name, p] of otherEntries) {
+      if (p.baseUrl && p.apiKey) {
+        chain.push({
+          name,
+          baseUrl: p.baseUrl,
+          apiKey: p.apiKey,
+          model: p.models?.[0]?.id ?? "default",
+        });
+      }
+    }
+
+    if (chain.length === 0) {
+      this.api.logger.warn("evolution: no LLM providers configured");
+      return null;
+    }
+
+    const totalDeadline = Date.now() + 60_000;
+
+    for (const provider of chain) {
+ if (Date.now() >= totalDeadline) break;
+      // Try up to 2 attempts per provider
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const timeout = Math.max(5000, totalDeadline - Date.now());
+          const result = await this.callLLM(prompt, provider, timeout);
+          if (result) {
+            this.api.logger.info(`evolution LLM call succeeded via ${provider.name} (attempt ${attempt + 1})`);
+            return result;
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          this.api.logger.warn(`evolution LLM call failed via ${provider.name} (attempt ${attempt + 1}): ${msg}`);
+        }
+      }
+    }
+
+    this.api.logger.warn("evolution: all LLM providers exhausted");
+    return null;
   }
 
   /**

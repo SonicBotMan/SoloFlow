@@ -132,7 +132,11 @@ export class EvolutionStore {
       const useCount = t.useCount + 1;
       const successCount = t.successCount + (success ? 1 : 0);
       const failCount = t.failCount + (success ? 0 : 1);
-      const qualityScore = useCount > 0 ? successCount / useCount : 0.5;
+      // Weighted quality: 30% initial + 50% success rate + 20% usage frequency
+      const initialQuality = t.qualityScore ?? 0.5;
+      const successRate = useCount > 0 ? successCount / useCount : 0;
+      const usageFactor = Math.log(1 + useCount) / Math.log(1 + 10);
+      const qualityScore = 0.3 * initialQuality + 0.5 * successRate + 0.2 * usageFactor;
       this.db.prepare(`
         UPDATE evolved_templates SET
           use_count = ?, success_count = ?, fail_count = ?,
@@ -183,7 +187,7 @@ export class EvolutionStore {
         newVersion,
         updated.description ?? t.description,
         updated.pattern ?? t.pattern ?? null,
-        0.5,
+        Math.max(t.qualityScore ?? 0.5, updated.qualityScore ?? 0.5),
         updated.steps ? JSON.stringify(updated.steps) : (t.steps ? JSON.stringify(t.steps) : null),
         updated.tags ? JSON.stringify(updated.tags) : (t.tags ? JSON.stringify(t.tags) : null),
         now,

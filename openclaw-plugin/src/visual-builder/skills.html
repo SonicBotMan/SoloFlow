@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoloFlow — Skill Viewer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1a1a24;
+      --border: #2a2a3a;
+      --text: #e0e0f0;
+      --text2: #8888aa;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --radius: 10px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+    a { color: var(--accent2); text-decoration: none; }
+
+    /* ── Nav ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand { font-size: 18px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .nav-brand .emoji { font-size: 20px; }
+    .nav-links { display: flex; gap: 8px; }
+    .nav-links a {
+      padding: 6px 14px;
+      border-radius: 6px;
+      color: var(--text2);
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-links a:hover { background: var(--surface2); color: var(--text); }
+    .nav-links a.active { background: var(--accent); color: #fff; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .nav-right .version { font-size: 12px; color: var(--text2); }
+
+    /* ── Layout ── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-card .number { font-size: 32px; font-weight: 700; color: var(--accent2); }
+    .stat-card .label { font-size: 13px; color: var(--text2); margin-top: 4px; }
+    .stat-card .sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    /* ── Search & Filter ── */
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 240px;
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px 10px 40px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text2); font-size: 16px; }
+    .filter-tabs { display: flex; gap: 6px; }
+    .filter-tabs button {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text2);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-tabs button:hover { border-color: var(--accent); color: var(--text); }
+    .filter-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .refresh-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text2);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .refresh-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── Section ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .section-header h2 { font-size: 16px; font-weight: 600; color: var(--text); }
+    .badge { background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+    .divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+    /* ── Template Cards ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .card-header { display: flex; align-items: flex-start; gap: 10px; }
+    .card-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .card-icon.workflow { background: #312e81; }
+    .card-icon.skill { background: #1e3a2f; }
+    .card-icon.exp { background: #3b2a00; }
+    .card-meta { flex: 1; min-width: 0; }
+    .card-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-type { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+    .card-desc { font-size: 13px; color: var(--text2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--surface2);
+      color: var(--text2);
+      border: 1px solid var(--border);
+    }
+    .card-stats { display: flex; gap: 16px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+    .card-stat { display: flex; flex-direction: column; gap: 2px; }
+    .card-stat .val { font-size: 14px; font-weight: 600; }
+    .card-stat .lbl { font-size: 11px; color: var(--text2); }
+    .score-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+    .score-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+    /* ── Detail Panel ── */
+    .detail-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .detail-overlay.open { opacity: 1; pointer-events: all; }
+    .detail-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 720px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 28px;
+      transform: translateY(20px);
+      transition: transform 0.2s;
+    }
+    .detail-overlay.open .detail-panel { transform: translateY(0); }
+    .detail-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+    .detail-close {
+      margin-left: auto;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .detail-close:hover { color: var(--text); border-color: var(--text2); }
+    .detail-name { font-size: 20px; font-weight: 700; }
+    .detail-type { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .detail-section { margin-bottom: 20px; }
+    .detail-section h3 { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .detail-stat { background: var(--surface2); border-radius: 8px; padding: 12px; text-align: center; }
+    .detail-stat .v { font-size: 22px; font-weight: 700; }
+    .detail-stat .l { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .detail-desc { font-size: 14px; color: var(--text2); line-height: 1.6; background: var(--surface2); border-radius: 8px; padding: 12px; }
+    .detail-triggers { display: flex; flex-wrap: wrap; gap: 6px; }
+    .detail-triggers .tag { background: #1e1b4b; border-color: #3730a3; color: #a5b4fc; }
+    .detail-steps { background: var(--surface2); border-radius: 8px; overflow: hidden; }
+    .step-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .step-row:last-child { border-bottom: none; }
+    .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .step-name { flex: 1; font-weight: 500; }
+    .step-discipline { font-size: 11px; color: var(--text2); background: var(--surface); border-radius: 4px; padding: 2px 6px; }
+    .detail-meta { font-size: 12px; color: var(--text2); display: flex; gap: 16px; flex-wrap: wrap; }
+    .detail-meta span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── Empty state ── */
+    .empty {
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--text2);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+    .empty p { font-size: 14px; max-width: 400px; margin: 0 auto; }
+
+    /* ── Loading ── */
+    .loading { text-align: center; padding: 48px; color: var(--text2); }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 14px;
+      z-index: 300;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { border-color: var(--red); color: var(--red); }
+    .toast.success { border-color: var(--green); color: var(--green); }
+
+    /* ── Top templates ── */
+    .top-list { display: flex; flex-direction: column; gap: 8px; }
+    .top-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .top-item:hover { border-color: var(--accent); }
+    .top-rank { font-size: 13px; font-weight: 700; color: var(--accent2); width: 24px; text-align: center; }
+    .top-info { flex: 1; min-width: 0; }
+    .top-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top-meta { font-size: 11px; color: var(--text2); }
+    .top-score { font-size: 14px; font-weight: 700; color: var(--green); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <span class="emoji">⚡</span>
+    SoloFlow
+  </div>
+  <div class="nav-links">
+    <a href="/soloflow/builder">Visual Builder</a>
+    <a href="/soloflow/skills" class="active">Skill Viewer</a>
+  </div>
+  <div class="nav-right">
+    <span class="version">v0.8</span>
+  </div>
+</nav>
+
+<div class="container">
+  <!-- Stats Bar -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card"><div class="number" id="statTotal">—</div><div class="label">Total Evolved</div></div>
+    <div class="stat-card"><div class="number" id="statWorkflows">—</div><div class="label">Workflow Templates</div></div>
+    <div class="stat-card"><div class="number" id="statSkills">—</div><div class="label">Skill Patterns</div></div>
+    <div class="stat-card"><div class="number" id="statUses">—</div><div class="label">Total Uses</div></div>
+    <div class="stat-card"><div class="number" id="statRate">—</div><div class="label">Success Rate</div></div>
+  </div>
+
+  <!-- Search & Filter -->
+  <div class="toolbar">
+    <div class="search-box">
+      <span class="icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="Search templates by name, description, or tags…" />
+    </div>
+    <div class="filter-tabs">
+      <button class="active" data-filter="all">All</button>
+      <button data-filter="workflow">Workflow</button>
+      <button data-filter="skill">Skill</button>
+    </div>
+    <button class="refresh-btn" id="refreshBtn">↻ Refresh</button>
+  </div>
+
+  <!-- Top Templates -->
+  <div id="topSection" style="display:none">
+    <div class="section-header">
+      <h2>🔥 Top Used</h2>
+    </div>
+    <div class="top-list" id="topList"></div>
+    <div class="divider"></div>
+  </div>
+
+  <!-- All Templates -->
+  <div class="section-header">
+    <h2>📦 All Evolved Templates</h2>
+    <span class="badge" id="countBadge">0</span>
+  </div>
+  <div id="cards" class="cards">
+    <div class="loading"><div class="spinner"></div>Loading…</div>
+  </div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-panel" id="detailPanel"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/soloflow';
+let allTemplates = [];
+let currentFilter = 'all';
+let currentQuery = '';
+
+function scoreColor(s) {
+  if (s >= 0.8) return '#22c55e';
+  if (s >= 0.5) return '#eab308';
+  return '#ef4444';
+}
+function scoreLabel(s) {
+  return Math.round(s * 100) + '%';
+}
+
+async function fetchJSON(url) {
+  const r = await fetch(API + url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function openDetail(t) {
+  const panel = document.getElementById('detailPanel');
+  const score = t.qualityScore ?? 0;
+  const rate = t.useCount > 0 ? Math.round((t.successCount / t.useCount) * 100) : 0;
+  const typeLabel = t.type === 'workflow' ? 'Workflow Template' : t.type === 'skill' ? 'Skill Pattern' : 'Template';
+  const iconClass = t.type === 'workflow' ? 'workflow' : t.type === 'skill' ? 'skill' : 'exp';
+  const iconEmoji = t.type === 'workflow' ? '⚙️' : t.type === 'skill' ? '🧠' : '📦';
+
+  let stepsHTML = '';
+  if (t.steps && t.steps.length > 0) {
+    stepsHTML = `<div class="detail-section">
+      <h3>Steps (${t.steps.length})</h3>
+      <div class="detail-steps">
+        ${t.steps.map((s, i) => `
+          <div class="step-row">
+            <div class="step-num">${i + 1}</div>
+            <div class="step-name">${s.name || s.id}</div>
+            <div class="step-discipline">${s.discipline}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  } else if (t.pattern) {
+    stepsHTML = `<div class="detail-section">
+      <h3>Pattern</h3>
+      <div class="detail-desc" style="white-space:pre-wrap;font-family:monospace;font-size:12px">${t.pattern}</div>
+    </div>`;
+  }
+
+  const triggersHTML = t.triggers && t.triggers.length > 0
+    ? `<div class="detail-section">
+        <h3>Triggers</h3>
+        <div class="detail-triggers">${t.triggers.map(tr => `<span class="tag">${tr}</span>`).join('')}</div>
+      </div>`
+    : '';
+
+  const tagsHTML = t.tags && t.tags.length > 0
+    ? `<div class="detail-section">
+        <h3>Tags</h3>
+        <div class="detail-tags" style="display:flex;flex-wrap:wrap;gap:6px">${t.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</div>
+      </div>`
+    : '';
+
+  const toolsHTML = (t.tools_required && t.tools_required.length > 0)
+    ? `<div class="detail-section">
+        <h3>Required Tools</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${t.tools_required.map(tool => `<span class="tag">${tool}</span>`).join('')}</div>
+      </div>`
+    : '';
+
+  const metaParts = [
+    t.version ? `v${t.version}` : null,
+    t.estimated_steps ? `${t.estimated_steps} steps` : null,
+    t.estimated_duration ? t.estimated_duration : null,
+    t.scope && t.scope !== 'general' ? `Scope: ${t.scope}` : null,
+  ].filter(Boolean);
+
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div class="card-icon ${iconClass}">${iconEmoji}</div>
+      <div>
+        <div class="detail-name">${t.name}</div>
+        <div class="detail-type">${typeLabel}</div>
+      </div>
+      <button class="detail-close" onclick="closeDetail()">✕ Close</button>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-stat"><div class="v" style="color:${scoreColor(score)}">${scoreLabel(score)}</div><div class="l">Quality</div></div>
+      <div class="detail-stat"><div class="v">${t.useCount}</div><div class="l">Uses</div></div>
+      <div class="detail-stat"><div class="v" style="color:${scoreColor(rate/100)}">${rate}%</div><div class="l">Success</div></div>
+    </div>
+
+    ${t.description ? `<div class="detail-section"><h3>Description</h3><div class="detail-desc">${t.description}</div></div>` : ''}
+    ${triggersHTML}
+    ${tagsHTML}
+    ${toolsHTML}
+    ${stepsHTML}
+    ${metaParts.length > 0 ? `<div class="detail-meta">${metaParts.map(m => `<span>• ${m}</span>`).join('')}</div>` : ''}
+
+    ${t.sources && t.sources.length > 0 ? `<div class="detail-section" style="margin-top:16px">
+      <h3>Sources (${t.sources.length})</h3>
+      <div style="font-size:12px;color:var(--text2)">${t.sources.map(s => `<div style="margin-bottom:4px;font-family:monospace">${s}</div>`).join('')}</div>
+    </div>` : ''}
+  `;
+
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+
+document.getElementById('detailOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('detailOverlay')) closeDetail();
+});
+
+function renderCards(templates) {
+  const container = document.getElementById('cards');
+  document.getElementById('countBadge').textContent = templates.length;
+
+  if (templates.length === 0) {
+    container.innerHTML = `<div class="empty">
+      <div class="empty-icon">🧠</div>
+      <h3>No templates yet</h3>
+      <p>Run some workflows and SoloFlow will automatically evolve templates from your execution history.</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = templates.map(t => {
+    const score = t.qualityScore ?? 0;
+    const rate = t.useCount > 0 ? Math.round((t.successCount / t.useCount) * 100) : 0;
+    const iconClass = t.type === 'workflow' ? 'workflow' : t.type === 'skill' ? 'skill' : 'exp';
+    const iconEmoji = t.type === 'workflow' ? '⚙️' : t.type === 'skill' ? '🧠' : '📦';
+    const tags = (t.tags || []).slice(0, 4);
+
+    return `<div class="card" onclick="openDetail(${encodeURIComponent(JSON.stringify(t))})">
+      <div class="card-header">
+        <div class="card-icon ${iconClass}">${iconEmoji}</div>
+        <div class="card-meta">
+          <div class="card-name">${t.name}</div>
+          <div class="card-type">${t.type || 'template'}</div>
+        </div>
+      </div>
+      ${t.description ? `<div class="card-desc">${t.description}</div>` : ''}
+      ${tags.length > 0 ? `<div class="card-tags">${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</div>` : ''}
+      <div>
+        <div class="card-stats">
+          <div class="card-stat"><div class="val" style="color:${scoreColor(score)}">${scoreLabel(score)}</div><div class="lbl">Quality</div></div>
+          <div class="card-stat"><div class="val">${t.useCount}</div><div class="lbl">Uses</div></div>
+          <div class="card-stat"><div class="val" style="color:${scoreColor(rate/100)}">${rate}%</div><div class="lbl">Success</div></div>
+          ${t.version ? `<div class="card-stat"><div class="val">v${t.version}</div><div class="lbl">Version</div></div>` : ''}
+        </div>
+        <div class="score-bar">
+          <div class="score-fill" style="width:${Math.round(score * 100)}%;background:${scoreColor(score)}"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterAndRender() {
+  let filtered = allTemplates;
+  if (currentFilter !== 'all') {
+    filtered = filtered.filter(t => t.type === currentFilter);
+  }
+  if (currentQuery) {
+    const q = currentQuery.toLowerCase();
+    filtered = filtered.filter(t =>
+      (t.name || '').toLowerCase().includes(q) ||
+      (t.description || '').toLowerCase().includes(q) ||
+      (t.tags || []).some(tag => tag.toLowerCase().includes(q)) ||
+      (t.triggers || []).some(tr => tr.toLowerCase().includes(q))
+    );
+  }
+  renderCards(filtered);
+}
+
+async function load() {
+  try {
+    // Load stats
+    try {
+      const stats = await fetchJSON('/evolved/stats');
+      document.getElementById('statTotal').textContent = stats.total ?? 0;
+      document.getElementById('statWorkflows').textContent = stats.workflows ?? 0;
+      document.getElementById('statSkills').textContent = stats.skills ?? 0;
+      document.getElementById('statUses').textContent = stats.totalUses ?? 0;
+      const rate = stats.avgSuccessRate ?? 0;
+      document.getElementById('statRate').textContent = Math.round(rate * 100) + '%';
+
+      // Top templates
+      if (stats.topTemplates && stats.topTemplates.length > 0) {
+        document.getElementById('topSection').style.display = 'block';
+        document.getElementById('topList').innerHTML = stats.topTemplates.map((t, i) => `
+          <div class="top-item" onclick="openDetail(${encodeURIComponent(JSON.stringify(allTemplates.find(x => x.id === t.id) || t))})">
+            <div class="top-rank">#${i + 1}</div>
+            <div class="top-info">
+              <div class="top-name">${t.name}</div>
+              <div class="top-meta">${t.type} · ${t.useCount} uses</div>
+            </div>
+            <div class="top-score">${Math.round((t.qualityScore ?? 0) * 100)}%</div>
+          </div>
+        `).join('');
+      }
+    } catch (e) { console.warn('stats error:', e); }
+
+    // Load all templates
+    const data = await fetchJSON('/evolved');
+    allTemplates = data.data || [];
+    filterAndRender();
+  } catch (e) {
+    document.getElementById('cards').innerHTML = `<div class="empty">
+      <div class="empty-icon">⚠️</div>
+      <h3>Failed to load</h3>
+      <p>${e.message}</p>
+    </div>`;
+    showToast('Failed to load data: ' + e.message, 'error');
+  }
+}
+
+// Event listeners
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  currentQuery = e.target.value;
+  filterAndRender();
+});
+
+document.querySelectorAll('.filter-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    filterAndRender();
+  });
+});
+
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  document.getElementById('topSection').style.display = 'none';
+  load();
+  showToast('Refreshing…');
+});
+
+// Close detail on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+
+// Load on start
+load();
+</script>
+</body>
+</html>

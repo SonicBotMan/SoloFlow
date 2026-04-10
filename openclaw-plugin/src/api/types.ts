@@ -164,4 +164,6 @@ export interface ApiServices {
   workflowService: import("../services/workflow-service.js").WorkflowService;
   scheduler: import("../services/scheduler.js").Scheduler;
   templateRegistry: import("../services/template-registry.js").TemplateRegistry;
+  evolutionStore: import("../evolution/evolution-store.js").EvolutionStore;
+  skillInventory: any;
 }

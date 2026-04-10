@@ -12,6 +12,7 @@ import { WebSocketServer } from "./websocket.js";
 import { createWorkflowRoutes } from "./routes/workflows.js";
 import { createExecutionRoutes } from "./routes/executions.js";
 import { createTemplateRoutes } from "./routes/templates.js";
+import { createEvolvedRoutes } from "./routes/evolved.js";
 import {
   createCompositeAuthMiddleware,
   createJwtAuthMiddleware,
@@ -41,8 +42,9 @@ export function createApiServer(services: ApiServices, config?: ApiServerConfig)
   const wfRoutes = createWorkflowRoutes(services, services.templateRegistry);
   const exRoutes = createExecutionRoutes(services);
   const tplRoutes = createTemplateRoutes(services.templateRegistry);
+  const evoRoutes = createEvolvedRoutes(services.evolutionStore, services.skillInventory);
 
-  registerRoutes(router, { wfRoutes, exRoutes, tplRoutes });
+  registerRoutes(router, { wfRoutes, exRoutes, tplRoutes, evoRoutes });
 
   if (config?.requireAuth !== false && (config?.jwt || config?.apiKeys)) {
     if (config.jwt && config.apiKeys) {
@@ -79,6 +81,7 @@ function registerRoutes(
     wfRoutes: ReturnType<typeof createWorkflowRoutes>;
     exRoutes: ReturnType<typeof createExecutionRoutes>;
     tplRoutes: ReturnType<typeof createTemplateRoutes>;
+    evoRoutes: ReturnType<typeof createEvolvedRoutes>;
   },
 ): void {
   router.get("/workflows", routes.wfRoutes.list);
@@ -96,6 +99,17 @@ function registerRoutes(
   router.get("/templates", routes.tplRoutes.list);
   router.post("/templates", routes.tplRoutes.create);
   router.get("/templates/:id", routes.tplRoutes.get);
+
+  // Evolved templates & skills
+  router.get("/evolved", routes.evoRoutes.listEvolved);
+  router.get("/evolved/stats", routes.evoRoutes.evolveStats);
+  router.get("/evolved/search", routes.evoRoutes.searchEvolved);
+  router.get("/evolved/:id", routes.evoRoutes.getEvolved);
+  router.delete("/evolved/:id", routes.evoRoutes.deleteEvolved);
+  router.post("/evolved/:id/record-usage", routes.evoRoutes.recordUsage);
+
+  router.get("/skills", routes.evoRoutes.listSkills);
+  router.get("/skills/search", routes.evoRoutes.searchSkills);
 }
 
 function errorHandlingMiddleware(): import("./types.js").Middleware {
