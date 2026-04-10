@@ -13108,23 +13108,32 @@ function detectCycle(dag) {
   const WHITE = 0, GRAY = 1, BLACK = 2;
   const color = /* @__PURE__ */ new Map();
   for (const id of dag.nodes.keys()) color.set(id, WHITE);
-  const path4 = [];
+  const stack = [];
   function dfs(id) {
     color.set(id, GRAY);
-    path4.push(id);
+    stack.push(id);
     const node = dag.nodes.get(id);
     if (node) {
       for (const dep of node.dependencies) {
-        if (color.get(dep) === GRAY) return true;
-        if (color.get(dep) === WHITE && dfs(dep)) return true;
+        if (color.get(dep) === GRAY) {
+          const cycleStart = stack.indexOf(dep);
+          return [...stack.slice(cycleStart), dep];
+        }
+        if (color.get(dep) === WHITE) {
+          const result = dfs(dep);
+          if (result) return result;
+        }
       }
     }
     color.set(id, BLACK);
-    path4.pop();
-    return false;
+    stack.pop();
+    return null;
   }
   for (const id of dag.nodes.keys()) {
-    if (color.get(id) === WHITE && dfs(id)) return path4;
+    if (color.get(id) === WHITE) {
+      const result = dfs(id);
+      if (result) return result;
+    }
   }
   return null;
 }

@@ -79,25 +79,35 @@ export function detectCycle(dag: DAG): StepId[] | null {
   const color = new Map<StepId, number>();
   for (const id of dag.nodes.keys()) color.set(id, WHITE);
 
-  const path: StepId[] = [];
+  const stack: StepId[] = [];
 
-  function dfs(id: StepId): boolean {
+  function dfs(id: StepId): StepId[] | null {
     color.set(id, GRAY);
-    path.push(id);
+    stack.push(id);
     const node = dag.nodes.get(id);
     if (node) {
       for (const dep of node.dependencies) {
-        if (color.get(dep) === GRAY) return true;
-        if (color.get(dep) === WHITE && dfs(dep)) return true;
+        if (color.get(dep) === GRAY) {
+          // Found cycle: extract only the cycle portion from stack
+          const cycleStart = stack.indexOf(dep);
+          return [...stack.slice(cycleStart), dep];
+        }
+        if (color.get(dep) === WHITE) {
+          const result = dfs(dep);
+          if (result) return result;
+        }
       }
     }
     color.set(id, BLACK);
-    path.pop();
-    return false;
+    stack.pop();
+    return null;
   }
 
   for (const id of dag.nodes.keys()) {
-    if (color.get(id) === WHITE && dfs(id)) return path;
+    if (color.get(id) === WHITE) {
+      const result = dfs(id);
+      if (result) return result;
+    }
   }
   return null;
 }
