@@ -77,11 +77,12 @@ export function createJwtAuthMiddleware(options: JwtAuthOptions): Middleware {
         return jsonError(401, "Unauthorized", "Invalid JWT signature");
       }
 
-      const payload = JSON.parse(base64UrlDecode(payloadB64)) as {
-        sub?: string;
-        exp?: number;
-        scopes?: string[];
-      };
+      let payload: { sub?: string; exp?: number; scopes?: string[] };
+      try {
+        payload = JSON.parse(base64UrlDecode(payloadB64));
+      } catch (e) {
+        return jsonError(401, "Unauthorized", "Malformed JWT payload");
+      }
 
       if (payload.exp !== undefined && payload.exp < Date.now() / 1000) {
         return jsonError(401, "Unauthorized", "JWT token expired");

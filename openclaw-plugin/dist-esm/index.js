@@ -10801,24 +10801,32 @@ var init_evolution_store = __esm({
       constructor(db) {
         this.db = db;
       }
+      safeParse(raw, fallback) {
+        if (!raw) return fallback;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return fallback;
+        }
+      }
       rowToTemplate(row) {
         return {
           id: row.id,
           type: row.type,
           name: row.name,
           description: row.description,
-          triggers: row.triggers ? JSON.parse(row.triggers) : [],
+          triggers: this.safeParse(row.triggers, []),
           scope: row.scope ?? "general",
-          prerequisites: row.prerequisites ? JSON.parse(row.prerequisites) : [],
-          tools_required: row.tools_required ? JSON.parse(row.tools_required) : [],
-          tools_optional: row.tools_optional ? JSON.parse(row.tools_optional) : [],
-          disciplines_used: row.disciplines_used ? JSON.parse(row.disciplines_used) : [],
+          prerequisites: this.safeParse(row.prerequisites, []),
+          tools_required: this.safeParse(row.tools_required, []),
+          tools_optional: this.safeParse(row.tools_optional, []),
+          disciplines_used: this.safeParse(row.disciplines_used, []),
           estimated_steps: row.estimated_steps ?? 0,
           estimated_duration: row.estimated_duration ?? "",
-          examples: row.examples ? JSON.parse(row.examples) : [],
-          steps: row.steps ? JSON.parse(row.steps) : void 0,
+          examples: this.safeParse(row.examples, []),
+          steps: this.safeParse(row.steps, void 0),
           pattern: row.pattern ?? void 0,
-          sources: JSON.parse(row.sources),
+          sources: this.safeParse(row.sources, []),
           useCount: row.use_count,
           successCount: row.success_count,
           failCount: row.fail_count,
@@ -10826,7 +10834,7 @@ var init_evolution_store = __esm({
           lastIteratedAt: row.last_iterated_at,
           qualityScore: row.quality_score,
           version: row.version,
-          tags: JSON.parse(row.tags),
+          tags: this.safeParse(row.tags, []),
           createdAt: row.created_at,
           updatedAt: row.updated_at
         };
@@ -10999,6 +11007,7 @@ var analyzer_exports = {};
 __export(analyzer_exports, {
   EvolutionAnalyzer: () => EvolutionAnalyzer
 });
+import { randomUUID } from "node:crypto";
 function calculateOverlap(a, b) {
   if (a.length === 0 && b.length === 0) return 0;
   const setA = new Set(a.map((s) => s.toLowerCase()));
@@ -11215,7 +11224,6 @@ Output ONLY valid JSON (no markdown, no explanation):
           }
           if (typeof config !== "object" || config === null) config = {};
           _EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
-          _EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
         } catch (e) {
           console.warn(`error: ${e}`);
           _EvolutionAnalyzer.providerConfig = {};
@@ -11327,7 +11335,7 @@ Output ONLY valid JSON (no markdown, no explanation):
       buildTemplate(type, raw, now2) {
         const prefix = type === "workflow" ? "wf_evo" : "sk_evo";
         const template = {
-          id: `${prefix}_${now2.toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+          id: `${prefix}_${now2.toString(36)}_${randomUUID()}`,
           type,
           name: raw.name,
           description: raw.description ?? "",
@@ -11788,13 +11796,21 @@ var init_skill_inventory = __esm({
         }
         return Array.from(combinations.entries()).filter(([, count]) => count >= 2).map(([pair, count]) => ({ skills: pair.split("+"), count })).sort((a, b) => b.count - a.count);
       }
+      safeParseArray(raw) {
+        if (!raw) return [];
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return [];
+        }
+      }
       getAll() {
         return this.db.prepare("SELECT * FROM skills_inventory ORDER BY name").all().map((r) => ({
           ...r,
-          triggers: JSON.parse(r.triggers || "[]"),
-          tools: JSON.parse(r.tools || "[]"),
-          examples: JSON.parse(r.examples || "[]"),
-          tags: JSON.parse(r.tags || "[]")
+          triggers: this.safeParseArray(r.triggers),
+          tools: this.safeParseArray(r.tools),
+          examples: this.safeParseArray(r.examples),
+          tags: this.safeParseArray(r.tags)
         }));
       }
     };
@@ -12050,7 +12066,13 @@ var init_mcp_inventory = __esm({
           name: r.name,
           description: r.description,
           location: r.location,
-          tools: JSON.parse(r.tools || "[]"),
+          tools: (() => {
+            try {
+              return JSON.parse(r.tools || "[]");
+            } catch {
+              return [];
+            }
+          })(),
           enabled: !!r.enabled,
           lastSeenAt: r.last_seen_at,
           discoveredAt: r.discovered_at
@@ -12810,7 +12832,12 @@ function createJwtAuthMiddleware(options) {
       if (!valid) {
         return jsonError(401, "Unauthorized", "Invalid JWT signature");
       }
-      const payload = JSON.parse(base64UrlDecode(payloadB64));
+      let payload;
+      try {
+        payload = JSON.parse(base64UrlDecode(payloadB64));
+      } catch (e) {
+        return jsonError(401, "Unauthorized", "Malformed JWT payload");
+      }
       if (payload.exp !== void 0 && payload.exp < Date.now() / 1e3) {
         return jsonError(401, "Unauthorized", "JWT token expired");
       }

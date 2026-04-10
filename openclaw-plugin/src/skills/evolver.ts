@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { AgentDiscipline, OpenClawApi } from "../types.js";
 import type { Skill, SkillScore, SkillStep, TaskPattern } from "./types.js";
 
@@ -11,7 +12,7 @@ const MAX_COMPLEXITY_STEPS = 10;
 const MAX_USAGE_FOR_SCORE = 10;
 
 function generateId(): string {
-  return `skill-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `skill-${Date.now().toString(36)}-${randomUUID()}`;
 }
 
 export class SkillEvolver {

@@ -4,6 +4,7 @@
  * Uses direct HTTP to configured LLM API (no subagent dependency).
  */
 
+import { randomUUID } from "node:crypto";
 import type { EvolvedTemplate } from "./types.js";
 import type { OpenClawPluginApi } from "../../types/openclaw/plugin-sdk/plugin-entry.js";
 
@@ -266,7 +267,6 @@ Output ONLY valid JSON (no markdown, no explanation):
       }
       if (typeof config !== "object" || config === null) config = {};
       EvolutionAnalyzer.providerConfig = (config as Record<string, unknown>).models?.providers ?? {};
-      EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
     } catch (e) { console.warn(`error: ${e}`);
       EvolutionAnalyzer.providerConfig = {};
     }
@@ -385,7 +385,7 @@ Output ONLY valid JSON (no markdown, no explanation):
   private buildTemplate(type: "workflow" | "skill", raw: any, now: number): EvolvedTemplate | null {
     const prefix = type === "workflow" ? "wf_evo" : "sk_evo";
     const template: EvolvedTemplate = {
-      id: `${prefix}_${now.toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `${prefix}_${now.toString(36)}_${randomUUID()}`,
       type,
       name: raw.name,
       description: raw.description ?? "",

@@ -12,6 +12,7 @@ import type {
   WorkflowStep,
   WorkflowTemplate,
 } from "../types.js";
+import { randomUUID } from "node:crypto";
 import { routeToDiscipline, DISCIPLINE_CONFIGS } from "../agents/discipline.js";
 
 // ─── Configuration ────────────────────────────────────────────────────
@@ -660,7 +661,7 @@ function extractSubTasks(text: string): string[] {
 }
 
 function generateId(): string {
-  return `plan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return `plan_${Date.now().toString(36)}_${randomUUID()}`;
 }
 
 function clamp01(n: number): number {

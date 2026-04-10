@@ -205,14 +205,20 @@ export class SkillInventory {
       .sort((a, b) => b.count - a.count);
   }
 
+  private safeParseArray(raw: string | null): string[] {
+    if (!raw) return [];
+    try { return JSON.parse(raw); }
+    catch { return []; }
+  }
+
   getAll(): any[] {
     return (this.db.prepare("SELECT * FROM skills_inventory ORDER BY name").all() as any[])
       .map((r: any) => ({
         ...r,
-        triggers: JSON.parse(r.triggers || "[]"),
-        tools: JSON.parse(r.tools || "[]"),
-        examples: JSON.parse(r.examples || "[]"),
-        tags: JSON.parse(r.tags || "[]"),
+        triggers: this.safeParseArray(r.triggers),
+        tools: this.safeParseArray(r.tools),
+        examples: this.safeParseArray(r.examples),
+        tags: this.safeParseArray(r.tags),
       }));
   }
 }
