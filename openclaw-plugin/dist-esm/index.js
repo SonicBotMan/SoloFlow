@@ -1340,6 +1340,9 @@ var init_bridge = __esm({
 });
 
 // src/memory/unified-retriever.ts
+function normalize2(input) {
+  return input.toLowerCase().trim().replace(/\s+/g, " ");
+}
 var UnifiedRetriever;
 var init_unified_retriever = __esm({
   "src/memory/unified-retriever.ts"() {
@@ -1427,8 +1430,141 @@ var init_unified_retriever = __esm({
           if (!candidate) continue;
           results.push({ tier: candidate.tier, entry: candidate.entry, score: rrfScore });
         }
-        results.sort((a, b) => b.score - a.score);
-        return results.slice(0, limit);
+        const now2 = Date.now();
+        for (const r of results) {
+          const createdAt = r.entry.createdAt ?? r.entry.timestamp ?? now2;
+          r.score = this.timeDecay(r.score, createdAt);
+        }
+        const diversified = this.maximalMarginalRelevance(results, 0.7, limit);
+        return diversified;
+      }
+      /**
+       * Search workflow templates by keyword matching.
+       * Uses RRF fusion + MMR reranking.
+       */
+      searchTemplates(query, templates, limit = 10) {
+        if (templates.length === 0) return [];
+        const queryTokens = new Set(normalize2(query).split(/[^\w\u4e00-\u9fff]+/).filter((t) => t.length >= 2));
+        if (queryTokens.size === 0) return [];
+        const fieldGroups = [];
+        const nameScores = [];
+        const descScores = [];
+        const triggerScores = [];
+        const tagScores = [];
+        for (let i = 0; i < templates.length; i++) {
+          const t = templates[i];
+          const nameTokens = normalize2(t.name).split(/[^\w\u4e00-\u9fff]+/);
+          const nameHits = nameTokens.filter((tk) => queryTokens.has(tk)).length;
+          const nameScore = nameTokens.length > 0 ? nameHits / nameTokens.length : 0;
+          nameScores.push({ idx: i, score: nameScore });
+          if (t.description) {
+            const descTokens = normalize2(t.description).split(/[^\w\u4e00-\u9fff]+/);
+            const descHits = descTokens.filter((tk) => queryTokens.has(tk)).length;
+            const descScore = descTokens.length > 0 ? descHits / descTokens.length : 0;
+            descScores.push({ idx: i, score: descScore });
+          }
+          if (t.triggers?.length) {
+            let bestTriggerScore = 0;
+            for (const tr of t.triggers) {
+              const trTokens = normalize2(tr).split(/[^\w\u4e00-\u9fff]+/);
+              const trHits = trTokens.filter((tk) => queryTokens.has(tk)).length;
+              bestTriggerScore = Math.max(bestTriggerScore, trTokens.length > 0 ? trHits / trTokens.length : 0);
+            }
+            triggerScores.push({ idx: i, score: bestTriggerScore });
+          }
+          if (t.tags?.length) {
+            const tagTokens = t.tags.flatMap((tag) => normalize2(tag).split(/[^\w\u4e00-\u9fff]+/));
+            const tagHits = tagTokens.filter((tk) => queryTokens.has(tk)).length;
+            const tagScore = tagTokens.length > 0 ? tagHits / tagTokens.length : 0;
+            tagScores.push({ idx: i, score: tagScore });
+          }
+        }
+        fieldGroups.push(nameScores, descScores, triggerScores, tagScores);
+        const rrfScores = /* @__PURE__ */ new Map();
+        for (const group of fieldGroups) {
+          const ranked = [...group].sort((a, b) => b.score - a.score);
+          for (let rank = 0; rank < ranked.length; rank++) {
+            const { idx } = ranked[rank];
+            const rrf = 1 / (this.config.rrfK + rank + 1);
+            rrfScores.set(idx, (rrfScores.get(idx) ?? 0) + rrf);
+          }
+        }
+        const candidates = [];
+        for (const [idx, score] of rrfScores) {
+          if (score === 0) continue;
+          candidates.push({
+            tier: "semantic",
+            entry: { ...templates[idx], _templateIdx: idx },
+            score
+          });
+        }
+        const diversified = this.maximalMarginalRelevance(candidates, 0.7, limit);
+        return diversified.map((r) => {
+          const idx = r.entry._templateIdx;
+          return {
+            template: templates[idx],
+            score: r.score
+          };
+        });
+      }
+      /**
+       * Apply time decay to a score.
+       * Recent results retain high weight; 14-day-old results drop to ~0.3x.
+       */
+      timeDecay(score, createdAtMs, halfLifeDays = 14) {
+        const ageMs = Date.now() - createdAtMs;
+        const ageDays = ageMs / (24 * 60 * 60 * 1e3);
+        if (ageDays < 0) return score;
+        return score * (0.3 + 0.7 * Math.pow(0.5, ageDays / halfLifeDays));
+      }
+      /**
+       * Maximal Marginal Relevance — rerank for diversity.
+       * Greedily selects candidates maximizing: rel - (1-λ) * max_sim_to_selected.
+       * Similarity approximated by id prefix or tier match.
+       */
+      maximalMarginalRelevance(candidates, lambda = 0.7, limit) {
+        if (candidates.length <= limit) return [...candidates];
+        const selected = [];
+        const remaining = [...candidates];
+        remaining.sort((a, b) => b.score - a.score);
+        selected.push(remaining.shift());
+        while (selected.length < limit && remaining.length > 0) {
+          let bestIdx = 0;
+          let bestMmr = -Infinity;
+          for (let i = 0; i < remaining.length; i++) {
+            const c = remaining[i];
+            const rel = c.score;
+            let maxSim = 0;
+            for (const s of selected) {
+              const sim = this.candidateSimilarity(c, s);
+              if (sim > maxSim) maxSim = sim;
+            }
+            const mmr = rel - (1 - lambda) * maxSim;
+            if (mmr > bestMmr) {
+              bestMmr = mmr;
+              bestIdx = i;
+            }
+          }
+          selected.push(remaining.splice(bestIdx, 1)[0]);
+        }
+        return selected;
+      }
+      /** Approximate similarity between two candidates (no vectors available). */
+      candidateSimilarity(a, b) {
+        if (a.tier === b.tier) {
+          const idA = a.entry.id ?? "";
+          const idB = b.entry.id ?? "";
+          const prefixLen = this.commonPrefixLength(idA, idB);
+          if (prefixLen > 3) return 0.8;
+          return 0.3;
+        }
+        return 0;
+      }
+      commonPrefixLength(a, b) {
+        let len = 0;
+        const max = Math.min(a.length, b.length);
+        while (len < max && a[len] === b[len]) len++;
+        return len;
       }
       reciprocalRankFusion(candidates) {
         const { rrfK } = this.config;
@@ -11701,14 +11837,14 @@ var init_skill_analyzer = __esm({
             const wordsB = new Set(b.description.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
             const overlap = [...wordsA].filter((w) => wordsB.has(w)).length;
             const union = (/* @__PURE__ */ new Set([...wordsA, ...wordsB])).size;
-            const jaccard = union > 0 ? overlap / union : 0;
-            if (jaccard >= 0.5) {
+            const jaccard2 = union > 0 ? overlap / union : 0;
+            if (jaccard2 >= 0.5) {
               insights.push({
                 type: "redundancy",
                 skillA: a.id,
                 skillB: b.id,
-                confidence: jaccard,
-                description: `Skills "${a.name}" and "${b.name}" have overlapping descriptions (${(jaccard * 100).toFixed(0)}% similarity)`,
+                confidence: jaccard2,
+                description: `Skills "${a.name}" and "${b.name}" have overlapping descriptions (${(jaccard2 * 100).toFixed(0)}% similarity)`,
                 recommendation: `Review if these skills serve distinct purposes or could be merged`
               });
             }
@@ -13559,13 +13695,281 @@ var TemplateRegistry = class {
 };
 
 // src/index.ts
+import path3 from "node:path";
+import { fileURLToPath } from "node:url";
+import os2 from "node:os";
+
+// src/skills/task-detector.ts
+var TWO_HOURS_MS = 2 * 60 * 60 * 1e3;
+var MIN_PATTERN_OCCURRENCES = 2;
+var JACCARD_THRESHOLD = 0.5;
+function normalize(input) {
+  return input.toLowerCase().trim().replace(/\s+/g, " ");
+}
+function stepSignature(name, discipline) {
+  return `${discipline}:${normalize(name)}`;
+}
+function configKeys(config) {
+  return Object.keys(config).sort();
+}
+function jaccard(a, b) {
+  const setA = new Set(a);
+  const setB = new Set(b);
+  let intersection = 0;
+  for (const item of setA) {
+    if (setB.has(item)) intersection++;
+  }
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+function extractKeywords(text) {
+  return normalize(text).split(/[^\w\u4e00-\u9fff]+/).filter((t) => t.length >= 2);
+}
+var TOOL_CALL_RE = /(\w+)\s*\(/g;
+var TaskDetector = class {
+  taskHistory = [];
+  detectTasks(workflow) {
+    if (workflow.state !== "completed") return null;
+    const steps = Array.from(workflow.steps.values());
+    if (steps.length === 0) return null;
+    const completedSteps = steps.filter((s) => s.state === "completed");
+    if (completedSteps.length === 0) return null;
+    const durationMs = completedSteps.reduce((sum, s) => {
+      const stepDuration = s.completedAt && s.startedAt ? s.completedAt - s.startedAt : 0;
+      return sum + stepDuration;
+    }, 0);
+    if (durationMs > TWO_HOURS_MS) return null;
+    const detectedSteps = completedSteps.map((s) => ({
+      name: s.name,
+      discipline: s.discipline,
+      config: s.config,
+      signature: stepSignature(s.name, s.discipline),
+      completedAt: s.completedAt
+    }));
+    const signatureSequence = detectedSteps.map((s) => s.signature).join("|");
+    const task = {
+      workflowId: workflow.id,
+      workflowName: workflow.name,
+      steps: detectedSteps,
+      signatureSequence,
+      durationMs,
+      completedAt: workflow.updatedAt
+    };
+    this.taskHistory.push(task);
+    return task;
+  }
+  /**
+   * Detect task patterns from completed workflows.
+   * Now supports fuzzy matching via Jaccard similarity.
+   */
+  findPatterns(taskHistory) {
+    const history = taskHistory ?? this.taskHistory;
+    if (history.length < MIN_PATTERN_OCCURRENCES) return [];
+    const groups = /* @__PURE__ */ new Map();
+    for (const task of history) {
+      const existing = groups.get(task.signatureSequence);
+      if (existing) {
+        existing.push(task);
+      } else {
+        groups.set(task.signatureSequence, [task]);
+      }
+    }
+    const patterns = [];
+    for (const [signature, tasks] of groups) {
+      if (tasks.length < MIN_PATTERN_OCCURRENCES) continue;
+      const reference = tasks[0];
+      const stepSignatures = signature.split("|");
+      const disciplines = reference.steps.map((s) => s.discipline);
+      const paramTemplates = reference.steps.map((s) => {
+        const keys = configKeys(s.config);
+        const template = {};
+        for (const key of keys) {
+          template[key] = typeof s.config[key];
+        }
+        return template;
+      });
+      const nameCounts = /* @__PURE__ */ new Map();
+      for (const t of tasks) {
+        nameCounts.set(t.workflowName, (nameCounts.get(t.workflowName) ?? 0) + 1);
+      }
+      let bestName = "";
+      let bestCount = 0;
+      for (const [name, count] of nameCounts) {
+        if (count > bestCount) {
+          bestName = name;
+          bestCount = count;
+        }
+      }
+      const suggestedSteps = reference.steps.map((s) => ({
+        name: s.name,
+        discipline: s.discipline
+      }));
+      patterns.push({
+        id: `pattern-${signature.replace(/[^a-z0-9]/g, "-")}`,
+        stepSignatures,
+        paramTemplates,
+        occurrenceCount: tasks.length,
+        lastSeen: Math.max(...tasks.map((t) => t.completedAt)),
+        workflowIds: tasks.map((t) => t.workflowId),
+        disciplines,
+        confidence: 1,
+        suggestedWorkflowName: bestName,
+        suggestedSteps
+      });
+    }
+    const merged = [];
+    const assigned = /* @__PURE__ */ new Set();
+    for (let i = 0; i < patterns.length; i++) {
+      if (assigned.has(i)) continue;
+      assigned.add(i);
+      let group = [patterns[i]];
+      for (let j = i + 1; j < patterns.length; j++) {
+        if (assigned.has(j)) continue;
+        const sigA = patterns[i].stepSignatures;
+        const sigB = patterns[j].stepSignatures;
+        const sim = jaccard(sigA, sigB);
+        if (sim >= JACCARD_THRESHOLD) {
+          group.push(patterns[j]);
+          assigned.add(j);
+        }
+      }
+      if (group.length > 1) {
+        const totalOcc = group.reduce((s, p) => s + p.occurrenceCount, 0);
+        const primary = group.sort((a, b) => b.occurrenceCount - a.occurrenceCount)[0];
+        primary.confidence = Math.max(...group.map((p) => jaccard(
+          p.stepSignatures,
+          primary.stepSignatures
+        )));
+        primary.occurrenceCount = totalOcc;
+        primary.workflowIds = group.flatMap((p) => p.workflowIds);
+        primary.lastSeen = Math.max(...group.map((p) => p.lastSeen));
+      }
+      merged.push(group[0]);
+    }
+    return merged.sort((a, b) => b.occurrenceCount - a.occurrenceCount);
+  }
+  /**
+   * Detect tasks from conversation history.
+   * Splits messages into task segments by 2-hour timeout,
+   * then extracts keywords, tools used, and topics per segment.
+   */
+  detectFromConversation(messages) {
+    if (messages.length === 0) return [];
+    const now2 = Date.now();
+    const base = messages[0].timestamp ?? now2;
+    const withTs = messages.map((m, i) => ({
+      ...m,
+      ts: m.timestamp ?? base + i * 6e4
+    }));
+    const segments = [];
+    let current = [withTs[0]];
+    for (let i = 1; i < withTs.length; i++) {
+      const prev = withTs[i - 1];
+      const curr = withTs[i];
+      if (curr.ts - prev.ts > TWO_HOURS_MS) {
+        segments.push(current);
+        current = [];
+      }
+      current.push({ role: curr.role, content: curr.content, timestamp: curr.ts });
+    }
+    segments.push(current);
+    return segments.map((seg, idx) => {
+      const allText = seg.map((m) => m.content).join(" ");
+      const keywords = extractKeywords(allText);
+      const tools = /* @__PURE__ */ new Set();
+      for (const m of seg) {
+        if (m.role === "assistant") {
+          let match;
+          const re = new RegExp(TOOL_CALL_RE.source, "g");
+          while ((match = re.exec(m.content)) !== null) {
+            tools.add(match[1].toLowerCase());
+          }
+        }
+      }
+      const freq = /* @__PURE__ */ new Map();
+      for (const kw of keywords) {
+        freq.set(kw, (freq.get(kw) ?? 0) + 1);
+      }
+      const topics = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([w]) => w);
+      return {
+        id: `conv-task-${idx}-${seg[0].timestamp ?? now2}`,
+        keywords,
+        tools: [...tools],
+        topics,
+        startTime: seg[0].timestamp ?? now2,
+        endTime: seg[seg.length - 1].timestamp ?? now2,
+        messageCount: seg.length
+      };
+    });
+  }
+  /**
+   * Recommend a workflow template based on the current user message.
+   * Returns the best matching template ID + confidence, or null.
+   */
+  recommendWorkflow(userMessage, templates) {
+    const msgTokens = extractKeywords(userMessage);
+    if (msgTokens.length === 0) return null;
+    const patterns = this.findPatterns();
+    let bestPattern = null;
+    let bestPatternScore = 0;
+    for (const p of patterns) {
+      const patternTokens = p.stepSignatures.flatMap((s) => extractKeywords(s));
+      const sim = jaccard(msgTokens, patternTokens);
+      if (sim > bestPatternScore) {
+        bestPatternScore = sim;
+        bestPattern = p;
+      }
+    }
+    if (templates && templates.length > 0) {
+      let bestTemplateId = "";
+      let bestTemplateScore = 0;
+      let bestTemplateKeywords = [];
+      for (const t of templates) {
+        const tTokens = [
+          ...extractKeywords(t.name),
+          ...extractKeywords(t.description),
+          ...t.triggers?.flatMap((tr) => extractKeywords(tr)) ?? [],
+          ...t.tags?.flatMap((tag) => extractKeywords(tag)) ?? []
+        ];
+        const sim = jaccard(msgTokens, tTokens);
+        if (sim > bestTemplateScore) {
+          bestTemplateScore = sim;
+          bestTemplateId = t.id;
+          bestTemplateKeywords = msgTokens.filter((tk) => tTokens.includes(tk));
+        }
+      }
+      if (bestTemplateScore >= JACCARD_THRESHOLD) {
+        return {
+          templateId: bestTemplateId,
+          confidence: bestTemplateScore,
+          matchedKeywords: bestTemplateKeywords
+        };
+      }
+    }
+    if (bestPattern && bestPatternScore >= JACCARD_THRESHOLD) {
+      return {
+        templateId: bestPattern.id,
+        confidence: bestPatternScore,
+        matchedKeywords: msgTokens.filter(
+          (tk) => bestPattern.stepSignatures.some((s) => s.includes(tk))
+        )
+      };
+    }
+    return null;
+  }
+  getHistory() {
+    return this.taskHistory;
+  }
+  clearHistory() {
+    this.taskHistory = [];
+  }
+};
+
+// src/index.ts
 init_hooks();
 init_discipline();
 init_memory();
 init_vector();
-import path3 from "node:path";
-import { fileURLToPath } from "node:url";
-import os2 from "node:os";
 
 // src/visual/yaml-sync.ts
 var import_yaml = __toESM(require_dist(), 1);
@@ -14095,6 +14499,53 @@ var index_default = definePluginEntry({
         }
       } catch (e) {
         log.warn(`SQLite + memory system disabled: ${e}`);
+      }
+      try {
+        const taskDetector = new TaskDetector();
+        const _getStore = () => evolutionStore;
+        api.registerHook("before_prompt_build", async (event, ctx) => {
+          const store = _getStore();
+          if (!store) return;
+          const trigger = ctx?.trigger;
+          if (trigger && trigger !== "user") return;
+          const prompt = event?.prompt ?? "";
+          if (!prompt || prompt.length < 3) return;
+          if (prompt.includes("soloflow_create") || prompt.includes("soloflow_start") || prompt.includes("soloflow_templates") || prompt.includes("soloflow_status")) {
+            return;
+          }
+          const templates = store.search("", void 0, 30);
+          const templateList = templates.map((t) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            triggers: t.triggers ?? [],
+            tags: t.tags ?? []
+          }));
+          const recommendation = taskDetector.recommendWorkflow(prompt, templateList);
+          if (recommendation && recommendation.confidence >= 0.7) {
+            const matched = templates.find((t) => t.id === recommendation.templateId);
+            if (matched) {
+              const keywords = recommendation.matchedKeywords?.join(", ") ?? "";
+              return {
+                prependContext: [
+                  `
+[SoloFlow Workflow Match]`,
+                  `Detected potential workflow match (confidence: ${(recommendation.confidence * 100).toFixed(0)}%, keywords: ${keywords}):`,
+                  `- **${matched.name}** (${matched.type}): ${matched.description}`,
+                  `- Template ID: ${matched.id}`,
+                  `- Quality: ${(matched.qualityScore ?? 0.5).toFixed(2)}, Steps: ${matched.steps?.length ?? "?"}`,
+                  `Consider asking the user if they want to run this workflow via soloflow_start.`,
+                  `[SoloFlow End]
+`
+                ].join("\n")
+              };
+            }
+          }
+          return void 0;
+        });
+        log.info("auto workflow recommendation hook registered");
+      } catch (e) {
+        log.debug?.(`workflow recommendation hook failed: ${e}`);
       }
       try {
         const { createApiServer: createApiServer2 } = await Promise.resolve().then(() => (init_api(), api_exports));
