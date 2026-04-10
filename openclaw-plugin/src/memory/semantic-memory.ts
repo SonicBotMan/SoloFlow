@@ -78,7 +78,7 @@ export class SemanticMemory {
     }
 
     const entry: SemanticEntry = {
-      id: `sm_${this.namespace}_${now}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `sm_${this.namespace}_${now}_${crypto.randomUUID()}`,
       namespace: this.namespace,
       key,
       value,
@@ -266,7 +266,9 @@ export class SemanticMemory {
         entry,
         score: entry.retrievability,
       }));
-    } catch (e) { console.warn(`error: ${e}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`SemanticMemory: adapter query failed, falling back to local: ${msg}`);
       return this.queryLocal(query);
     }
   }
@@ -275,8 +277,9 @@ export class SemanticMemory {
     if (!this.adapter?.connected) return;
     try {
       await this.adapter.storeSemantic(entry);
-    } catch (e) { console.warn(`error: ${e}`);
-      // adapter write failure — local copy is still valid
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`SemanticMemory: adapter store failed for "${entry.key}" (non-critical, local copy valid): ${msg}`);
     }
   }
 

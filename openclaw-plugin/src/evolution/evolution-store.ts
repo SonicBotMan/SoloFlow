@@ -15,24 +15,30 @@ export class EvolutionStore {
     // No migrate() here — schema is managed by runMigrations() in migrations.ts
   }
 
+  private safeParse<T>(raw: string | null, fallback: T): T {
+    if (!raw) return fallback;
+    try { return JSON.parse(raw); }
+    catch { return fallback; }
+  }
+
   private rowToTemplate(row: any): EvolvedTemplate {
     return {
       id: row.id,
       type: row.type as TemplateType,
       name: row.name,
       description: row.description,
-      triggers: row.triggers ? JSON.parse(row.triggers) : [],
+      triggers: this.safeParse(row.triggers, [] as string[]),
       scope: row.scope ?? "general",
-      prerequisites: row.prerequisites ? JSON.parse(row.prerequisites) : [],
-      tools_required: row.tools_required ? JSON.parse(row.tools_required) : [],
-      tools_optional: row.tools_optional ? JSON.parse(row.tools_optional) : [],
-      disciplines_used: row.disciplines_used ? JSON.parse(row.disciplines_used) : [],
+      prerequisites: this.safeParse(row.prerequisites, [] as string[]),
+      tools_required: this.safeParse(row.tools_required, [] as string[]),
+      tools_optional: this.safeParse(row.tools_optional, [] as string[]),
+      disciplines_used: this.safeParse(row.disciplines_used, [] as string[]),
       estimated_steps: row.estimated_steps ?? 0,
       estimated_duration: row.estimated_duration ?? "",
-      examples: row.examples ? JSON.parse(row.examples) : [],
-      steps: row.steps ? JSON.parse(row.steps) : undefined,
+      examples: this.safeParse(row.examples, [] as string[]),
+      steps: this.safeParse(row.steps, undefined as string[] | undefined),
       pattern: row.pattern ?? undefined,
-      sources: JSON.parse(row.sources),
+      sources: this.safeParse(row.sources, [] as string[]),
       useCount: row.use_count,
       successCount: row.success_count,
       failCount: row.fail_count,
@@ -40,7 +46,7 @@ export class EvolutionStore {
       lastIteratedAt: row.last_iterated_at,
       qualityScore: row.quality_score,
       version: row.version,
-      tags: JSON.parse(row.tags),
+      tags: this.safeParse(row.tags, [] as string[]),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

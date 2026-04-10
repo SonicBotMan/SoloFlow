@@ -12,6 +12,14 @@ function asWorkflowId(s: string): WorkflowId {
   return s as unknown as WorkflowId;
 }
 
+function checkOwnership(workflow: import("../../types.js").Workflow, userId: string | undefined): void {
+  // Legacy workflows (no ownerId) and anonymous users skip ownership check
+  if (!workflow.ownerId || !userId) return;
+  if (workflow.ownerId !== userId) {
+    throw new HttpError(403, "You do not have permission to modify this workflow");
+  }
+}
+
 function serializeWorkflow(workflow: import("../../types.js").Workflow) {
   const steps = Array.from(workflow.steps.values()).map((s) => ({
     id: s.id,
@@ -30,6 +38,7 @@ function serializeWorkflow(workflow: import("../../types.js").Workflow) {
     id: workflow.id,
     name: workflow.name,
     description: workflow.description,
+    ownerId: workflow.ownerId,
     steps,
     state: workflow.state,
     currentSteps: workflow.currentSteps,
@@ -86,6 +95,7 @@ export function createWorkflowRoutes(services: ApiServices, _templates: Template
         id: crypto.randomUUID() as unknown as WorkflowId,
         name: body.name,
         description: body.description ?? "",
+        ownerId: req.user?.id,
         steps: new Map(steps.map((s) => [s.id, s])),
         dag: {
           nodes: new Map(),
@@ -118,6 +128,7 @@ export function createWorkflowRoutes(services: ApiServices, _templates: Template
       if (!workflow) {
         throw new HttpError(404, `Workflow not found: ${String(id)}`);
       }
+      checkOwnership(workflow, req.user?.id);
 
       const body = req.body as UpdateWorkflowBody;
       if (body.name !== undefined) workflow.name = body.name;
@@ -130,6 +141,11 @@ export function createWorkflowRoutes(services: ApiServices, _templates: Template
 
     async delete_(req: ApiRequest): Promise<ApiResponse> {
       const id = asWorkflowId(req.params["id"] ?? "");
+      const workflow = services.workflowService.get(id);
+      if (!workflow) {
+        throw new HttpError(404, `Workflow not found: ${String(id)}`);
+      }
+      checkOwnership(workflow, req.user?.id);
       try {
         services.workflowService.delete(id);
       } catch (e) { console.warn(`error: ${e}`);
@@ -140,24 +156,34 @@ export function createWorkflowRoutes(services: ApiServices, _templates: Template
 
     async start(req: ApiRequest): Promise<ApiResponse> {
       const id = asWorkflowId(req.params["id"] ?? "");
+      const workflow = services.workflowService.get(id);
+      if (!workflow) {
+        throw new HttpError(404, `Workflow not found: ${String(id)}`);
+      }
+      checkOwnership(workflow, req.user?.id);
       try {
         services.workflowService.start(id);
       } catch (err) {
         throw new HttpError(409, err instanceof Error ? err.message : "Cannot start workflow");
       }
-      const workflow = services.workflowService.get(id);
-      return jsonResponse(200, { state: workflow?.state, id: String(id) });
+      const updated = services.workflowService.get(id);
+      return jsonResponse(200, { state: updated?.state, id: String(id) });
     },
 
     async cancel(req: ApiRequest): Promise<ApiResponse> {
       const id = asWorkflowId(req.params["id"] ?? "");
+      const workflow = services.workflowService.get(id);
+      if (!workflow) {
+        throw new HttpError(404, `Workflow not found: ${String(id)}`);
+      }
+      checkOwnership(workflow, req.user?.id);
       try {
         services.workflowService.cancel(id, true);
       } catch (err) {
         throw new HttpError(409, err instanceof Error ? err.message : "Cannot cancel workflow");
       }
-      const workflow = services.workflowService.get(id);
-      return jsonResponse(200, { state: workflow?.state, id: String(id) });
+      const updated = services.workflowService.get(id);
+      return jsonResponse(200, { state: updated?.state, id: String(id) });
     },
   };
 }

@@ -115,6 +115,7 @@ export interface Workflow {
   id: WorkflowId;
   name: string;
   description: string;
+  ownerId?: string;  // undefined = legacy/no auth
   steps: Map<StepId, WorkflowStep>;
   dag: DAG;
   state: WorkflowState;

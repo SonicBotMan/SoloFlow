@@ -167,7 +167,7 @@ export class MCPInventory {
         name: r.name,
         description: r.description,
         location: r.location,
-        tools: JSON.parse(r.tools || "[]"),
+        tools: (() => { try { return JSON.parse(r.tools || "[]"); } catch { return []; } })(),
         enabled: !!r.enabled,
         lastSeenAt: r.last_seen_at,
         discoveredAt: r.discovered_at,
