@@ -43,11 +43,21 @@ export class WebSocketServer {
 
     this.sendTo(ws.id, { type: "pong" });
 
+    // Shared cleanup logic for both主动关闭 and异常断开
+    const cleanup = () => {
+      this.removeAllSubscriptions(ws.id);
+      this.connections.delete(ws.id);
+    };
+
+    // 监听异常断开（网络故障、服务器崩溃等）
+    ws.addEventListener("close", cleanup);
+    ws.addEventListener("error", cleanup);
+
+    // 重写主动关闭
     ws.close = ws.close.bind(ws);
     const originalClose = ws.close;
     ws.close = () => {
-      this.removeAllSubscriptions(ws.id);
-      this.connections.delete(ws.id);
+      cleanup();
       originalClose();
     };
   }

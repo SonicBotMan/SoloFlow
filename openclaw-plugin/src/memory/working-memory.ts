@@ -45,7 +45,7 @@ export class WorkingMemory {
     this.evictIfNeeded();
 
     const entry: WorkingEntry = {
-      id: `wm_${this.namespace}_${now}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `wm_${this.namespace}_${now}_${crypto.randomUUID()}`,
       namespace: this.namespace,
       key,
       value,

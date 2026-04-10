@@ -43,6 +43,7 @@ __export(discipline_exports, {
   DISCIPLINE_CONFIGS: () => DISCIPLINE_CONFIGS,
   DisciplineAgent: () => DisciplineAgent,
   allAgents: () => allAgents,
+  clearAgentCache: () => clearAgentCache,
   getAgent: () => getAgent,
   routeToDiscipline: () => routeToDiscipline
 });
@@ -110,6 +111,9 @@ function getAgent(discipline) {
   }
   return agent;
 }
+function clearAgentCache() {
+  agentCache.clear();
+}
 function allAgents() {
   const map = /* @__PURE__ */ new Map();
   for (const d of ["deep", "quick", "visual", "ultrabrain"]) {
@@ -117,7 +121,7 @@ function allAgents() {
   }
   return map;
 }
-var DISCIPLINE_CONFIGS, KEYWORD_MAP, DisciplineAgent, agentCache;
+var DISCIPLINE_CONFIGS, KEYWORD_MAP, DisciplineAgent, LRUAgentCache, agentCache;
 var init_discipline = __esm({
   "src/agents/discipline.ts"() {
     "use strict";
@@ -271,7 +275,34 @@ var init_discipline = __esm({
         }
       }
     };
-    agentCache = /* @__PURE__ */ new Map();
+    LRUAgentCache = class {
+      constructor(maxSize = 20) {
+        this.maxSize = maxSize;
+      }
+      maxSize;
+      cache = /* @__PURE__ */ new Map();
+      get(discipline) {
+        const agent = this.cache.get(discipline);
+        if (agent !== void 0) {
+          this.cache.delete(discipline);
+          this.cache.set(discipline, agent);
+        }
+        return agent;
+      }
+      set(discipline, agent) {
+        if (this.cache.has(discipline)) {
+          this.cache.delete(discipline);
+        } else if (this.cache.size >= this.maxSize) {
+          const firstKey = this.cache.keys().next().value;
+          if (firstKey !== void 0) this.cache.delete(firstKey);
+        }
+        this.cache.set(discipline, agent);
+      }
+      clear() {
+        this.cache.clear();
+      }
+    };
+    agentCache = new LRUAgentCache(20);
   }
 });
 
@@ -594,7 +625,7 @@ var init_working_memory = __esm({
         }
         this.evictIfNeeded();
         const entry = {
-          id: `wm_${this.namespace}_${now2}_${Math.random().toString(36).slice(2, 8)}`,
+          id: `wm_${this.namespace}_${now2}_${crypto.randomUUID()}`,
           namespace: this.namespace,
           key,
           value,
@@ -698,12 +729,10 @@ var init_episodic_memory = __esm({
         this.compressionThresholdMs = compressionThresholdMs;
       }
       storeExecution(workflow) {
-        for (const [key, entry2] of this.store) {
-          if (entry2.workflowId === workflow.id) {
-            this.store.delete(key);
-            break;
-          }
-        }
+        const existingKey = Array.from(this.store.keys()).find(
+          (key) => this.store.get(key)?.workflowId === workflow.id
+        );
+        if (existingKey) this.store.delete(existingKey);
         if (this.deletePersistCallback) {
           try {
             this.deletePersistCallback(workflow.id);
@@ -721,7 +750,7 @@ var init_episodic_memory = __esm({
           success: step2.state === "completed"
         }));
         const entry = {
-          id: `ep_${this.namespace}_${now2}_${Math.random().toString(36).slice(2, 8)}`,
+          id: `ep_${this.namespace}_${now2}_${crypto.randomUUID()}`,
           namespace: this.namespace,
           workflowId: workflow.id,
           workflowName: workflow.name,
@@ -910,8 +939,9 @@ var init_episodic_memory = __esm({
       }
       evictIfNeeded() {
         while (this.store.size > this.capacity) {
+          const entries = Array.from(this.store.values());
           let oldestCompressed;
-          for (const entry of this.store.values()) {
+          for (const entry of entries) {
             if (entry.compressed) {
               if (!oldestCompressed || entry.createdAt < oldestCompressed.createdAt) {
                 oldestCompressed = entry;
@@ -922,7 +952,7 @@ var init_episodic_memory = __esm({
             this.store.delete(oldestCompressed.id);
           } else {
             let oldest;
-            for (const entry of this.store.values()) {
+            for (const entry of entries) {
               if (!oldest || entry.createdAt < oldest.createdAt) {
                 oldest = entry;
               }
@@ -1003,7 +1033,7 @@ var init_semantic_memory = __esm({
           return updated;
         }
         const entry = {
-          id: `sm_${this.namespace}_${now2}_${Math.random().toString(36).slice(2, 8)}`,
+          id: `sm_${this.namespace}_${now2}_${crypto.randomUUID()}`,
           namespace: this.namespace,
           key,
           value,
@@ -1163,7 +1193,8 @@ var init_semantic_memory = __esm({
             score: entry.retrievability
           }));
         } catch (e) {
-          console.warn(`error: ${e}`);
+          const msg = e instanceof Error ? e.message : String(e);
+          console.warn(`SemanticMemory: adapter query failed, falling back to local: ${msg}`);
           return this.queryLocal(query);
         }
       }
@@ -1172,7 +1203,8 @@ var init_semantic_memory = __esm({
         try {
           await this.adapter.storeSemantic(entry);
         } catch (e) {
-          console.warn(`error: ${e}`);
+          const msg = e instanceof Error ? e.message : String(e);
+          console.warn(`SemanticMemory: adapter store failed for "${entry.key}" (non-critical, local copy valid): ${msg}`);
         }
       }
       findByKey(key) {
@@ -10708,12 +10740,18 @@ var init_sqlite_store = __esm({
           condensedResults: row.condensed_results ?? void 0
         }));
       }
+      /** Escape SQLite FTS special characters in user query to prevent injection or syntax errors. */
+      escapeFTSQuery(query) {
+        return query.replace(/[\\"()]/g, " ").replace(/\b(AND|OR|NOT)\b/gi, " ").replace(/[*]/g, " ").replace(/\s+/g, " ").trim() || "";
+      }
       /** Search episodic memory via FTS5 full-text search. Returns entry IDs. */
       searchEpisodicFTS(query, limit = 20) {
         try {
+          const escaped = this.escapeFTSQuery(query);
+          if (!escaped) return [];
           return this.db.prepare(
             "SELECT rowid FROM episodic_fts WHERE episodic_fts MATCH ? ORDER BY rank LIMIT ?"
-          ).all(query, limit).map((r) => r.rowid);
+          ).all(escaped, limit).map((r) => r.rowid);
         } catch (e) {
           console.warn(`error: ${e}`);
           return [];
@@ -11167,7 +11205,16 @@ Output ONLY valid JSON (no markdown, no explanation):
           const os3 = __require("node:os");
           const configPath = path4.join(os3.homedir(), ".openclaw", "openclaw.json");
           const raw = fs3.readFileSync(configPath, "utf-8");
-          const config = JSON.parse(raw);
+          let config;
+          try {
+            config = JSON.parse(raw);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.warn(`EvolutionAnalyzer: failed to parse ${configPath}: ${msg}`);
+            config = {};
+          }
+          if (typeof config !== "object" || config === null) config = {};
+          _EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
           _EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
         } catch (e) {
           console.warn(`error: ${e}`);
@@ -12163,11 +12210,16 @@ var init_websocket = __esm({
       handleConnection(ws) {
         this.connections.set(ws.id, ws);
         this.sendTo(ws.id, { type: "pong" });
+        const cleanup = () => {
+          this.removeAllSubscriptions(ws.id);
+          this.connections.delete(ws.id);
+        };
+        ws.addEventListener("close", cleanup);
+        ws.addEventListener("error", cleanup);
         ws.close = ws.close.bind(ws);
         const originalClose = ws.close;
         ws.close = () => {
-          this.removeAllSubscriptions(ws.id);
-          this.connections.delete(ws.id);
+          cleanup();
           originalClose();
         };
       }
@@ -12264,6 +12316,12 @@ function asStepId(s) {
 function asWorkflowId(s) {
   return s;
 }
+function checkOwnership(workflow, userId) {
+  if (!workflow.ownerId || !userId) return;
+  if (workflow.ownerId !== userId) {
+    throw new HttpError(403, "You do not have permission to modify this workflow");
+  }
+}
 function serializeWorkflow(workflow) {
   const steps = Array.from(workflow.steps.values()).map((s) => ({
     id: s.id,
@@ -12281,6 +12339,7 @@ function serializeWorkflow(workflow) {
     id: workflow.id,
     name: workflow.name,
     description: workflow.description,
+    ownerId: workflow.ownerId,
     steps,
     state: workflow.state,
     currentSteps: workflow.currentSteps,
@@ -12329,6 +12388,7 @@ function createWorkflowRoutes(services, _templates) {
         id: crypto.randomUUID(),
         name: body.name,
         description: body.description ?? "",
+        ownerId: req.user?.id,
         steps: new Map(steps.map((s) => [s.id, s])),
         dag: {
           nodes: /* @__PURE__ */ new Map(),
@@ -12358,6 +12418,7 @@ function createWorkflowRoutes(services, _templates) {
       if (!workflow) {
         throw new HttpError(404, `Workflow not found: ${String(id)}`);
       }
+      checkOwnership(workflow, req.user?.id);
       const body = req.body;
       if (body.name !== void 0) workflow.name = body.name;
       if (body.description !== void 0) workflow.description = body.description;
@@ -12367,6 +12428,11 @@ function createWorkflowRoutes(services, _templates) {
     },
     async delete_(req) {
       const id = asWorkflowId(req.params["id"] ?? "");
+      const workflow = services.workflowService.get(id);
+      if (!workflow) {
+        throw new HttpError(404, `Workflow not found: ${String(id)}`);
+      }
+      checkOwnership(workflow, req.user?.id);
       try {
         services.workflowService.delete(id);
       } catch (e) {
@@ -12377,23 +12443,33 @@ function createWorkflowRoutes(services, _templates) {
     },
     async start(req) {
       const id = asWorkflowId(req.params["id"] ?? "");
+      const workflow = services.workflowService.get(id);
+      if (!workflow) {
+        throw new HttpError(404, `Workflow not found: ${String(id)}`);
+      }
+      checkOwnership(workflow, req.user?.id);
       try {
         services.workflowService.start(id);
       } catch (err) {
         throw new HttpError(409, err instanceof Error ? err.message : "Cannot start workflow");
       }
-      const workflow = services.workflowService.get(id);
-      return jsonResponse(200, { state: workflow?.state, id: String(id) });
+      const updated = services.workflowService.get(id);
+      return jsonResponse(200, { state: updated?.state, id: String(id) });
     },
     async cancel(req) {
       const id = asWorkflowId(req.params["id"] ?? "");
+      const workflow = services.workflowService.get(id);
+      if (!workflow) {
+        throw new HttpError(404, `Workflow not found: ${String(id)}`);
+      }
+      checkOwnership(workflow, req.user?.id);
       try {
         services.workflowService.cancel(id, true);
       } catch (err) {
         throw new HttpError(409, err instanceof Error ? err.message : "Cannot cancel workflow");
       }
-      const workflow = services.workflowService.get(id);
-      return jsonResponse(200, { state: workflow?.state, id: String(id) });
+      const updated = services.workflowService.get(id);
+      return jsonResponse(200, { state: updated?.state, id: String(id) });
     }
   };
 }
@@ -12685,6 +12761,7 @@ var init_evolved = __esm({
 });
 
 // src/api/middleware/auth.ts
+import { createHash } from "node:crypto";
 function base64UrlDecode(s) {
   const padded = s.replace(/-/g, "+").replace(/_/g, "/");
   const pad = 4 - padded.length % 4;
@@ -12705,9 +12782,15 @@ async function hmacSign(payload, secret, algo) {
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
   return base64UrlEncode(String.fromCharCode(...new Uint8Array(sig)));
 }
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 async function hmacVerify(payload, signature, secret, algo) {
   const expected = await hmacSign(payload, secret, algo);
-  return expected === signature;
+  return timingSafeEqual(expected, signature);
 }
 function createJwtAuthMiddleware(options) {
   const algo = options.algorithm ?? "HS256";
@@ -12754,7 +12837,7 @@ function createApiKeyAuthMiddleware(options) {
       return jsonError(401, "Unauthorized", "Invalid API key");
     }
     req.user = {
-      id: `api-key:${key.slice(0, 8)}`,
+      id: `api-key:${createHash("sha256").update(key).digest("hex").slice(0, 16)}`,
       scopes: ["read", "write"],
       type: "api-key"
     };
@@ -12953,18 +13036,33 @@ function buildDAG(steps) {
       edges.push({ from: dep, to: step2.id });
     }
   }
-  const visited = /* @__PURE__ */ new Set();
-  const layers = [];
-  function visit(id, depth) {
-    if (visited.has(id)) return;
-    visited.add(id);
-    const node = nodes.get(id);
-    if (!node) return;
-    for (const dep of node.dependencies) visit(dep, depth + 1);
-    (layers[depth] ??= []).push(id);
+  const cycle = detectCycle({ nodes, edges, layers: [] });
+  if (cycle) {
+    throw new Error(`Circular dependency: ${cycle.join(" \u2192 ")}`);
   }
-  for (const id of nodes.keys()) visit(id, 0);
-  return { nodes, edges, layers: layers.filter(Boolean) };
+  const inDegree = /* @__PURE__ */ new Map();
+  for (const id of nodes.keys()) inDegree.set(id, 0);
+  for (const [, node] of nodes) {
+    inDegree.set(node.id, node.dependencies.length);
+  }
+  const layers = [];
+  const remaining = new Map(inDegree);
+  let queue = Array.from(remaining.entries()).filter(([, d]) => d === 0).map(([id]) => id);
+  while (queue.length > 0) {
+    layers.push([...queue]);
+    const nextQueue = [];
+    for (const id of queue) {
+      for (const [otherId, otherNode] of nodes) {
+        if (otherNode.dependencies.includes(id)) {
+          const newDeg = (remaining.get(otherId) ?? 0) - 1;
+          remaining.set(otherId, newDeg);
+          if (newDeg === 0) nextQueue.push(otherId);
+        }
+      }
+    }
+    queue = nextQueue;
+  }
+  return { nodes, edges, layers };
 }
 function topologicalSort(dag) {
   return dag.layers.flat();
@@ -12978,6 +13076,30 @@ function getReadySteps(dag, completed, running) {
     }
   }
   return ready;
+}
+function detectCycle(dag) {
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = /* @__PURE__ */ new Map();
+  for (const id of dag.nodes.keys()) color.set(id, WHITE);
+  const path4 = [];
+  function dfs(id) {
+    color.set(id, GRAY);
+    path4.push(id);
+    const node = dag.nodes.get(id);
+    if (node) {
+      for (const dep of node.dependencies) {
+        if (color.get(dep) === GRAY) return true;
+        if (color.get(dep) === WHITE && dfs(dep)) return true;
+      }
+    }
+    color.set(id, BLACK);
+    path4.pop();
+    return false;
+  }
+  for (const id of dag.nodes.keys()) {
+    if (color.get(id) === WHITE && dfs(id)) return path4;
+  }
+  return null;
 }
 
 // src/services/workflow-service.ts
@@ -13110,8 +13232,8 @@ var WorkflowService = class {
     const workflow = this.getOrThrow(id);
     if (workflow.state === "idle") {
       this.transition(id, "queued");
-    }
-    if (workflow.state === "queued") {
+      this.transition(id, "running");
+    } else if (workflow.state === "queued") {
       this.transition(id, "running");
     } else if (workflow.state !== "running") {
       throw new InvalidTransitionError(id, workflow.state, "running");
@@ -13211,7 +13333,7 @@ var Semaphore = class {
     return new Promise((resolve) => this.queue.push(resolve));
   }
   release() {
-    this.current--;
+    if (this.current > 0) this.current--;
     const next = this.queue.shift();
     if (next) {
       this.current++;

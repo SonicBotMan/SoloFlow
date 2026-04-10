@@ -186,8 +186,8 @@ export class WorkflowService {
     // Allow starting from idle (auto-queues) or from queued directly.
     if (workflow.state === "idle") {
       this.transition(id, "queued");
-    }
-    if (workflow.state === "queued") {
+      this.transition(id, "running");
+    } else if (workflow.state === "queued") {
       this.transition(id, "running");
     } else if (workflow.state !== "running") {
       throw new InvalidTransitionError(id, workflow.state, "running");

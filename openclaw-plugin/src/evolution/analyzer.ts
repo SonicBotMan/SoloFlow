@@ -256,7 +256,16 @@ Output ONLY valid JSON (no markdown, no explanation):
       const os = require("node:os") as typeof import("node:os");
       const configPath = path.join(os.homedir(), ".openclaw", "openclaw.json");
       const raw = fs.readFileSync(configPath, "utf-8");
-      const config = JSON.parse(raw);
+      let config: unknown;
+      try {
+        config = JSON.parse(raw);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`EvolutionAnalyzer: failed to parse ${configPath}: ${msg}`);
+        config = {};
+      }
+      if (typeof config !== "object" || config === null) config = {};
+      EvolutionAnalyzer.providerConfig = (config as Record<string, unknown>).models?.providers ?? {};
       EvolutionAnalyzer.providerConfig = config.models?.providers ?? {};
     } catch (e) { console.warn(`error: ${e}`);
       EvolutionAnalyzer.providerConfig = {};

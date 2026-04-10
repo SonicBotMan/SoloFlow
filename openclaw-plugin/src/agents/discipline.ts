@@ -301,7 +301,36 @@ export class DisciplineAgent {
 
 // ─── Agent Factory ────────────────────────────────────────────────────
 
-const agentCache = new Map<AgentDiscipline, DisciplineAgent>();
+/** Simple LRU cache to prevent unbounded memory growth. */
+class LRUAgentCache {
+  private readonly cache = new Map<AgentDiscipline, DisciplineAgent>();
+  constructor(private readonly maxSize = 20) {}
+
+  get(discipline: AgentDiscipline): DisciplineAgent | undefined {
+    const agent = this.cache.get(discipline);
+    if (agent !== undefined) {
+      // Move to end (most recently used)
+      this.cache.delete(discipline);
+      this.cache.set(discipline, agent);
+    }
+    return agent;
+  }
+
+  set(discipline: AgentDiscipline, agent: DisciplineAgent): void {
+    if (this.cache.has(discipline)) {
+      this.cache.delete(discipline);
+    } else if (this.cache.size >= this.maxSize) {
+      // Evict least recently used (first key)
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) this.cache.delete(firstKey);
+    }
+    this.cache.set(discipline, agent);
+  }
+
+  clear(): void { this.cache.clear(); }
+}
+
+const agentCache = new LRUAgentCache(20);
 
 /** Get or create a DisciplineAgent for the given discipline. */
 export function getAgent(discipline: AgentDiscipline): DisciplineAgent {
@@ -312,6 +341,8 @@ export function getAgent(discipline: AgentDiscipline): DisciplineAgent {
   }
   return agent;
 }
+
+export function clearAgentCache(): void { agentCache.clear(); }
 
 /** Create agents for all supported disciplines. */
 export function allAgents(): ReadonlyMap<AgentDiscipline, DisciplineAgent> {

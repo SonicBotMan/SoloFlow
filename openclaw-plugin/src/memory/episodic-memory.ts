@@ -28,12 +28,10 @@ export class EpisodicMemory {
 
   storeExecution(workflow: Workflow): EpisodicEntry {
     // Deduplicate: remove old entry for this workflow (keep only latest)
-    for (const [key, entry] of this.store) {
-      if (entry.workflowId === workflow.id) {
-        this.store.delete(key);
-        break;
-      }
-    }
+    const existingKey = Array.from(this.store.keys()).find(
+      (key) => this.store.get(key)?.workflowId === workflow.id
+    );
+    if (existingKey) this.store.delete(existingKey);
     if (this.deletePersistCallback) {
       try { this.deletePersistCallback(workflow.id); } catch (e) { console.warn(`non-critical: ${e}`); }
     }
@@ -51,7 +49,7 @@ export class EpisodicMemory {
     }));
 
     const entry: EpisodicEntry = {
-      id: `ep_${this.namespace}_${now}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `ep_${this.namespace}_${now}_${crypto.randomUUID()}`,
       namespace: this.namespace,
       workflowId: workflow.id,
       workflowName: workflow.name,
@@ -270,8 +268,10 @@ export class EpisodicMemory {
 
   private evictIfNeeded(): void {
     while (this.store.size > this.capacity) {
+      // Snapshot entries to avoid modifying Map during iteration
+      const entries = Array.from(this.store.values());
       let oldestCompressed: EpisodicEntry | undefined;
-      for (const entry of this.store.values()) {
+      for (const entry of entries) {
         if (entry.compressed) {
           if (!oldestCompressed || entry.createdAt < oldestCompressed.createdAt) {
             oldestCompressed = entry;
@@ -282,7 +282,7 @@ export class EpisodicMemory {
         this.store.delete(oldestCompressed.id);
       } else {
         let oldest: EpisodicEntry | undefined;
-        for (const entry of this.store.values()) {
+        for (const entry of entries) {
           if (!oldest || entry.createdAt < oldest.createdAt) {
             oldest = entry;
           }

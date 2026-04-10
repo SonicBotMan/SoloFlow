@@ -234,12 +234,24 @@ export class SqliteStore {
     }));
   }
 
+  /** Escape SQLite FTS special characters in user query to prevent injection or syntax errors. */
+  private escapeFTSQuery(query: string): string {
+    return query
+      .replace(/[\\"()]/g, " ")
+      .replace(/\b(AND|OR|NOT)\b/gi, " ")
+      .replace(/[*]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || "";
+  }
+
   /** Search episodic memory via FTS5 full-text search. Returns entry IDs. */
   searchEpisodicFTS(query: string, limit = 20): string[] {
     try {
+      const escaped = this.escapeFTSQuery(query);
+      if (!escaped) return [];
       return (this.db.prepare(
         "SELECT rowid FROM episodic_fts WHERE episodic_fts MATCH ? ORDER BY rank LIMIT ?"
-      ).all(query, limit) as any[]).map((r) => r.rowid as string);
+      ).all(escaped, limit) as any[]).map((r) => r.rowid as string);
     } catch (e) { console.warn(`error: ${e}`);
       return [];
     }

@@ -16,20 +16,43 @@ export function buildDAG(steps: WorkflowStep[]): DAG {
     }
   }
 
-  const visited = new Set<StepId>();
-  const layers: StepId[][] = [];
-
-  function visit(id: StepId, depth: number) {
-    if (visited.has(id)) return;
-    visited.add(id);
-    const node = nodes.get(id);
-    if (!node) return;
-    for (const dep of node.dependencies) visit(dep, depth + 1);
-    (layers[depth] ??= []).push(id);
+  // Detect cycle using the existing exported function
+  const cycle = detectCycle({ nodes, edges, layers: [] });
+  if (cycle) {
+    throw new Error(`Circular dependency: ${cycle.join(" → ")}`);
   }
 
-  for (const id of nodes.keys()) visit(id, 0);
-  return { nodes, edges, layers: layers.filter(Boolean) };
+  // Compute in-degrees: number of dependencies each node has
+  const inDegree = new Map<StepId, number>();
+  for (const id of nodes.keys()) inDegree.set(id, 0);
+  for (const [, node] of nodes) {
+    inDegree.set(node.id, node.dependencies.length);
+  }
+
+  // Kahn's algorithm: layer 0 = nodes with 0 dependencies (roots)
+  const layers: StepId[][] = [];
+  const remaining = new Map(inDegree);
+  let queue = Array.from(remaining.entries())
+    .filter(([, d]) => d === 0)
+    .map(([id]) => id);
+
+  while (queue.length > 0) {
+    layers.push([...queue]);
+    const nextQueue: StepId[] = [];
+    for (const id of queue) {
+      // This node is done; decrement the in-degree of its dependents
+      for (const [otherId, otherNode] of nodes) {
+        if (otherNode.dependencies.includes(id)) {
+          const newDeg = (remaining.get(otherId) ?? 0) - 1;
+          remaining.set(otherId, newDeg);
+          if (newDeg === 0) nextQueue.push(otherId);
+        }
+      }
+    }
+    queue = nextQueue;
+  }
+
+  return { nodes, edges, layers };
 }
 
 export function topologicalSort(dag: DAG): StepId[] {

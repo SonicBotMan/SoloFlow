@@ -7,6 +7,7 @@
 
 import type { ApiRequest, ApiResponse, Middleware } from "../types.js";
 import { jsonError } from "../router.js";
+import { createHash } from "node:crypto";
 
 export interface JwtAuthOptions {
   secret: string;
@@ -41,9 +42,16 @@ async function hmacSign(payload: string, secret: string, algo: string): Promise<
   return base64UrlEncode(String.fromCharCode(...new Uint8Array(sig)));
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 async function hmacVerify(payload: string, signature: string, secret: string, algo: string): Promise<boolean> {
   const expected = await hmacSign(payload, secret, algo);
-  return expected === signature;
+  return timingSafeEqual(expected, signature);
 }
 
 export function createJwtAuthMiddleware(options: JwtAuthOptions): Middleware {
@@ -106,7 +114,7 @@ export function createApiKeyAuthMiddleware(options: ApiKeyAuthOptions): Middlewa
     }
 
     req.user = {
-      id: `api-key:${key.slice(0, 8)}`,
+      id: `api-key:${createHash("sha256").update(key).digest("hex").slice(0, 16)}`,
       scopes: ["read", "write"],
       type: "api-key",
     };
