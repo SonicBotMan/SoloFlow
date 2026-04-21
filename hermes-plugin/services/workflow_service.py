@@ -68,9 +68,13 @@ class WorkflowService:
         dag = build_dag(steps, edges)
         layers = self._compute_layers(dag, steps)
 
-        # Initialize all steps with pending state
+        # Initialize all steps with pending state (deduplicate by step id)
         initialized_steps = []
+        seen_ids = set()
         for step in steps:
+            if step["id"] in seen_ids:
+                continue
+            seen_ids.add(step["id"])
             initialized_steps.append({
                 "id": step["id"],
                 "name": step.get("name", step["id"]),

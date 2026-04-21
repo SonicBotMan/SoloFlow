@@ -156,7 +156,7 @@ class SQLiteStore:
                  :state, :result, :error,
                  :retry_count, :max_retries, :timeout_seconds,
                  :created_at, :now)
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(workflow_id, id) DO UPDATE SET
                 name = :name,
                 description = :description,
                 discipline = :discipline,
@@ -307,6 +307,8 @@ class SQLiteStore:
 
     def search_episodic(self, query: str, limit: int = 10) -> list[dict]:
         """Full-text search over episodic memory via FTS5."""
+        if not query or not query.strip():
+            return []
         escaped = self._escape_fts(query)
         sql = f"""
             SELECT e.id, e.workflow_id, e.execution_id, e.event_type, e.data_json, e.timestamp

@@ -17,7 +17,7 @@ class WorkingMemory:
         Args:
             max_size: Maximum number of entries to store
         """
-        self._max_size = max_size
+        self._max_size = max(0, max_size)
         self._memory: OrderedDict[str, dict] = OrderedDict()
 
     def put(self, key: str, value: dict) -> None:
@@ -30,6 +30,9 @@ class WorkingMemory:
             key: Unique identifier for this memory entry
             value: Dict containing the memory data
         """
+        if self._max_size <= 0:
+            return
+
         if key in self._memory:
             # Move to end (most recently used)
             self._memory.move_to_end(key)

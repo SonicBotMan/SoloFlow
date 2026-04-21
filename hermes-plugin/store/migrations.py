@@ -2,7 +2,7 @@
 
 import sqlite3
 
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 
 def migrate(conn: sqlite3.Connection) -> None:
@@ -58,7 +58,7 @@ def _run_migration(conn: sqlite3.Connection, version: int) -> None:
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS workflow_steps (
-                id TEXT PRIMARY KEY,
+                id TEXT NOT NULL,
                 workflow_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 description TEXT DEFAULT '',
@@ -72,6 +72,7 @@ def _run_migration(conn: sqlite3.Connection, version: int) -> None:
                 timeout_seconds INTEGER DEFAULT 300,
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL,
+                PRIMARY KEY (workflow_id, id),
                 FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
             )
         """)
@@ -180,4 +181,67 @@ def _run_migration(conn: sqlite3.Connection, version: int) -> None:
             END
         """)
 
+    elif version == 8:
+        # Change workflow_steps primary key from (id) to (workflow_id, id)
+        # SQLite doesn't support ALTER TABLE ... ALTER PRIMARY KEY, so we rebuild
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_steps_new (
+                id TEXT NOT NULL,
+                workflow_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                discipline TEXT DEFAULT '',
+                prompt TEXT DEFAULT '',
+                state TEXT DEFAULT 'pending',
+                result TEXT DEFAULT '',
+                error TEXT DEFAULT '',
+                retry_count INTEGER DEFAULT 0,
+                max_retries INTEGER DEFAULT 2,
+                timeout_seconds INTEGER DEFAULT 300,
+                layer INTEGER DEFAULT 0,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL,
+                PRIMARY KEY (workflow_id, id),
+                FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO workflow_steps_new
+                (id, workflow_id, name, description, discipline, prompt,
+                 state, result, error, retry_count, max_retries, timeout_seconds,
+                 layer, created_at, updated_at)
+            SELECT id, workflow_id, name, description, discipline, prompt,
+                   state, result, error, retry_count, max_retries, timeout_seconds,
+                   0, created_at, updated_at
+            FROM workflow_steps
+        """)
+        cursor.execute("DROP TABLE workflow_steps")
+        cursor.execute("ALTER TABLE workflow_steps_new RENAME TO workflow_steps")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_steps_workflow ON workflow_steps(workflow_id)")
+
     conn.commit()
+
+
+def _migrate(conn):
+    """Run all pending migrations."""
+    cursor = conn.cursor()
+
+    # Ensure migrations tracking table exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS _migrations (
+            version INTEGER PRIMARY KEY
+        )
+    """)
+    current = cursor.execute("SELECT MAX(version) FROM _migrations").fetchone()[0] or 0
+
+    version = current + 1
+    while True:
+        try:
+            migrate_version(cursor, version)
+            conn.commit()
+            current = version
+            version += 1
+        except Exception:
+            break
+
+    return current

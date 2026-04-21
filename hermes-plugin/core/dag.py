@@ -96,6 +96,7 @@ def compute_layers(dag: DAG) -> list[Layer]:
     for edge in dag.edges:
         if edge.to_id in in_degree:
             in_degree[edge.to_id] += 1
+        # Silently ignore edges referencing non-existent nodes
 
     layers: list[Layer] = []
 
@@ -123,7 +124,7 @@ def compute_layers(dag: DAG) -> list[Layer]:
         for node_id in zero_degree_nodes:
             # Find all nodes that depend on this node
             for edge in dag.edges:
-                if edge.from_id == node_id and edge.to_id not in processed:
+                if edge.from_id == node_id and edge.to_id not in processed and edge.to_id in remaining_in_degree:
                     remaining_in_degree[edge.to_id] -= 1
                     if remaining_in_degree[edge.to_id] == 0:
                         next_zero_degree.append(edge.to_id)
