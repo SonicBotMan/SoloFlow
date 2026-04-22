@@ -54,7 +54,7 @@ class Layer:
 @dataclass
 class DAG:
     """Directed Acyclic Graph for workflow step execution."""
-    nodes: dict[str, Any] = field(default_factory=dict)  # Map[str, Step]
+    nodes: dict[str, Any] = field(default_factory=dict)
     edges: list[Edge] = field(default_factory=list)
     layers: list[Layer] = field(default_factory=list)
 
@@ -63,8 +63,8 @@ class DAG:
 class WorkflowConfig:
     """Configuration for workflow execution."""
     max_parallelism: int = 4
-    default_timeout: int = 300  # seconds
-    retry_delay: int = 5  # seconds
+    default_timeout: int = 300
+    retry_delay: int = 5
     max_retries: int = 2
 
 
@@ -94,7 +94,7 @@ class Workflow:
     name: str
     description: str
     state: WorkflowState = WorkflowState.DRAFT
-    steps: dict[str, Step] = field(default_factory=dict)  # Map[str, Step]
+    steps: dict[str, Step] = field(default_factory=dict)
     dag: DAG = field(default_factory=DAG)
     config: WorkflowConfig = field(default_factory=WorkflowConfig)
     created_at: int = 0

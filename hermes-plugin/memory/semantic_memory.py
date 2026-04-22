@@ -8,11 +8,7 @@ from typing import Optional
 
 
 class SemanticMemory:
-    """Semantic memory system for storing and retrieving evolved patterns.
-
-    Extracts reusable patterns from completed workflow results and stores
-    them as searchable templates using the evolved_templates table.
-    """
+    """Semantic memory system for storing and retrieving evolved patterns."""
 
     def __init__(self, store):
         self._store = store
@@ -24,13 +20,9 @@ class SemanticMemory:
         if not steps:
             return None
 
-        # Extract disciplines used
         disciplines = list(set(s.get("discipline", "general") for s in steps))
-
-        # Extract step names as pattern
         step_pattern = " -> ".join(s.get("name", s.get("id", "?")) for s in steps)
 
-        # Only store patterns from successful workflows
         successful_steps = [s for s in steps if s.get("state") == "completed"]
         if not successful_steps:
             return None

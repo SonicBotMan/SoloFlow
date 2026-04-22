@@ -84,7 +84,6 @@ class MemorySystem:
             r["memory_tier"] = "semantic"
             results.append(r)
 
-        # Sort by relevance score if available, then by timestamp
         def sort_key(item):
             score = item.get("score", 0)
             timestamp = item.get("timestamp", 0)
@@ -94,19 +93,8 @@ class MemorySystem:
         return results[:limit]
 
     def get_context(self, query: str) -> str:
-        """Get formatted memory context for prompts.
-
-        Args:
-            query: Query to search memories for
-
-        Returns:
-            Formatted string suitable for inclusion in prompts
-        """
-        import asyncio
-
-        # Run sync search in working memory, async for others
+        """Get formatted memory context for prompts."""
         working_results = self.working.search(query, limit=3)
-
         context_parts = []
 
         if working_results:
@@ -115,35 +103,6 @@ class MemorySystem:
                 key = result.get("key", "unknown")
                 value = result.get("value", {})
                 context_parts.append(f"{i}. [{key}] {value}")
-
-        # Try to get episodic context
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Create a new loop if we're in an async context
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    future = pool.submit(
-                        asyncio.run,
-                        self.episodic.get_recent(limit=3)
-                    )
-                    episodic_results = future.result(timeout=5)
-            else:
-                episodic_results = asyncio.run(
-                    self.episodic.get_recent(limit=3)
-                )
-        except Exception:
-            episodic_results = []
-
-        if episodic_results:
-            context_parts.append("\n## Recent History (Episodic Memory)")
-            for ep in episodic_results:
-                data = ep.get("data", {})
-                user = data.get("user_content", "")[:100]
-                assistant = data.get("assistant_content", "")[:100]
-                context_parts.append(
-                    f"- User: {user}... | Assistant: {assistant}..."
-                )
 
         if context_parts:
             return "\n".join(context_parts)

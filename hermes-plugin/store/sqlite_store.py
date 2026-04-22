@@ -18,10 +18,6 @@ class SQLiteStore:
         self._conn: Optional[sqlite3.Connection] = None
         self._lock = threading.Lock()
 
-    # -------------------------------------------------------------------------
-    # Lifecycle
-    # -------------------------------------------------------------------------
-
     def initialize(self) -> None:
         """Open connection, set WAL + busy_timeout, run migrations."""
         with self._lock:
@@ -83,12 +79,7 @@ class SQLiteStore:
         self.conn.commit()
 
     def get_workflow(self, workflow_id: str, full: bool = False) -> Optional[dict]:
-        """Fetch a single workflow by id, or None if not found.
-
-        Args:
-            workflow_id: UUID of workflow
-            full: If True, include steps, edges, and layers in the result.
-        """
+        """Fetch a single workflow by id, or None if not found."""
         cursor = self.conn.execute(
             "SELECT id, name, description, state, config_json, created_at, updated_at "
             "FROM workflows WHERE id = ?",
@@ -204,13 +195,7 @@ class SQLiteStore:
         return [self._row_to_step(row) for row in cursor.fetchall()]
 
     def update_step(self, workflow_id: str, step_id: str, **fields: Any) -> None:
-        """Update specific fields of a workflow step.
-
-        Args:
-            workflow_id: UUID of the workflow (part of composite PK)
-            step_id: ID of the step to update
-            **fields: Fields to update (e.g., state, result, error)
-        """
+        """Update specific fields of a workflow step."""
         if not fields:
             return
         setters = {k: v for k, v in fields.items() if v is not None}
@@ -386,24 +371,15 @@ class SQLiteStore:
 
     @staticmethod
     def _escape_fts(query: str) -> str:
-        """Escape FTS5 special characters: " * ( ) : ^
-
-        Handles:
-        - Quoted phrases ("exact match") → preserved as-is
-        - FTS5 boolean operators (AND OR NOT) → passed through
-        - Prefix wildcards (term*) → term* (quotes added around base)
-        - Content tokens → special chars stripped, wrapped in double-quotes
-        """
+        """Escape FTS5 special characters: " * ( ) : ^"""
         FTS5_OPS = frozenset({"AND", "OR", "NOT"})
         safe_tokens: list[str] = []
 
-        # Parse quoted strings as atomic tokens first
         chars = list(query)
         i = 0
         while i < len(chars):
             c = chars[i]
             if c == '"':
-                # Collect everything up to the next unescaped quote
                 phrase_chars = ['"']
                 i += 1
                 while i < len(chars):
@@ -416,7 +392,6 @@ class SQLiteStore:
                     i += 1
                 safe_tokens.append("".join(phrase_chars))
             else:
-                # Collect a whitespace-delimited word
                 word_chars = []
                 while i < len(chars) and chars[i] not in (" ", "\t", "\n"):
                     word_chars.append(chars[i])
@@ -424,33 +399,27 @@ class SQLiteStore:
                 if word_chars:
                     word = "".join(word_chars)
                     upper = word.upper()
-                    # Preserve FTS5 operators and bare wildcard
                     if upper in FTS5_OPS or word == "*":
                         safe_tokens.append(word)
                     else:
-                        # Strip FTS5 special chars from content tokens
                         cleaned = "".join(
                             ch for ch in word if ch not in '"*():^'
                         )
                         safe_tokens.append(f'"{cleaned}"')
                 i += 1
 
-        # Join tokens — FTS5 operators connect adjacent terms
         if not safe_tokens:
             return '""'
         
         out: list[str] = []
         for tok in safe_tokens:
             if tok.upper() in FTS5_OPS:
-                # Operator: will join previous and next content token
                 if out and out[-1].upper() not in FTS5_OPS:
                     out.append(tok)
-                # else: skip dangling operator
             else:
                 if out and out[-1].upper() not in FTS5_OPS:
                     out.append("AND")
                 out.append(tok)
-        # Trim trailing operator
         if out and out[-1].upper() in FTS5_OPS:
             out.pop()
         return " ".join(out) if out else '""'

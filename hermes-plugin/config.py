@@ -25,42 +25,20 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 
 def get_data_dir() -> Path:
-    """
-    Get the data directory for SoloFlow, creating it if it doesn't exist.
-
-    Returns:
-        Path to the SoloFlow data directory.
-    """
+    """Get the data directory for SoloFlow, creating it if it doesn't exist."""
     SOLOFLOW_DATA_DIR.mkdir(parents=True, exist_ok=True)
     return SOLOFLOW_DATA_DIR
 
 
 def get_db_path() -> Path:
-    """
-    Get the database path for SoloFlow.
-
-    Returns:
-        Path to the SQLite database file.
-    """
+    """Get the database path for SoloFlow."""
     return SOLOFLOW_DB_PATH
 
 
 def get_config() -> dict[str, Any]:
-    """
-    Get the plugin configuration, merged with defaults.
-
-    Environment variables can override defaults:
-    - SOLOFLOW_MAX_PARALLELISM: overrides max_parallelism
-    - SOLOFLOW_DEFAULT_TIMEOUT: overrides default_timeout
-    - SOLOFLOW_RETRY_DELAY: overrides retry_delay
-    - SOLOFLOW_MAX_RETRIES: overrides max_retries
-
-    Returns:
-        Dictionary with merged configuration values.
-    """
+    """Get the plugin configuration, merged with defaults."""
     config = dict(DEFAULT_CONFIG)
 
-    # Allow environment variable overrides
     if env_val := os.environ.get("SOLOFLOW_MAX_PARALLELISM"):
         try:
             config["max_parallelism"] = int(env_val)

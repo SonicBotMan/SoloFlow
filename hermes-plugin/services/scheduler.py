@@ -1,274 +1,106 @@
-"""DAG parallel execution engine with proper task cancellation."""
+"""Async workflow scheduler with DAG-based parallel execution."""
 
 import asyncio
 import logging
-import time
-from typing import Callable, Optional
+from typing import Optional
 
-from core.fsm import transition
-from models import StepState, WorkflowState
+from core import build_dag, get_ready_steps
 
-logger = logging.getLogger("soloflow.scheduler")
+logger = logging.getLogger("soloflow")
 
 
 class Scheduler:
-    """Scheduler for parallel DAG-based workflow execution.
+    """Async scheduler that manages parallel step execution within a workflow."""
 
-    Executes steps in topological order while respecting max_parallelism.
-    Properly handles task cancellation and retry with exponential backoff.
-    """
-
-    def __init__(
-        self,
-        store,
-        workflow_service,
-        config: dict = None,
-    ):
-        """Initialize the scheduler.
-
-        Args:
-            store: SQLiteStore instance for persistence
-            workflow_service: WorkflowService instance
-            config: Optional config dict with keys:
-                - max_parallelism: max concurrent steps (default 4)
-                - default_timeout: default step timeout in seconds (default 300)
-                - base_backoff: base backoff seconds for retries (default 1)
-        """
+    def __init__(self, store, workflow_service, config: dict = None):
         self._store = store
-        self._ws = workflow_service
-        self._config = config or {}
-        self._max_parallelism = self._config.get("max_parallelism", 4)
-        self._default_timeout = self._config.get("default_timeout", 300)
-        self._base_backoff = self._config.get("base_backoff", 1)
+        self._workflow_service = workflow_service
         self._running_tasks: dict[str, asyncio.Task] = {}
+        self._config = config or {}
+        self._base_backoff = self._config.get("retry_delay", 5)
+        self._max_retries = self._config.get("max_retries", 2)
 
-    async def execute_workflow(
-        self,
-        workflow_id: str,
-        executor: Callable = None,
-    ) -> dict:
-        """Execute all steps in a workflow using DAG layers.
+    async def run_workflow(self, workflow_id: str) -> None:
+        """Run a workflow to completion, scheduling steps as they become ready."""
+        workflow = await self._workflow_service.start_workflow(workflow_id)
+        if workflow["state"] != "running":
+            return
 
-        Args:
-            workflow_id: UUID of workflow to execute
-            executor: Optional async callable(step_dict) -> str result text.
-                If None, returns step prompt for LLM processing.
-
-        Returns:
-            Final workflow status dict
-        """
-        if executor is None:
-            executor = self._default_executor
-
-        workflow = self._store.get_workflow(workflow_id, full=True)
-        if not workflow:
-            logger.error(f"Workflow {workflow_id} not found")
-            return {"error": "Workflow not found"}
-
-        # Check if workflow is in terminal state
-        terminal_states = {
-            WorkflowState.COMPLETED.value,
-            WorkflowState.FAILED.value,
-            WorkflowState.CANCELLED.value,
-        }
-        if workflow["state"] in terminal_states:
-            logger.info(
-                f"Workflow {workflow_id} is in terminal state {workflow['state']}, "
-                "skipping execution"
-            )
-            return workflow
-
-        logger.info(f"Starting execution of workflow {workflow_id}")
+        dag = build_dag(workflow.get("steps", []), workflow.get("edges", []))
+        steps_map = {s["id"]: s for s in workflow.get("steps", [])}
 
         while True:
-            # Refresh workflow state
-            workflow = self._store.get_workflow(workflow_id, full=True)
-            if not workflow:
+            ready_ids = get_ready_steps(dag, steps_map)
+            if not ready_ids:
                 break
 
-            # Check for terminal state
-            if workflow["state"] in terminal_states:
-                break
-
-            # Get ready steps: steps whose all deps are completed
-            completed_ids = {s["id"] for s in workflow["steps"] if s["state"] == StepState.COMPLETED.value}
-            edges = workflow.get("edges", [])
-            ready = []
-            for s in workflow["steps"]:
-                if s["state"] not in {StepState.PENDING.value, StepState.READY.value}:
-                    continue
-                deps = [e["from"] for e in edges if e["to"] == s["id"]]
-                if all(d in completed_ids for d in deps):
-                    ready.append(s["id"])
-            if not ready:
-                # No ready steps - either waiting or done
-                states = {s["state"] for s in workflow["steps"]}
-                if any(
-                    s in {StepState.RUNNING.value, StepState.READY.value}
-                    for s in states
-                ):
-                    # Some steps still running/ready, wait and retry
-                    await asyncio.sleep(0.1)
-                    continue
-                else:
-                    # No steps running and none ready - check if all done
-                    break
-
-            # Filter to pending ready steps only
-            ready_steps = [
-                s
-                for s in workflow["steps"]
-                if s["id"] in ready
-                and s["state"] in {StepState.READY.value, StepState.PENDING.value}
-            ]
-
-            if not ready_steps:
-                await asyncio.sleep(0.1)
-                continue
-
-            # Execute up to max_parallelism steps
-            batch = ready_steps[: self._max_parallelism]
-
-            # Launch tasks for this batch
+            # Launch all ready steps in parallel
             tasks = []
-            for step in batch:
-                # Transition step to running
-                step["state"] = StepState.RUNNING.value
-                self._store.save_workflow(workflow)
+            for step_id in ready_ids:
+                task = asyncio.create_task(self._run_step(workflow_id, step_id))
+                tasks.append(task)
+                self._running_tasks[f"{workflow_id}:{step_id}"] = task
 
-                task = asyncio.create_task(
-                    self._execute_step(workflow_id, step, executor)
-                )
-                tasks.append((step["id"], task))
-                self._running_tasks[f"{workflow_id}:{step['id']}"] = task
+            await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Wait for all tasks in batch to complete
-            for step_id, task in tasks:
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    logger.warning(f"Task for step {step_id} was cancelled")
-                finally:
-                    self._running_tasks.pop(f"{workflow_id}:{step_id}", None)
+            # Refresh state
+            workflow = self._store.get_workflow(workflow_id, full=True)
+            steps_map = {s["id"]: s for s in workflow.get("steps", [])}
 
-            # Small delay before checking for next batch
-            await asyncio.sleep(0.05)
+            if workflow["state"] in ("completed", "failed", "cancelled"):
+                break
 
-        logger.info(f"Workflow execution loop ended for {workflow_id}")
-        return await self._ws.get_status(workflow_id)
+    async def _run_step(self, workflow_id: str, step_id: str) -> None:
+        """Execute a single step with retries and timeout."""
+        step = None
+        for s in self._store.get_steps(workflow_id):
+            if s["id"] == step_id:
+                step = s
+                break
+        if not step:
+            return
 
-    async def _execute_step(
-        self,
-        workflow_id: str,
-        step: dict,
-        executor: Callable,
-        timeout: int = None,
-    ) -> None:
-        """Execute a single step with timeout and retry.
+        max_retries = step.get("max_retries", self._max_retries)
+        timeout = step.get("timeout_seconds", self._config.get("default_timeout", 300))
 
-        Args:
-            workflow_id: UUID of workflow containing the step
-            step: Step dict with execution details
-            executor: Async callable to execute the step
-            timeout: Optional timeout in seconds (defaults to step.timeout_seconds)
-        """
-        timeout = timeout or step.get("timeout_seconds", self._default_timeout)
-        max_retries = step.get("max_retries", 3)
-        retry_count = step.get("retry_count", 0)
+        for attempt in range(max_retries + 1):
+            self._store.update_step(workflow_id, step_id, state="running")
 
-        step_id = step["id"]
-        logger.debug(f"Executing step {step_id} (attempt {retry_count + 1}/{max_retries})")
-
-        for attempt in range(max_retries):
-            task = None
             try:
-                # Create task for this execution attempt
-                task = asyncio.create_task(executor(step))
-
-                # Wait for completion with timeout
-                result = await asyncio.wait_for(task, timeout=timeout)
-
-                # Success - advance step with result
-                await self._ws.advance_step(workflow_id, step_id, result=result)
-                logger.debug(f"Step {step_id} completed successfully")
+                result = await asyncio.wait_for(
+                    self._execute_step(step),
+                    timeout=timeout,
+                )
+                await self._workflow_service.advance_step(workflow_id, step_id, result=result)
                 return
 
             except asyncio.TimeoutError:
-                logger.warning(
-                    f"Step {step_id} timed out after {timeout}s "
-                    f"(attempt {attempt + 1}/{max_retries})"
-                )
-                if task:
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-
-                # Exponential backoff before retry
-                if attempt < max_retries - 1:
-                    backoff = self._base_backoff * (2**attempt)
-                    logger.debug(f"Retrying step {step_id} after {backoff}s backoff")
+                logger.warning(f"Step {step_id} timed out after {timeout}s")
+                if attempt < max_retries:
+                    backoff = self._base_backoff * (2 ** attempt)
                     await asyncio.sleep(backoff)
-
-            except asyncio.CancelledError:
-                logger.info(f"Step {step_id} execution cancelled")
-                # Still advance step to mark it appropriately
-                await self._ws.advance_step(
-                    workflow_id, step_id, error="Execution cancelled"
-                )
-                raise
+                else:
+                    await self._workflow_service.advance_step(
+                        workflow_id, step_id, error=f"Timed out after {max_retries + 1} attempts"
+                    )
 
             except Exception as e:
-                logger.error(
-                    f"Step {step_id} failed with error: {e} "
-                    f"(attempt {attempt + 1}/{max_retries})"
-                )
-                if task:
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-
-                # Exponential backoff before retry
-                if attempt < max_retries - 1:
-                    backoff = self._base_backoff * (2**attempt)
-                    logger.debug(f"Retrying step {step_id} after {backoff}s backoff")
+                logger.error(f"Step {step_id} failed: {e}")
+                if attempt < max_retries:
+                    backoff = self._base_backoff * (2 ** attempt)
                     await asyncio.sleep(backoff)
+                else:
+                    await self._workflow_service.advance_step(
+                        workflow_id, step_id, error=f"Failed: {e}"
+                    )
 
-        # All retries exhausted - mark as failed
-        logger.error(f"Step {step_id} failed after {max_retries} attempts")
-        await self._ws.advance_step(
-            workflow_id, step_id, error=f"Failed after {max_retries} attempts"
-        )
-
-    async def _default_executor(self, step: dict) -> str:
-        """Default executor that returns step prompt.
-
-        This is a placeholder that returns the step's prompt text.
-        In production, this would call an LLM or other executor.
-
-        Args:
-            step: Step dict
-
-        Returns:
-            Step prompt text (would be LLM response in production)
-        """
-        # Simulate some processing time
+    async def _execute_step(self, step: dict) -> str:
+        """Execute a step. Override in production to call LLM/tools."""
         await asyncio.sleep(0.1)
         return f"[EXECUTED] {step.get('prompt', step.get('name', 'unnamed step'))}"
 
     async def cancel_step(self, workflow_id: str, step_id: str) -> bool:
-        """Cancel a specific running step.
-
-        Args:
-            workflow_id: UUID of workflow
-            step_id: ID of step to cancel
-
-        Returns:
-            True if task was found and cancelled, False otherwise
-        """
+        """Cancel a specific running step."""
         task_key = f"{workflow_id}:{step_id}"
         task = self._running_tasks.get(task_key)
         if task:
@@ -278,28 +110,13 @@ class Scheduler:
         return False
 
     async def cancel_all(self, workflow_id: str) -> int:
-        """Cancel all running steps for a workflow.
-
-        Args:
-            workflow_id: UUID of workflow
-
-        Returns:
-            Number of tasks cancelled
-        """
+        """Cancel all running steps for a workflow."""
         prefix = f"{workflow_id}:"
         tasks_to_cancel = [
-            (key, task)
-            for key, task in self._running_tasks.items()
-            if key.startswith(prefix)
+            (key, task) for key, task in self._running_tasks.items() if key.startswith(prefix)
         ]
-
         for key, task in tasks_to_cancel:
             task.cancel()
             self._running_tasks.pop(key, None)
-
-        if tasks_to_cancel:
-            logger.info(
-                f"Cancelled {len(tasks_to_cancel)} tasks for workflow {workflow_id}"
-            )
-
+        logger.info(f"Cancelled {len(tasks_to_cancel)} tasks for workflow {workflow_id}")
         return len(tasks_to_cancel)

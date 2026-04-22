@@ -3,12 +3,12 @@
 A cognitive workflow engine with DAG-based parallel execution,
 three-tier memory system, and automatic pattern extraction.
 
-Activation: set ``memory.provider: soloflow`` in config.yaml,
-or place this directory under $HERMES_HOME/plugins/soloflow/
+Activation: set ``memory.provider: soloflow`` in config.yaml.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sys
@@ -16,12 +16,16 @@ import threading
 from pathlib import Path
 from typing import Any, Optional
 
-# Ensure sibling modules are importable
-_PLUGIN_DIR = Path(__file__).resolve().parent
-if str(_PLUGIN_DIR) not in sys.path:
-    sys.path.insert(0, str(_PLUGIN_DIR))
+# ── Add hermes-agent root to sys.path so 'agent' resolves to hermes-agent's agent/ ──
+# Path: .../plugins/memory/soloflow/__init__.py
+# parents[0] = soloflow/  parents[1] = memory/  parents[2] = plugins/  parents[3] = hermes-agent/
+_HERMES_ROOT = Path(__file__).resolve().parents[3]
+if str(_HERMES_ROOT) not in sys.path:
+    sys.path.insert(0, str(_HERMES_ROOT))
 
+# Now 'agent' resolves to hermes-agent's agent/ directory, NOT the plugin's agent/
 from agent.memory_provider import MemoryProvider  # noqa: E402
+
 from config import get_data_dir, get_db_path, get_config  # noqa: E402
 from store.sqlite_store import SQLiteStore  # noqa: E402
 from services.workflow_service import WorkflowService  # noqa: E402
@@ -32,7 +36,7 @@ from models import WorkflowState, StepState  # noqa: E402
 logger = logging.getLogger("soloflow")
 
 
-# ─── Tool Schema Definitions ───────────────────────────────────────────────
+# ─── Tool Schema Definitions ────────────────────────────────────────────────
 
 TOOL_SCHEMAS = [
     {
@@ -47,14 +51,8 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Workflow name",
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "What this workflow accomplishes",
-                    },
+                    "name": {"type": "string", "description": "Workflow name"},
+                    "description": {"type": "string", "description": "What this workflow accomplishes"},
                     "steps": {
                         "type": "array",
                         "description": "List of workflow steps",
@@ -99,10 +97,7 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "workflow_id": {
-                        "type": "string",
-                        "description": "UUID of the workflow to start",
-                    },
+                    "workflow_id": {"type": "string", "description": "UUID of the workflow to start"},
                 },
                 "required": ["workflow_id"],
             },
@@ -151,10 +146,7 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {
-                        "type": "integer",
-                        "description": "Max results (default 50)",
-                    },
+                    "limit": {"type": "integer", "description": "Max results (default 50)"},
                     "state_filter": {
                         "type": "string",
                         "enum": ["draft", "active", "running", "completed", "failed", "cancelled"],
@@ -204,10 +196,7 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
-                    "limit": {
-                        "type": "integer",
-                        "description": "Max results (default 10)",
-                    },
+                    "limit": {"type": "integer", "description": "Max results (default 10)"},
                 },
                 "required": ["query"],
             },
@@ -216,14 +205,10 @@ TOOL_SCHEMAS = [
 ]
 
 
-# ─── SoloFlow Provider ─────────────────────────────────────────────────────
+# ─── SoloFlow Provider ──────────────────────────────────────────────────────
 
 class SoloFlowProvider(MemoryProvider):
-    """SoloFlow workflow orchestration memory provider for Hermes.
-
-    Exposes workflow tools via get_tool_schemas() and handle_tool_call(),
-    plus provides memory recall via prefetch().
-    """
+    """SoloFlow workflow orchestration memory provider for Hermes."""
 
     name = "soloflow"
 
@@ -234,13 +219,12 @@ class SoloFlowProvider(MemoryProvider):
         self._memory: Optional[MemorySystem] = None
         self._initialized = False
         self._lock = threading.Lock()
-
-    # ── MemoryProvider interface ──
+        self._agent_context: str = "primary"
 
     def is_available(self) -> bool:
-        """Check if SoloFlow can be initialized."""
+        """SoloFlow has no external dependencies — always available."""
         try:
-            data_dir = get_data_dir()
+            get_data_dir()
             return True
         except Exception:
             return False
@@ -254,14 +238,14 @@ class SoloFlowProvider(MemoryProvider):
             if self._initialized:
                 return
 
-            # Initialize store
+            self._agent_context = kwargs.get("agent_context", "primary")
+
             data_dir = get_data_dir()
             db_path = get_db_path()
             self._store = SQLiteStore(db_path)
             self._store.initialize()
             logger.info(f"SoloFlow store initialized at {db_path}")
 
-            # Initialize services
             self._workflow_service = WorkflowService(self._store)
             self._scheduler = Scheduler(
                 self._store,
@@ -269,8 +253,6 @@ class SoloFlowProvider(MemoryProvider):
                 config=get_config(),
             )
             self._workflow_service.set_scheduler(self._scheduler)
-
-            # Initialize memory system
             self._memory = MemorySystem(self._store)
 
             self._initialized = True
@@ -280,41 +262,7 @@ class SoloFlowProvider(MemoryProvider):
         """Return OpenAI function-calling tool schemas."""
         return TOOL_SCHEMAS
 
-    async def handle_tool_call(
-        self,
-        tool_name: str,
-        args: dict,
-        **kwargs: Any,
-    ) -> str:
-        """Dispatch tool calls to appropriate handlers."""
-        self._ensure_initialized()
-
-        try:
-            handler = {
-                "soloflow_create": self._handle_create,
-                "soloflow_start": self._handle_start,
-                "soloflow_advance_step": self._handle_advance,
-                "soloflow_status": self._handle_status,
-                "soloflow_list": self._handle_list,
-                "soloflow_ready_steps": self._handle_ready_steps,
-                "soloflow_cancel": self._handle_cancel,
-                "soloflow_memory": self._handle_memory,
-            }.get(tool_name)
-
-            if handler is None:
-                return json.dumps({"error": f"Unknown tool: {tool_name}"})
-
-            result = await handler(args)
-            if isinstance(result, str):
-                return result
-            return json.dumps(result, ensure_ascii=False, indent=2)
-
-        except Exception as e:
-            logger.error(f"Tool call error: {tool_name}: {e}", exc_info=True)
-            return json.dumps({"error": str(e)})
-
     def system_prompt_block(self) -> str:
-        """Return system prompt text for the agent."""
         return (
             "## SoloFlow Workflow Engine\n\n"
             "You have access to a DAG-based workflow orchestration system. Key tools:\n"
@@ -327,103 +275,128 @@ class SoloFlowProvider(MemoryProvider):
             "Steps with no dependencies run first (layer 0), then dependent steps.\n"
         )
 
-    async def prefetch(self, query: str, session_id: str) -> str:
-        """Search memory for relevant context before the agent responds."""
+    async def prefetch(self, query: str, session_id: str = "") -> str:
         if not self._memory:
             return ""
-
         try:
             results = await self._memory.recall(query, limit=5)
             if not results:
                 return ""
-
             lines = ["<soloflow_memory>"]
             for r in results:
-                lines.append(f"- {r.get('summary', r.get('event_type', 'entry'))}")
-                if r.get("data"):
-                    lines.append(f"  > {json.dumps(r['data'], ensure_ascii=False)[:200]}")
+                tier = r.get("memory_tier", "unknown")
+                key = r.get("key", r.get("event_type", "entry"))
+                data = r.get("data", {})
+                content = data.get("user_content", data.get("pattern", str(data)[:100])) if isinstance(data, dict) else str(data)[:100]
+                lines.append(f"[{tier}] {key}: {content}")
             lines.append("</soloflow_memory>")
             return "\n".join(lines)
-
         except Exception as e:
             logger.debug(f"Prefetch error: {e}")
             return ""
 
-    async def sync_turn(
-        self,
-        user_content: str,
-        assistant_content: str,
-        session_id: str,
-    ) -> None:
-        """Record conversation turn in episodic memory."""
-        if not self._memory:
+    async def sync_turn(self, user_content: str, assistant_content: str, session_id: str = "") -> None:
+        if not self._memory or self._agent_context != "primary":
             return
         try:
-            await self._memory.record_turn(session_id, user_content, assistant_content)
+            await self._memory.record_turn(session_id or "default", user_content, assistant_content)
         except Exception as e:
             logger.debug(f"Sync turn error: {e}")
 
+    async def handle_tool_call(self, tool_name: str, args: dict, **kwargs: Any) -> str:
+        self._ensure_initialized()
+        try:
+            handler = {
+                "soloflow_create": self._handle_create,
+                "soloflow_start": self._handle_start,
+                "soloflow_advance_step": self._handle_advance,
+                "soloflow_status": self._handle_status,
+                "soloflow_list": self._handle_list,
+                "soloflow_ready_steps": self._handle_ready_steps,
+                "soloflow_cancel": self._handle_cancel,
+                "soloflow_memory": self._handle_memory,
+            }.get(tool_name)
+            if handler is None:
+                return json.dumps({"error": f"Unknown tool: {tool_name}"})
+            result = await handler(args)
+            return json.dumps(result, ensure_ascii=False, indent=2) if not isinstance(result, str) else result
+        except Exception as e:
+            logger.error(f"Tool call error: {tool_name}: {e}", exc_info=True)
+            return json.dumps({"error": str(e)})
+
+    async def on_pre_compress(self, messages: list[dict]) -> str:
+        if not self._memory:
+            return ""
+        facts = []
+        for msg in messages[-5:]:
+            content = msg.get("content", "")
+            if content:
+                facts.append(content[:200])
+        if facts:
+            return f"[SoloFlow Semantic] Last {len(facts)} exchanges:\n" + "\n".join(f"• {f}" for f in facts[:3])
+        return ""
+
+    async def on_session_end(self, messages: list[dict]) -> None:
+        if not self._memory or self._agent_context != "primary":
+            return
+        try:
+            if messages:
+                last = messages[-1]
+                summary = last.get("content", "")[:200] if last.get("content") else ""
+                if summary:
+                    await self._memory.episodic.record(
+                        workflow_id="session",
+                        execution_id="session_summary",
+                        event_type="session_end",
+                        data={"summary": summary, "turn_count": len(messages)},
+                    )
+        except Exception as e:
+            logger.debug(f"Session end extraction error: {e}")
+
     async def shutdown(self) -> None:
-        """Clean shutdown."""
         if self._store:
             self._store.close()
         self._initialized = False
         logger.info("SoloFlow plugin shut down")
 
-    # ── Tool Handlers ───────────────────────────────────────────────────
+    # ── Tool Handlers ──
 
     async def _handle_create(self, args: dict) -> dict:
-        name = args["name"]
-        description = args.get("description", "")
-        steps = args["steps"]
-        edges = [tuple(e) for e in args.get("edges", [])]
-        config = args.get("config")
-
         workflow = await self._workflow_service.create_workflow(
-            name=name,
-            description=description,
-            steps=steps,
-            edges=edges,
-            config=config,
+            name=args["name"],
+            description=args.get("description", ""),
+            steps=args["steps"],
+            edges=[tuple(e) for e in args.get("edges", [])],
+            config=args.get("config"),
         )
         return {
-            "id": workflow["id"],
-            "name": workflow["name"],
-            "state": workflow["state"],
-            "step_count": len(workflow.get("steps", [])),
-            "edge_count": len(workflow.get("edges", [])),
-            "message": f"Workflow '{name}' created with {len(steps)} steps",
+            "id": workflow["id"], "name": workflow["name"], "state": workflow["state"],
+            "step_count": len(workflow.get("steps", [])), "edge_count": len(workflow.get("edges", [])),
+            "message": f"Workflow '{args['name']}' created with {len(args['steps'])} steps",
         }
 
     async def _handle_start(self, args: dict) -> dict:
         workflow = await self._workflow_service.start_workflow(args["workflow_id"])
         ready = [s for s in workflow.get("steps", []) if s["state"] == "ready"]
         return {
-            "id": workflow["id"],
-            "state": workflow["state"],
+            "id": workflow["id"], "state": workflow["state"],
             "ready_steps": [{"id": s["id"], "name": s["name"], "prompt": s["prompt"]} for s in ready],
             "message": f"Workflow started, {len(ready)} steps ready",
         }
 
     async def _handle_advance(self, args: dict) -> dict:
-        status = await self._workflow_service.advance_step(
-            workflow_id=args["workflow_id"],
-            step_id=args["step_id"],
-            result=args.get("result"),
-            error=args.get("error"),
+        return await self._workflow_service.advance_step(
+            workflow_id=args["workflow_id"], step_id=args["step_id"],
+            result=args.get("result"), error=args.get("error"),
         )
-        return status
 
     async def _handle_status(self, args: dict) -> dict:
         status = await self._workflow_service.get_status(args["workflow_id"])
-        if status is None:
-            return {"error": "Workflow not found"}
-        return status
+        return {"error": "Workflow not found"} if status is None else status
 
     async def _handle_list(self, args: dict) -> dict:
         workflows = await self._workflow_service.list_workflows(
-            limit=args.get("limit", 50),
-            state_filter=args.get("state_filter"),
+            limit=args.get("limit", 50), state_filter=args.get("state_filter"),
         )
         return {"workflows": workflows, "count": len(workflows)}
 
@@ -431,41 +404,25 @@ class SoloFlowProvider(MemoryProvider):
         status = await self._workflow_service.get_status(args["workflow_id"])
         if status is None:
             return {"error": "Workflow not found"}
-        ready = [
-            s for s in status.get("steps", [])
-            if s["state"] in ("ready", "running")
-        ]
-        return {
-            "workflow_id": args["workflow_id"],
-            "ready_steps": ready,
-            "count": len(ready),
-        }
+        ready = [s for s in status.get("steps", []) if s["state"] in ("ready", "running")]
+        return {"workflow_id": args["workflow_id"], "ready_steps": ready, "count": len(ready)}
 
     async def _handle_cancel(self, args: dict) -> dict:
         workflow = await self._workflow_service.cancel_workflow(args["workflow_id"])
-        return {
-            "id": workflow["id"],
-            "state": workflow["state"],
-            "message": "Workflow cancelled",
-        }
+        return {"id": workflow["id"], "state": workflow["state"], "message": "Workflow cancelled"}
 
     async def _handle_memory(self, args: dict) -> dict:
         if not self._memory:
             return {"error": "Memory system not initialized"}
-        results = await self._memory.recall(
-            query=args["query"],
-            limit=args.get("limit", 10),
-        )
+        results = await self._memory.recall(query=args["query"], limit=args.get("limit", 10))
         return {"results": results, "count": len(results)}
-
-    # ── Helpers ──
 
     def _ensure_initialized(self) -> None:
         if not self._initialized:
-            raise RuntimeError("SoloFlow provider not initialized. Call initialize() first.")
+            raise RuntimeError("SoloFlow provider not initialized.")
 
 
-# ─── Plugin Registration ───────────────────────────────────────────────────
+# ─── Plugin Registration ────────────────────────────────────────────────────
 
 def register(ctx) -> None:
     """Register SoloFlow as a Hermes memory provider."""

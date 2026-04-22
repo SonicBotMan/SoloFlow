@@ -7,11 +7,7 @@ from typing import Optional
 
 
 class EpisodicMemory:
-    """Episodic memory system for recording and retrieving conversation history.
-
-    Uses SQLite with FTS5 for efficient full-text search of recorded events.
-    Delegates to the episodic_memory and episodic_fts tables created by migrations.
-    """
+    """Episodic memory system for recording and retrieving conversation history."""
 
     def __init__(self, store):
         self._store = store
