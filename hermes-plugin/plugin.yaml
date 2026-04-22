@@ -1,0 +1,4 @@
+name: soloflow
+version: 0.1.0
+description: "Cognitive workflow orchestration — DAG-based parallel execution with three-tier memory and automatic pattern extraction."
+author: SoloFlow

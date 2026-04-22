@@ -1,170 +1,275 @@
 # SoloFlow ⚡
 
-### Cognitive Workflow Orchestration for AI Agents
+### Cognitive Workflow Engine for AI Agents
 
-**让 OpenClaw 越用越聪明，越用越可靠。**
+**DAG 任务编排 + 三层记忆 + 持久化状态，让 Agent 做复杂任务不再翻车。**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Website](https://img.shields.io/badge/官网-soloflow.pmparker.net-6366f1)](https://soloflow.pmparker.net/)
-[![Tools](https://img.shields.io/badge/tools-15%20MCP%20tools-3178c6)](./src)
-[![Runtime](https://img.shields.io/badge/runtime-Node.js%20%E2%89%A522-339933?logo=node.js)](https://nodejs.org)
-[![Bundle](https://img.shields.io/badge/bundle-~469KB-orange)](./dist)
 
 ---
 
 ## 它解决什么问题
 
-**每次对话都在重复。** 同一个需求，AI 要从头理解一遍。上下文越长，Token 消耗越多，速度越慢，可靠性越低。
+Agent 执行复杂任务时，常见翻车：
 
-| 现状 | 理想 |
-|------|------|
-| 每次任务从零开始，重复描述背景 | 记住历史决策，下次直接执行 |
-| 长对话上下文爆 Token，费用飙升 | 工作流复用，Token 消耗降低 90% |
-| 复杂任务靠人工拆解，容易遗漏 | 自动拆分、智能路由、步步可控 |
-| 经验散落在聊天记录里，无法复用 | 智能提炼成 Skill，下次一键调用 |
-| 用久了没有进步，同类问题反复错 | 越用越聪明，可靠性持续提升 |
+- 10 步任务跑到第 7 步失败，从头再来
+- 可以并行的步骤串行跑，浪费时间
+- 上下文太长 Token 爆了，或者压缩后丢了中间结果
+- 同类任务每次重新规划，不积累经验
 
----
-
-## 核心价值
-
-### 🧠 让 OpenClaw 越用越聪明
-
-SoloFlow 为 OpenClaw 注入真正的**认知记忆系统**，不只是存储，是科学建模的人类记忆结构：
-
-```
-Working Memory          ← 当前任务上下文，运行中实时活跃
-       ↓
-Episodic Memory         ← 每次执行的完整历史，SQLite 持久化
-       ↓
-Unified Retrieval (RRF)← 多源协同召回，相似任务自动匹配
-       ↓
-Semantic Memory         ← 抽象化知识沉淀，受 Ebbinghaus 遗忘曲线自然淘汰无用信息
-```
-
-**效果：** 第 3 次遇到同类任务，OpenClaw 自动召回历史经验，**无需重复描述背景，Token 消耗大幅下降**。
-
-### ⚡ 自动提炼 Skill，工作流即插即用
-
-每次完成复杂任务，SoloFlow 自动分析执行路径，提取可复用的模式：
-
-- `soloflow_evolve` — LLM 驱动，从执行历史中提取工作流模板和 Skill 模式
-- `soloflow_templates` — 搜索已进化的模板，一句话创建新任务
-- 首次安装自动扫描现有执行记录冷启动
-
-**效果：** 用得越多，系统越懂你的习惯。重复性任务从"从头描述"变成"一键执行"。
-
-### 🎯 智能路由，降低 Token 消耗
-
-Discipline-Aware 路由，每个步骤自动匹配最合适的 Agent 类型：
-
-| Discipline | 场景 | 策略 |
-|------------|------|------|
-| `quick` | 查天气、格式化、翻译 | 轻量快速，省 Token |
-| `deep` | 架构评审、深度研究 | 强推理，保证质量 |
-| `visual` | UI/UX、前端任务 | 设计+代码双视角 |
-| `ultrabrain` | 复杂算法、硬逻辑 | 超深度思考，正确率优先 |
-
-**效果：** 简单任务用轻量模型，复杂任务用强推理模型，**不错配、不浪费**。
-
-### 🔄 DAG + FSM，执行步步可观测
-
-- **DAG** — 拓扑排序，同层步骤完全并行，每步独立可观测
-- **FSM** — 严格状态机，任何步骤失败立即定位，不丢上下文
-- **断点续跑** — 第 7 步失败？从第 7 步恢复，不从头开始
-
-**效果：** 全程可控可观测，出错不怕，凌晨不慌。
-
-### 🎨 可视化构建器
-
-拖拽式 DAG 编辑器，所见即所得。基于 SVG 无需外部依赖，支持 `/soloflow/builder` 直接访问。
+SoloFlow 给 Agent 加了一层**任务编排引擎**：自动拆解 → 并行调度 → 失败重试 → 经验积累。
 
 ---
 
-## 15 个 MCP 工具
+## 核心能力
 
-| 工具 | 说明 |
-|------|------|
-| `soloflow_create` | 创建工作流（步骤 + 依赖 + discipline） |
-| `soloflow_start` | 启动工作流 |
-| `soloflow_ready_steps` | 查询当前可执行步骤 |
-| `soloflow_advance_step` | 标记步骤完成/失败，推进工作流 |
-| `soloflow_status` | 查询工作流状态 |
-| `soloflow_list` | 列出所有工作流 |
-| `soloflow_cancel` | 取消运行中的工作流 |
-| `soloflow_memory` | 查询认知记忆（Working / Episodic / Semantic） |
-| `soloflow_evolve` | 触发 Skill 自动进化分析 |
-| `soloflow_templates` | 搜索已进化的 workflow / skill 模板 |
-| `soloflow_skills_list` | 列出所有已注册的 Skill |
-| `soloflow_skills_usage` | 查看 Skill 使用分析 |
-| `soloflow_skills_scan` | 扫描并更新 Skill 清单 |
-| `mcp_servers` | 列出所有 MCP 服务器及工具 |
-| `mcp_stats` | MCP 服务器使用统计 |
+### 🔄 DAG 并行调度
+
+Kahn 算法拓扑排序，自动识别哪些步骤可以并行：
+
+```
+选题 → [学术搜索 ∥ 行业搜索 ∥ 竞品分析] → 大纲 → 撰写 → 审校
+                  ↑ 3 步同时跑
+```
+
+- 可配置 `max_parallelism` 控制并发度
+- 单步超时 + 指数退避重试
+- 注入式 executor：测试用 mock，生产接 LLM
+
+### 🧠 三层记忆
+
+```
+Working Memory (LRU, 毫秒级)
+  → 当前任务上下文，超 size 自动淘汰
+       ↓
+Episodic Memory (SQLite + FTS5)
+  → 事件流持久化，事后全文搜索回溯
+       ↓
+Semantic Memory (模式提取)
+  → 从完成的 workflow 自动提取结构模板
+  → 同类任务可直接复用
+```
+
+### 💾 持久化 + 断点续跑
+
+SQLite WAL 模式，进程崩溃重启后 workflow 状态完整保留。失败步骤可独立重试，不用从头来。
+
+### 🔒 严格状态机
+
+```
+Workflow: draft → active → running → completed / failed / cancelled
+Step:     pending → ready → running → completed / failed (→ ready retry)
+```
+
+每个转换都有合法性校验，非法操作直接拒绝。
 
 ---
 
-## 工作原理
+## 架构
 
 ```
-用户: "帮我分析这个 GitHub 项目的代码质量"
-         ↓
-soloflow_create   →  自动拆解为 DAG 工作流
-                         ↙        ↘
-                   抓取代码      静态分析
-                         ↘        ↙
-                       综合报告 + Skill 提炼
-                                 ↓
-                    存入 Episodic Memory
-                                 ↓
-              下次说"分析 XX 项目"→ 自动召回 + 执行
+┌──────────────────────────────────┐
+│      WorkflowService (API)       │  创建/启动/推进/取消
+├──────────────────────────────────┤
+│      Scheduler (调度)            │  DAG 并行、超时重试、指数退避
+├────────────┬─────────────────────┤
+│  DAG Engine│    FSM 状态机       │  拓扑排序 + 状态约束
+├────────────┴─────────────────────┤
+│      SQLiteStore (持久化)        │  WAL、组合主键、8 版迁移
+└──────────────────────────────────┘
+         ↕
+┌──────────────────────────────────┐
+│      三层记忆系统                 │
+│  Working → Episodic → Semantic   │
+└──────────────────────────────────┘
 ```
 
 ---
 
 ## 快速开始
 
+### 安装
+
 ```bash
-# 通过 ClawHub 安装（推荐）
-clawhub install soloflow
-
-# 重启 Gateway 加载插件
-openclaw gateway restart
-
-# 验证
-openclaw status
-# → SoloFlow loaded ✓
+git clone https://github.com/SonicBotMan/SoloFlow.git
+cd SoloFlow
+# 纯 Python，无第三方依赖（只用标准库 sqlite3 + asyncio）
 ```
 
-**前置要求：** Node.js ≥ 22
+### 基本用法
+
+```python
+import asyncio
+from pathlib import Path
+from store.sqlite_store import SQLiteStore
+from services.workflow_service import WorkflowService
+from services.scheduler import Scheduler
+
+async def main():
+    # 1. 初始化
+    store = SQLiteStore(Path("soloflow.db"))
+    store.initialize()
+    ws = WorkflowService(store)
+    ws.set_scheduler(Scheduler(store, ws))
+
+    # 2. 创建 workflow
+    wf = await ws.create_workflow(
+        name="research-report",
+        description="行业调研报告",
+        steps=[
+            {"id": "topic",    "name": "选题",     "discipline": "deep",  "prompt": "确定研究方向"},
+            {"id": "search_a", "name": "学术搜索",  "discipline": "quick", "prompt": "搜索学术资料"},
+            {"id": "search_b", "name": "行业搜索",  "discipline": "quick", "prompt": "搜索行业报告"},
+            {"id": "outline",  "name": "大纲",     "discipline": "deep",  "prompt": "整理大纲"},
+            {"id": "write",    "name": "撰写",     "discipline": "deep",  "prompt": "写正文"},
+            {"id": "review",   "name": "审校",     "discipline": "quick", "prompt": "审校发布"},
+        ],
+        edges=[
+            ("topic", "search_a"), ("topic", "search_b"),
+            ("search_a", "outline"), ("search_b", "outline"),
+            ("outline", "write"), ("write", "review"),
+        ],
+    )
+
+    # 3. 启动（Scheduler 自动调度：topic → [search_a ∥ search_b] → outline → write → review）
+    await ws.start_workflow(wf["id"])
+
+    # 4. 查状态
+    status = await ws.get_workflow_status(wf["id"])
+    print(f"State: {status['state']}, Progress: {status['progress']}")
+
+    # 5. 手动推进步骤（不用 Scheduler 时）
+    ready = await ws.get_ready_steps(wf["id"])
+    for step_id in ready:
+        result = f"完成了 {step_id}"  # 实际中这里调用 LLM
+        await ws.advance_step(wf["id"], step_id, result=result)
+
+asyncio.run(main())
+```
+
+### 自定义 Executor
+
+```python
+# 注入自己的执行逻辑（如调用 LLM、搜索 API 等）
+async def my_executor(step: dict) -> str:
+    response = await call_your_llm(step["prompt"])
+    return response
+
+scheduler = Scheduler(store, ws, config={"max_parallelism": 4, "default_timeout": 60})
+result = await scheduler.execute_workflow(workflow_id, executor=my_executor)
+```
+
+### 记忆系统
+
+```python
+from memory.episodic_memory import EpisodicMemory
+from memory.semantic_memory import SemanticMemory
+
+em = EpisodicMemory(store)
+
+# 记录事件
+await em.record(event_type="step_completed", data={"step": "search_a", "result": "找到 12 篇"})
+
+# 全文搜索
+results = await em.search("timeout")  # 搜所有超时事件
+
+# 语义模式提取
+sm = SemanticMemory(store)
+template = await sm.extract_and_store(completed_workflow)
+templates = await sm.get_templates()  # 获取所有模式模板
+```
 
 ---
 
-## 与竞品对比
+## API 参考
 
-| 特性 | SoloFlow | CrewAI | LangGraph | AutoGPT | n8n |
-|------|:--------:|:------:|:---------:|:-------:|:---:|
-| 认知记忆系统 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 自动提炼 Skill | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 降低 Token 消耗 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 越用越聪明 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Discipline-Aware 路由 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| DAG + FSM 混合 | ✅ | 部分 | ✅ | ❌ | ✅ |
-| 可视化 DAG 构建器 | ✅ | ❌ | ❌ | ❌ | ✅ |
-| 遗忘曲线衰减 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| MCP 工具接口 | ✅ | ❌ | ❌ | ❌ | ❌ |
-| OpenClaw 深度集成 | ✅ | ❌ | ❌ | ❌ | ❌ |
+### WorkflowService
 
----
-
-## 资源链接
-
-| 资源 | 链接 |
+| 方法 | 说明 |
 |------|------|
-| **产品官网** | [soloflow.pmparker.net](https://soloflow.pmparker.net/) |
-| **官网源码** | [website/](./website/) |
-| **GitHub 仓库** | [github.com/SonicBotMan/SoloFlow](https://github.com/SonicBotMan/SoloFlow) |
-| **插件详细文档** | [openclaw-plugin/README.md](./openclaw-plugin/README.md) |
-| **发行说明** | [Releases](https://github.com/SonicBotMan/SoloFlow/releases) |
+| `create_workflow(name, description, steps, edges)` | 创建工作流，返回 workflow dict |
+| `start_workflow(workflow_id)` | 启动工作流（draft → running） |
+| `advance_step(workflow_id, step_id, result?, error?)` | 推进步骤状态 |
+| `get_ready_steps(workflow_id)` | 获取当前可执行的步骤列表 |
+| `get_workflow_status(workflow_id)` | 查询工作流状态和进度 |
+| `list_workflows(limit?, state_filter?)` | 列出/筛选工作流 |
+| `cancel_workflow(workflow_id)` | 取消运行中的工作流 |
+
+### Scheduler
+
+| 方法 | 说明 |
+|------|------|
+| `execute_workflow(workflow_id, executor?)` | 执行整个工作流（自动并行调度） |
+| `cancel_step(workflow_id, step_id)` | 取消单个运行中的步骤 |
+| `cancel_all(workflow_id)` | 取消工作流的所有运行步骤 |
+
+### Step 配置
+
+```python
+{
+    "id": "unique_step_id",       # 必填，步骤唯一标识
+    "name": "步骤名称",            # 必填
+    "description": "描述",         # 可选
+    "discipline": "deep",          # quick / deep / visual / ultrabrain
+    "prompt": "执行指令",           # 必填，传给 executor 的内容
+    "max_retries": 3,              # 可选，默认 3
+    "timeout_seconds": 300,        # 可选，默认 300
+}
+```
+
+---
+
+## 测试
+
+```bash
+# 核心功能测试 (25 项)
+python3 /tmp/soloflow_full_test.py
+
+# 边界场景测试 (17 场景 56 项)
+python3 /tmp/soloflow_edge_test.py
+```
+
+测试覆盖：DAG 构建、并行调度、状态机转换、超时重试、三层记忆、FTS5 搜索、并发竞争、幂等保存、空/极端输入...
+
+---
+
+## 集成到 Hermes Agent
+
+SoloFlow 是独立的 Python 库，可以集成到任何 AI Agent 框架。以 [Hermes Agent](https://github.com/nousresearch/hermes-agent) 为例：
+
+1. 将 `hermes-plugin/` 目录放到 Hermes 的 plugins 目录
+2. 在 Hermes `config.yaml` 中注册插件
+3. Agent 即可通过 tool 接口创建和管理工作流
+
+也可以作为独立库使用，不依赖任何 Agent 框架。
+
+---
+
+## 项目结构
+
+```
+SoloFlow/
+├── hermes-plugin/           # Python 工作流引擎
+│   ├── core/
+│   │   ├── dag.py           # Kahn 算法 DAG 引擎
+│   │   └── fsm.py           # 状态机
+│   ├── services/
+│   │   ├── workflow_service.py  # 核心服务层
+│   │   └── scheduler.py        # 并行调度器
+│   ├── memory/
+│   │   ├── working_memory.py    # LRU 工作记忆
+│   │   ├── episodic_memory.py   # FTS5 事件记忆
+│   │   └── semantic_memory.py   # 语义记忆
+│   ├── store/
+│   │   ├── sqlite_store.py      # SQLite WAL 持久化
+│   │   └── migrations.py        # 8 版增量迁移
+│   ├── models.py                # 状态枚举
+│   ├── config.py                # 配置
+│   └── plugin.yaml              # 插件元数据
+├── openclaw-plugin/         # (旧版) OpenClaw Node.js 插件
+├── core/                    # (旧版) 独立 DAG/FSM 模块
+└── README.md
+```
 
 ---
 
