@@ -41,6 +41,7 @@ class MemorySystem:
             Recorded episode dict
         """
         return await self.episodic.record(
+            workflow_id="",
             execution_id=session_id,
             event_type="turn",
             data={
