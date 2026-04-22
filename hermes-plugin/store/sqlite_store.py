@@ -203,21 +203,25 @@ class SQLiteStore:
         )
         return [self._row_to_step(row) for row in cursor.fetchall()]
 
-    def update_step(self, step_id: str, **fields: Any) -> None:
-        """Update arbitrary fields on a step; updated_at is always refreshed."""
-        allowed = {
-            "name", "description", "discipline", "prompt",
-            "state", "result", "error",
-            "retry_count", "max_retries", "timeout_seconds",
-        }
-        setters = {k: v for k, v in fields.items() if k in allowed}
+    def update_step(self, workflow_id: str, step_id: str, **fields: Any) -> None:
+        """Update specific fields of a workflow step.
+
+        Args:
+            workflow_id: UUID of the workflow (part of composite PK)
+            step_id: ID of the step to update
+            **fields: Fields to update (e.g., state, result, error)
+        """
+        if not fields:
+            return
+        setters = {k: v for k, v in fields.items() if v is not None}
         if not setters:
             return
         setters["updated_at"] = time.time()
         setters["id"] = step_id
+        setters["workflow_id"] = workflow_id
         sql = "UPDATE workflow_steps SET " + ", ".join(
-            f"{k} = :{k}" for k in setters
-        ) + " WHERE id = :id"
+            f"{k} = :{k}" for k in setters if k not in ("id", "workflow_id")
+        ) + " WHERE workflow_id = :workflow_id AND id = :id"
         self.conn.execute(sql, setters)
         self.conn.commit()
 
@@ -431,7 +435,25 @@ class SQLiteStore:
                         safe_tokens.append(f'"{cleaned}"')
                 i += 1
 
-        return " AND ".join(safe_tokens)
+        # Join tokens — FTS5 operators connect adjacent terms
+        if not safe_tokens:
+            return '""'
+        
+        out: list[str] = []
+        for tok in safe_tokens:
+            if tok.upper() in FTS5_OPS:
+                # Operator: will join previous and next content token
+                if out and out[-1].upper() not in FTS5_OPS:
+                    out.append(tok)
+                # else: skip dangling operator
+            else:
+                if out and out[-1].upper() not in FTS5_OPS:
+                    out.append("AND")
+                out.append(tok)
+        # Trim trailing operator
+        if out and out[-1].upper() in FTS5_OPS:
+            out.pop()
+        return " ".join(out) if out else '""'
 
     # -------------------------------------------------------------------------
     # Row helpers

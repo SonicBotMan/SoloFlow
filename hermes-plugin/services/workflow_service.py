@@ -224,14 +224,8 @@ class WorkflowService:
         current_state = step["state"]
 
         # Determine if this is a success or failure
-        if error is None and result is not None:
-            # Success path
-            step["state"] = StepState.COMPLETED.value
-            step["result"] = result
-            step["error"] = None
-            logger.info(f"Step {step_id} completed successfully")
-        else:
-            # Failure path - check for retry
+        if error is not None:
+            # Explicit failure path
             step["retry_count"] = step.get("retry_count", 0) + 1
             step["error"] = error
 
@@ -253,6 +247,18 @@ class WorkflowService:
                 logger.warning(
                     f"Step {step_id} failed after {step['retry_count']} retries"
                 )
+        elif result is not None:
+            # Success path
+            step["state"] = StepState.COMPLETED.value
+            step["result"] = result
+            step["error"] = None
+            logger.info(f"Step {step_id} completed successfully")
+        else:
+            # Both None — treat as success with empty result (no-op advance)
+            step["state"] = StepState.COMPLETED.value
+            step["result"] = ""
+            step["error"] = None
+            logger.info(f"Step {step_id} advanced with no result")
 
         workflow["updated_at"] = time.time()
 
@@ -402,6 +408,7 @@ class WorkflowService:
                 StepState.CANCELLED.value,
             }:
                 step["state"] = StepState.CANCELLED.value
+                self._store.save_step(step)
 
         workflow["state"] = WorkflowState.CANCELLED.value
         workflow["updated_at"] = time.time()
