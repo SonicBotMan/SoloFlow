@@ -7,8 +7,28 @@ on:
     branches: [main]
 
 jobs:
+  # ── Detect changes ──────────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      openclaw: ${{ steps.filter.outputs.openclaw }}
+      hermes: ${{ steps.filter.outputs.hermes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            openclaw:
+              - 'openclaw-plugin/**'
+            hermes:
+              - 'hermes-plugin/**'
+
+  # ── TypeScript (openclaw-plugin) ──────────────────────────────
   typecheck:
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.openclaw == 'true' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +49,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: typecheck
+    if: needs.typecheck.result == 'success'
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +74,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     needs: typecheck
+    if: needs.typecheck.result == 'success'
     steps:
       - uses: actions/checkout@v4
 
@@ -69,3 +91,109 @@ jobs:
       - name: Lint
         working-directory: openclaw-plugin
         run: npx tsc --noEmit --pretty 2>&1 | grep "error TS" && exit 1 || echo "No errors"
+
+  # ── Python (hermes-plugin) ────────────────────────────────────
+  python-test:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.hermes == 'true' || github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: hermes-plugin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Syntax check
+        run: |
+          python -m py_compile services/workflow_service.py
+          python -m py_compile services/scheduler.py
+          python -m py_compile store/sqlite_store.py
+          python -m py_compile store/migrations.py
+          python -m py_compile core/dag.py
+          python -m py_compile core/fsm.py
+          python -m py_compile memory/working_memory.py
+          python -m py_compile memory/episodic_memory.py
+          python -m py_compile memory/semantic_memory.py
+          python -m py_compile models.py
+          python -m py_compile config.py
+
+      - name: Import check
+        run: |
+          python -c "
+          from store.sqlite_store import SQLiteStore
+          from services.workflow_service import WorkflowService
+          from services.scheduler import Scheduler
+          from core.dag import build_dag, get_ready_steps
+          from core.fsm import transition, can_transition
+          from memory.working_memory import WorkingMemory
+          from memory.episodic_memory import EpisodicMemory
+          from memory.semantic_memory import SemanticMemory
+          from models import WorkflowState, StepState
+          print('All imports OK')
+          "
+
+      - name: Run integration tests
+        run: |
+          cat > /tmp/test_soloflow.py << 'TESTEOF'
+          import sys, asyncio, tempfile
+          sys.path.insert(0, ".")
+          from pathlib import Path
+          from store.sqlite_store import SQLiteStore
+          from services.workflow_service import WorkflowService
+          from services.scheduler import Scheduler
+
+          passed = failed = 0
+          def check(name, cond, detail=""):
+              global passed, failed
+              if cond: passed += 1; print(f"  ✅ {name}")
+              else: failed += 1; print(f"  ❌ {name} {detail}")
+
+          async def main():
+              tmpdir = tempfile.mkdtemp()
+              store = SQLiteStore(Path(tmpdir) / "test.db")
+              store.initialize()
+              ws = WorkflowService(store)
+              ws.set_scheduler(Scheduler(store, ws))
+
+              steps = [
+                  {"id": "a", "name": "A", "description": "", "discipline": "quick", "prompt": "Do A"},
+                  {"id": "b", "name": "B", "description": "", "discipline": "quick", "prompt": "Do B"},
+                  {"id": "c", "name": "C", "description": "", "discipline": "quick", "prompt": "Do C"},
+              ]
+              wf = await ws.create_workflow("test", "Test", steps, [("a","b"),("b","c")])
+              check("created", wf["state"] == "draft")
+              check("3 steps", len(wf["steps"]) == 3)
+
+              await ws.start_workflow(wf["id"])
+              ready = await ws.get_ready_steps(wf["id"])
+              check("a ready", "a" in ready)
+
+              await ws.advance_step(wf["id"], "a", result="A done")
+              await ws.advance_step(wf["id"], "b", result="B done")
+              await ws.advance_step(wf["id"], "c", result="C done")
+              status = await ws.get_workflow_status(wf["id"])
+              check("completed", status["state"] == "completed")
+              check("progress 3/3", status["progress"]["completed"] == 3)
+
+              wf2 = await ws.create_workflow("test2", "Test2",
+                  [{"id": "x", "name": "X", "description": "", "discipline": "quick", "prompt": "X"}], [])
+              await ws.start_workflow(wf2["id"])
+              await ws.cancel_workflow(wf2["id"])
+              status2 = await ws.get_workflow_status(wf2["id"])
+              check("cancelled", status2["state"] == "cancelled")
+
+              all_wfs = await ws.list_workflows()
+              check("2 workflows", len(all_wfs) == 2)
+              store.close()
+
+              print(f"\nResults: {passed} passed, {failed} failed")
+              return failed
+
+          sys.exit(asyncio.run(main()))
+          TESTEOF
+          python /tmp/test_soloflow.py
