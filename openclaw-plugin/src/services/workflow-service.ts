@@ -43,6 +43,41 @@ export class WorkflowNotFoundError extends Error {
   }
 }
 
+// ─── Store Interface ──────────────────────────────────────────────────
+
+/**
+ * Abstraction over the workflow persistence layer.
+ * The default in-memory implementation uses a Map; callers may supply a
+ * database-backed implementation instead (e.g. SQLite, Redis).
+ */
+export interface WorkflowStore {
+  get(id: WorkflowId): Workflow | undefined;
+  set(id: WorkflowId, workflow: Workflow): void;
+  delete(id: WorkflowId): boolean;
+  values(): IterableIterator<Workflow>;
+}
+
+/** In-memory WorkflowStore backed by a Map (default). */
+export class InMemoryWorkflowStore implements WorkflowStore {
+  private readonly map = new Map<WorkflowId, Workflow>();
+
+  get(id: WorkflowId): Workflow | undefined {
+    return this.map.get(id);
+  }
+
+  set(id: WorkflowId, workflow: Workflow): void {
+    this.map.set(id, workflow);
+  }
+
+  delete(id: WorkflowId): boolean {
+    return this.map.delete(id);
+  }
+
+  values(): IterableIterator<Workflow> {
+    return this.map.values();
+  }
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────
 
 function now(): number {
@@ -54,13 +89,11 @@ function now(): number {
 type StateListener = (event: StateEvent) => void;
 
 export class WorkflowService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly store: any;
+  private readonly store: WorkflowStore;
   private readonly listeners = new Set<StateListener>();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(store?: any) {
-    this.store = store ?? new Map<WorkflowId, Workflow>();
+  constructor(store?: WorkflowStore) {
+    this.store = store ?? new InMemoryWorkflowStore();
   }
 
   // ── Event helpers ──────────────────────────────────────────────────
@@ -139,7 +172,7 @@ export class WorkflowService {
 
   /** List workflows with optional filtering and pagination. */
   list(filter?: WorkflowFilter): Workflow[] {
-    let results: Workflow[] = Array.from(this.store.values()) as Workflow[];
+    let results: Workflow[] = Array.from(this.store.values());
 
     if (filter) {
       if (filter.status !== undefined) {
