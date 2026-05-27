@@ -1,0 +1,96 @@
+{
+  "tools": [
+    {
+      "name": "soloflow_create",
+      "description": "Create a new SoloFlow workflow with steps and DAG edges",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "description": "Workflow name"},
+          "description": {"type": "string", "description": "Workflow description"},
+          "steps": {
+            "type": "array",
+            "description": "List of workflow steps",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "discipline": {"type": "string", "enum": ["quick", "deep", "visual", "ultrabrain"]},
+                "prompt": {"type": "string"},
+                "max_retries": {"type": "integer", "default": 3},
+                "timeout_seconds": {"type": "integer", "default": 300}
+              },
+              "required": ["id", "name", "prompt"]
+            }
+          },
+          "edges": {
+            "type": "array",
+            "description": "DAG edges (from_id, to_id)",
+            "items": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "required": ["name", "description", "steps", "edges"]
+      }
+    },
+    {
+      "name": "soloflow_run",
+      "description": "Execute a SoloFlow workflow with DAG parallelism",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {"type": "string", "description": "Workflow ID to execute"},
+          "executor": {
+            "type": "string",
+            "enum": ["default", "llm", "custom"],
+            "default": "default",
+            "description": "Executor type"
+          }
+        },
+        "required": ["workflow_id"]
+      }
+    },
+    {
+      "name": "soloflow_status",
+      "description": "Get the status and progress of a workflow",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {"type": "string", "description": "Workflow ID"}
+        },
+        "required": ["workflow_id"]
+      }
+    },
+    {
+      "name": "soloflow_list",
+      "description": "List workflows with optional state filter",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {"type": "integer", "default": 50, "description": "Max results"},
+          "state": {
+            "type": "string",
+            "enum": ["draft", "active", "running", "completed", "failed", "cancelled"],
+            "description": "Filter by state"
+          }
+        }
+      }
+    },
+    {
+      "name": "soloflow_cancel",
+      "description": "Cancel a running workflow",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {"type": "string", "description": "Workflow ID to cancel"}
+        },
+        "required": ["workflow_id"]
+      }
+    }
+  ]
+}
