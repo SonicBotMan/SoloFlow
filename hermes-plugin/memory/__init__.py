@@ -1,8 +1,8 @@
 """Memory system facade providing unified access to all memory tiers."""
 
-from memory.working_memory import WorkingMemory
-from memory.episodic_memory import EpisodicMemory
-from memory.semantic_memory import SemanticMemory
+from forgetting_memory.working_memory import WorkingMemory
+from forgetting_memory.episodic_memory import EpisodicMemory
+from forgetting_memory.semantic_memory import SemanticMemory
 
 
 class MemorySystem:

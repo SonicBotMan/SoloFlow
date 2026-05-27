@@ -12,8 +12,8 @@ import pytest
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from memory.forgetting.curve import ForgettingCurve, MemoryEntry
-from memory.forgetting.consolidation import MemoryConsolidator
+from forgetting_memory.forgetting.curve import ForgettingCurve, MemoryEntry
+from forgetting_memory.forgetting.consolidation import MemoryConsolidator
 
 
 @pytest.fixture

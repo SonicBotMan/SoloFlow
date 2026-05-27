@@ -22,9 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hermes-plugin")
 from store.sqlite_store import SQLiteStore
 from services.workflow_service import WorkflowService
 from services.scheduler import Scheduler
-from memory.working_memory import WorkingMemory
-from memory.episodic_memory import EpisodicMemory
-from memory.semantic_memory import SemanticMemory
+from forgetting_memory.working_memory import WorkingMemory
+from forgetting_memory.episodic_memory import EpisodicMemory
+from forgetting_memory.semantic_memory import SemanticMemory
 
 
 async def main():
