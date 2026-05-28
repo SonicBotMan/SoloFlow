@@ -14,6 +14,7 @@ class SQLiteStore:
     """Thread-safe SQLite store for SoloFlow workflows, steps, DAG, episodic memory, and templates."""
 
     def __init__(self, db_path: Path) -> None:
+        """Initialize SQLite store with database path."""
         self._db_path = db_path
         self._conn: Optional[sqlite3.Connection] = None
         self._lock = threading.Lock()

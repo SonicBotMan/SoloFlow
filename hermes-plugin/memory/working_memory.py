@@ -7,11 +7,13 @@ from typing import Optional
 class WorkingMemory:
     """Fast LRU-backed working memory for immediate context."""
 
-    def __init__(self, max_size: int = 100):
+    def __init__(self, max_size: int = 100) -> None:
+        """Initialize working memory with LRU cache."""
         self._max_size = max(0, max_size)
         self._memory: OrderedDict[str, dict] = OrderedDict()
 
     def put(self, key: str, value: dict) -> None:
+        """Add or update a memory entry."""
         if self._max_size <= 0:
             return
 
@@ -24,12 +26,14 @@ class WorkingMemory:
             self._memory.popitem(last=False)
 
     def get(self, key: str) -> Optional[dict]:
+        """Get a memory entry by key."""
         if key not in self._memory:
             return None
         self._memory.move_to_end(key)
         return self._memory[key]
 
     def search(self, query: str, limit: int = 5) -> list[dict]:
+        """Search memory entries by query."""
         query_lower = query.lower()
         query_words = set(query_lower.split())
 
@@ -57,6 +61,7 @@ class WorkingMemory:
         return results[:limit]
 
     def clear(self) -> None:
+        """Clear all memory entries."""
         self._memory.clear()
 
     def __len__(self) -> int:
