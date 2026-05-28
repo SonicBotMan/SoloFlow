@@ -75,3 +75,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Type hints in memory, services modules
 - Documentation improvements
+
+## [1.4.0] - 2026-05-28
+
+### Added
+- Health check script
+- Code review automation script
+- Change tracking script
+- Documentation generator script
+- Security policy
+
+### Improved
+- Type hint coverage: 97.6%
+- Docstring coverage: 73.2%
+- Documented functions: 93
+- Test/Code ratio: 28.3%
+
+### Fixed
+- Documentation improvements
+- Code quality enhancements
