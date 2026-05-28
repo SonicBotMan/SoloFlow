@@ -316,3 +316,27 @@ mermaid = visualizer.to_mermaid(steps, edges)
 html = visualizer.to_html(steps, edges, title="My Workflow")
 ```
 
+
+### Governance Layer (NEW)
+
+Complete ETCLOVG framework coverage with permissions, audit, and policies:
+
+```python
+from hermes_plugin.governance import GovernanceManager, Permission
+
+governance = GovernanceManager()
+
+# Grant permissions
+governance.grant_permission("user_1", Permission.EXECUTE)
+
+# Check permissions
+has_perm = governance.check_permission("user_1", Permission.EXECUTE)
+
+# Log audit events
+governance.log_audit(
+    action=AuditAction.WORKFLOW_STARTED,
+    workflow_id="wf_123",
+    user_id="user_1",
+)
+```
+
