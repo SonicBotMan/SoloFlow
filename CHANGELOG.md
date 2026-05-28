@@ -94,3 +94,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documentation improvements
 - Code quality enhancements
+
+## [1.5.0] - 2026-05-28
+
+### Added
+- Performance monitor script
+
+### Improved
+- Performance benchmarks
+- Code quality metrics
+- Documentation coverage
+
+### Fixed
+- Performance optimizations
