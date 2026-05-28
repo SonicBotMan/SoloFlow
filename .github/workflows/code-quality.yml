@@ -1,0 +1,23 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install pytest mypy
+      - name: Run tests
+        run: python -m pytest tests/ -v
+      - name: Type check
+        run: mypy hermes-plugin/ --ignore-missing-imports
