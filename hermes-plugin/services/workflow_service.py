@@ -15,11 +15,11 @@ logger = logging.getLogger("soloflow")
 class WorkflowService:
     """Service for managing workflow lifecycle and execution state."""
 
-    def __init__(self, store):
+    def __init__(self, store: object) -> None:
         self._store = store
         self._scheduler = None
 
-    def set_scheduler(self, scheduler) -> None:
+    def set_scheduler(self, scheduler: object) -> None:
         """Set the scheduler for workflow execution."""
         self._scheduler = scheduler
 

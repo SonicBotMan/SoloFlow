@@ -14,7 +14,7 @@ class MemorySystem:
     - Semantic: Pattern extraction and template storage
     """
 
-    def __init__(self, store):
+    def __init__(self, store: object) -> None:
         """Initialize the memory system.
 
         Args:

@@ -12,7 +12,7 @@ logger = logging.getLogger("soloflow")
 class Scheduler:
     """Async scheduler that manages parallel step execution within a workflow."""
 
-    def __init__(self, store, workflow_service, config: dict = None):
+    def __init__(self, store: object, workflow_service: object, config: dict | None = None) -> None:
         self._store = store
         self._workflow_service = workflow_service
         self._running_tasks: dict[str, asyncio.Task] = {}
