@@ -1,0 +1,56 @@
+# Changelog
+
+All notable changes to SoloFlow will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- MCP Tool Layer (Phase 1)
+  - 5 MCP tools: create, run, status, list, cancel
+  - MCP Server implementation
+  - Tool schema export
+- Trace System (Phase 2)
+  - Nested span tracking
+  - Token usage tracking
+  - JSON export and tree visualization
+  - CLI commands for trace viewing
+- Ebbinghaus Forgetting Curve (Phase 3)
+  - R(t) = base × e^(-t/stability)
+  - Memory consolidation system
+  - Three-tier memory support
+- Discipline Routing (Phase 4)
+  - Task classification (quick/deep/visual/ultrabrain)
+  - Automatic routing to appropriate executors
+  - Fallback mechanism
+- Skill Evolution (Phase 5)
+  - Pattern detection from workflow history
+  - Skill packaging with versioning
+  - MCP tool export
+  - Quality scoring (4 dimensions)
+- Documentation
+  - Comprehensive API reference
+  - Architecture documentation
+  - Contributing guide
+  - 8 example scripts
+- GitHub Templates
+  - Bug report template
+  - Feature request template
+  - PR template with ETCLOVG checklist
+
+### Changed
+- Updated README with new features
+- Improved project structure
+
+## [1.0.0] - 2026-05-28
+
+### Added
+- Initial release
+- DAG engine with Kahn's algorithm
+- FSM state machine
+- Three-tier memory system
+- SQLite persistence
+- Scheduler with parallel execution
+- 64 passing tests
