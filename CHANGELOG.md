@@ -107,3 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Performance optimizations
+
+## [1.5.1] - 2026-05-28
+
+### Fixed
+- Minor documentation updates
+- Code quality improvements
