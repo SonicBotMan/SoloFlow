@@ -275,3 +275,44 @@ MIT License - see [LICENSE](./LICENSE)
 
 - Inspired by LangGraph, AutoGen, and the Agent Harness Engineering research
 - Built with ❤️ for the AI Agent community
+
+---
+
+## Recent Additions
+
+### Human-in-the-Loop (NEW)
+
+Approval system for sensitive workflow steps:
+
+```python
+from hermes_plugin.human import HumanApprovalManager
+
+manager = HumanApprovalManager()
+
+# Create approval request
+request = manager.create_request(
+    workflow_id="wf_123",
+    step_id="review",
+    prompt="Please review and approve",
+)
+
+# Wait for approval
+result = await manager.wait_for_approval(request.request_id)
+```
+
+### Workflow Visualization (NEW)
+
+Generate Mermaid diagrams from workflows:
+
+```python
+from hermes_plugin.visualization import WorkflowVisualizer
+
+visualizer = WorkflowVisualizer()
+
+# Generate Mermaid diagram
+mermaid = visualizer.to_mermaid(steps, edges)
+
+# Generate HTML with embedded diagram
+html = visualizer.to_html(steps, edges, title="My Workflow")
+```
+
