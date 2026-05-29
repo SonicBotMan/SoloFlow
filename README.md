@@ -5,7 +5,7 @@
 **Turn chaotic multi-step AI tasks into structured, observable, retryable workflows — with cognitive memory and discipline-aware routing.**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-64%20passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/tests-149%20passing-brightgreen.svg)](./tests)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](./requirements.txt)
 
@@ -66,14 +66,39 @@ pattern → detect → package → skill → MCP tool
 | Layer | Component | Status |
 |-------|-----------|--------|
 | **T** | MCP Tool Layer | ✅ 5 tools |
-| **C** | Ebbinghaus Memory | ✅ Forgetting curve |
-| **L** | DAG + FSM Engine | ✅ Core |
-| **O** | Trace System | ✅ Nested spans |
-| **V** | Quality Scorer | ✅ 4-dimension scoring |
-| **E** | Execution | 🔜 Planned |
-| **G** | Governance | 🔜 Planned |
+| **C** | Ebbinghaus Memory + Context Providers | ✅ Forgetting curve + pluggable context |
+| **L** | DAG + FSM Engine + Pipeline | ✅ Core + Haystack-style components |
+| **O** | Trace System + Hooks | ✅ Nested spans + lifecycle hooks |
+| **V** | Quality Scorer + Output Validation | ✅ 4-dimension scoring + typed contracts |
+| **E** | Execution + Dispatch + Handoff | ✅ Sub-agent dispatch + control transfer |
+| **G** | Governance + Roles + Session + Boundary | ✅ Role permissions + session mgmt |
 
-**Coverage: 5/7 layers (71%)**
+**Coverage: 7/7 layers (100%)**
+
+---
+
+## Architecture (10-Framework Fusion)
+
+```
+hermes-plugin/
+├── core/           # DAG + FSM (original)
+├── services/       # WorkflowService + Scheduler (original)
+├── store/          # SQLite persistence (original)
+├── memory/         # Three-tier memory (original)
+├── checkpoint/     # LangGraph: resumable execution context
+├── dispatch/       # DeerFlow: lead agent + sub-agents
+├── roles/          # CrewAI: role = permission boundary
+├── output/         # PydanticAI: typed contracts + validation
+├── boundary/       # Mastra: workflow vs agent control
+├── handoff/        # OpenAI Agents SDK: control transfer
+├── session/        # Google ADK: session + context budget
+├── hooks/          # Claude Agent SDK: lifecycle hooks + audit
+├── pipeline/       # Haystack: component-based orchestration
+├── context/        # Microsoft: pluggable context providers
+├── governance/     # Governance layer (original)
+├── human/          # Human approval (original)
+└── visualization/  # Visualization (original)
+```
 
 ---
 
