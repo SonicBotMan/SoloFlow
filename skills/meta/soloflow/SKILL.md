@@ -88,6 +88,20 @@ When the user says ANY of these, immediately run `/soloflow propose`:
 
 ---
 
+## Phase 2.5: AI Confirmation
+
+Before presenting the proposal, you (the AI) MUST:
+
+1. **Review the detected pattern** — Is this a real workflow worth capturing, or just noise?
+2. **Refine the name** — The auto-detected name may be generic (e.g., "terminal-write_file"). Choose a descriptive, domain-specific name (e.g., "meeting-notes-pipeline", "deploy-service").
+3. **Refine the category** — Verify the auto-detected category is correct.
+4. **Add context** — If you know WHY this workflow exists (e.g., "user deploys after every PR"), add that to the description.
+5. **Check for existing skills** — If a similar skill already exists in `~/.hermes/skills/`, suggest editing it instead of creating a new one.
+
+**Do NOT blindly pass through the PatternDetector output.** Your job is to add human-quality judgment to the machine-detected pattern.
+
+---
+
 ## Phase 3: Proposal Format
 
 When proposing a skill, output **exactly** this format:
