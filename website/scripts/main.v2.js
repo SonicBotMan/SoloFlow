@@ -32,7 +32,7 @@
           modules: 'Python Files',
           bundle: 'Zero Deps',
           mcpTools: 'MCP Tools',
-          deps: 'Open Source'
+          deps: 'GitHub Stars'
         }
       },
       problem: {

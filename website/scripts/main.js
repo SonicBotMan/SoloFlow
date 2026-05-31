@@ -32,7 +32,7 @@
           modules: 'Python Files',
           bundle: 'Zero Deps',
           mcpTools: 'MCP Tools',
-          deps: 'Open Source'
+          deps: 'GitHub Stars'
         }
       },
       problem: {
@@ -176,7 +176,7 @@
           modules: 'Python 文件',
           bundle: '零依赖',
           mcpTools: 'MCP 工具',
-          deps: '开源免费'
+          deps: 'GitHub 星标'
         }
       },
       problem: {
