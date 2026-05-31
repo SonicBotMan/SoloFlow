@@ -5,7 +5,7 @@
 **Turn chaotic multi-step AI tasks into structured, observable, retryable workflows — with cognitive memory and discipline-aware routing.**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-149%20passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/tests-161%20passing-brightgreen.svg)](./tests)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](./requirements.txt)
 
@@ -51,13 +51,15 @@ quick (~2s) → deep (~30s) → visual (~30s) → ultrabrain (~120s)
 - Route to appropriate agent discipline
 - Fallback to default when uncertain
 
-### 4. Skill Auto-Evolution
+### 4. Skill Auto-Evolution (Hermes Plugin)
 ```
-pattern → detect → package → skill → MCP tool
+observe → fingerprint → detect → package → install
 ```
-- Detect repeated workflow patterns
-- Package into versioned, reusable skills
-- Expose as MCP tools for other agents
+- **Passive observation** via `hermes.on("tool_call")` event hooks
+- **Multi-step workflow aggregation** — consecutive tool calls grouped automatically
+- **Rich step descriptions** — extracts key args (command, path, url) into human-readable steps
+- **4-dimension quality scoring** — reliability, efficiency, maturity, reusability
+- **Auto-generate** SKILL.md + plugin.py and install to `~/.hermes/skills/`
 
 ---
 
@@ -154,6 +156,75 @@ async def main():
 
 asyncio.run(main())
 ```
+
+---
+
+## SoloFlow Plugin — Skill Factory
+
+SoloFlow includes a **Hermes plugin** that automatically detects repeated workflows and generates reusable skills. It replaces `skill-factory` with deeper integration and quality scoring.
+
+### Installation
+
+```bash
+# One-command install
+bash install.sh
+
+# Or manual
+cp plugins/soloflow.py ~/.hermes/plugins/
+cp -r skills/meta/soloflow ~/.hermes/skills/meta/
+cp -r evolution ~/.hermes/plugins/
+hermes skills reload
+```
+
+### Usage
+
+```bash
+# Mark workflow boundaries explicitly
+/soloflow begin meeting-notes    # Start capturing
+  ... perform steps ...
+/soloflow end                    # Stop and record
+
+# Or let SoloFlow auto-detect (aggregates consecutive tool calls)
+
+# Then propose and generate
+/soloflow propose                # Show top detected pattern with quality score
+/soloflow generate meeting-notes # Generate SKILL.md + plugin.py → ~/.hermes/skills/
+/soflow list                     # List all detected patterns
+/soloflow status                 # Show tracking stats
+```
+
+### How It Works
+
+```
+tool_call events → WorkflowBuilder (aggregate) → PatternDetector (fingerprint)
+                                                       ↓
+                                              Pattern (2+ occurrences)
+                                                       ↓
+                                              SkillPackager → SKILL.md + plugin.py
+                                                       ↓
+                                              QualityScorer → reliability/efficiency/maturity/reusability
+```
+
+- **WorkflowBuilder** accumulates consecutive `tool_call` events into multi-step workflows (auto-flushes after 60s idle)
+- **PatternDetector** fingerprints workflow structure (step names + edges + tools) and groups identical executions
+- **SkillPackager** generates Hermes-native SKILL.md and plugin.py with rich step descriptions
+- **QualityScorer** rates skills on 4 dimensions (A-F grading)
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/soloflow begin [name]` | Mark workflow start |
+| `/soloflow end [name]` | Mark workflow end, record pattern |
+| `/soloflow propose` | Analyze session, propose top skill |
+| `/soloflow generate [name]` | Generate and install a skill |
+| `/soloflow list` | List detected patterns |
+| `/soloflow skills` | List generated skills |
+| `/soloflow status` | Show tracking status |
+| `/soloflow queue` | Show pending proposals |
+| `/soloflow clear` | Clear session log |
+
+See [plugins/soloflow.py](plugins/soloflow.py) and [skills/meta/soloflow/SKILL.md](skills/meta/soloflow/SKILL.md) for details.
 
 ---
 
@@ -254,13 +325,20 @@ SoloFlow/
 │   ├── services/           # WorkflowService + Scheduler
 │   ├── memory/             # Three-tier memory
 │   └── store/              # SQLite persistence
+├── plugins/                # Hermes plugins
+│   └── soloflow.py         # Skill Factory plugin (event hooks + commands)
+├── skills/                 # Hermes skills
+│   └── meta/soloflow/      # Skill Factory meta-skill (AI behavior guidance)
+├── evolution/              # Skill auto-evolution
+│   ├── pattern_detector.py # Fingerprint + detect repeated workflows
+│   ├── skill_packager.py   # Generate SKILL.md + plugin.py
+│   └── quality_scorer.py   # 4-dimension quality scoring
 ├── mcp/                    # MCP Tool Layer
 ├── trace/                  # Observability
 ├── memory/forgetting/      # Ebbinghaus forgetting curve
 ├── routing/                # Discipline-aware routing
-├── evolution/              # Skill auto-evolution
-├── cli/                    # CLI tools
-└── tests/                  # Test suite (64 tests)
+├── install.sh              # One-command installer
+└── tests/                  # Test suite (161 tests)
 ```
 
 ---
@@ -281,6 +359,21 @@ python -m pytest tests/evolution/ -v
 # Run end-to-end test
 python -m pytest tests/e2e/ -v
 ```
+
+---
+
+## Recent Additions
+
+### v1.7.0 — SoloFlow Plugin (Skill Factory)
+
+- **Hermes plugin** (`plugins/soloflow.py`) — passive observation via event hooks
+- **WorkflowBuilder** — aggregates consecutive tool_call events into multi-step workflows
+- **Rich step descriptions** — extracts key args (command, path, url) into human-readable steps
+- **PatternDetector** — fingerprint-based pattern detection (hash workflow structure)
+- **SkillPackager** — auto-generates SKILL.md + plugin.py following Hermes conventions
+- **QualityScorer** — 4-dimension scoring (reliability, efficiency, maturity, reusability)
+- **Commands** — `/soloflow begin`, `/soloflow end`, `/soloflow propose`, `/soloflow generate`
+- **12 new tests** — 161 total, all passing
 
 ---
 
