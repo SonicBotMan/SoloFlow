@@ -28,11 +28,11 @@
         getStarted: 'Get Started',
         learnMore: 'Learn More',
         stats: {
-          tests: 'Tests Passing',
-          modules: 'Modules',
-          bundle: 'Bundle Size',
+          tests: 'Tests',
+          modules: 'Python Files',
+          bundle: 'Zero Deps',
           mcpTools: 'MCP Tools',
-          deps: 'Runtime Deps'
+          deps: 'Open Source'
         }
       },
       problem: {

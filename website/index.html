@@ -209,23 +209,23 @@
         <!-- Hero Stats -->
         <div class="hero-stats reveal">
           <div class="stat">
-            <span class="stat-value" data-target="175">0</span>
-            <span class="stat-label" data-i18n="hero.stats.tests">Tests Passing</span>
+            <span class="stat-value" data-target="68">0</span>
+            <span class="stat-label" data-i18n="hero.stats.tests">Tests</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="180" data-suffix="+">0</span>
-            <span class="stat-label" data-i18n="hero.stats.modules">Modules</span>
+            <span class="stat-value" data-target="47">0</span>
+            <span class="stat-label" data-i18n="hero.stats.modules">Python Files</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</span>
-            <span class="stat-label" data-i18n="hero.stats.bundle">Bundle Size</span>
+            <span class="stat-value" data-target="0">0</span>
+            <span class="stat-label" data-i18n="hero.stats.bundle">Zero Deps</span>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" data-target="3">0</span>
-            <span class="stat-label" data-i18n="hero.stats.deps">Runtime Deps</span>
+            <span class="stat-value" data-target="0">0</span>
+            <span class="stat-label" data-i18n="hero.stats.deps">Open Source</span>
           </div>
         </div>
       </div>
@@ -730,7 +730,7 @@
             </div>
           </div>
 
-          <h3 class="lobster-modules-title reveal" data-i18n="lobsterPress.modules">Core Modules</h3>
+          <h3 class="lobster-modules-title reveal" data-i18n="lobsterPress.modules">Core Python Files</h3>
           <div class="lobster-modules-grid">
             <div class="lobster-module-card glass-card reveal" style="--delay:0">
               <div class="module-icon">
@@ -881,20 +881,20 @@
       <div class="container">
         <div class="metrics-grid">
           <div class="metric-card glass-card reveal" style="--delay:0">
-            <div class="metric-value" data-target="175" data-suffix="">0</div>
+            <div class="metric-value" data-target="68" data-suffix="">0</div>
             <div class="metric-label" data-i18n="metrics.tests.label">TypeScript Tests</div>
             <div class="metric-desc" data-i18n="metrics.tests.desc">All passing, strict mode</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:1">
-            <div class="metric-value" data-target="180" data-suffix="+">0</div>
-            <div class="metric-label" data-i18n="metrics.modules.label">Modules</div>
+            <div class="metric-value" data-target="47">0</div>
+            <div class="metric-label" data-i18n="metrics.modules.label">Python Files</div>
             <div class="metric-desc" data-i18n="metrics.modules.desc">Clean, modular architecture</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:90%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:2">
-            <div class="metric-value" data-target="0.27" data-decimals="2" data-suffix="MB">0</div>
-            <div class="metric-label" data-i18n="metrics.bundle.label">Bundle Size</div>
+            <div class="metric-value" data-target="0">0</div>
+            <div class="metric-label" data-i18n="metrics.bundle.label">Zero Deps</div>
             <div class="metric-desc" data-i18n="metrics.bundle.desc">Incredibly lightweight</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:3%"></div></div>
           </div>
@@ -905,8 +905,8 @@
             <div class="metric-bar"><div class="metric-fill" style="--fill:100%"></div></div>
           </div>
           <div class="metric-card glass-card reveal" style="--delay:4">
-            <div class="metric-value" data-target="3" data-suffix="">0</div>
-            <div class="metric-label" data-i18n="metrics.deps.label">Runtime Deps</div>
+            <div class="metric-value" data-target="0" data-suffix="">0</div>
+            <div class="metric-label" data-i18n="metrics.deps.label">Open Source</div>
             <div class="metric-desc" data-i18n="metrics.deps.desc">jose, yaml, better-sqlite3</div>
             <div class="metric-bar"><div class="metric-fill" style="--fill:8%"></div></div>
           </div>
@@ -944,57 +944,22 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                 </button>
               </div>
-              <pre class="code-block"><code class="lang-bash"><span class="code-comment"># Install SoloFlow via ClawHub (recommended)</span>
-<span class="code-cmd">clawhub</span> install soloflow
+              <pre class="code-block"><code class="lang-bash"><span class="code-comment"># Clone and install SoloFlow</span>
+<span class="code-cmd">git</span> clone https://github.com/SonicBotMan/SoloFlow.git
+<span class="code-cmd">cd</span> SoloFlow
 
-<span class="code-comment"># Restart gateway to load the plugin</span>
-<span class="code-cmd">openclaw</span> gateway restart
+<span class="code-comment"># One-command install</span>
+<span class="code-cmd">bash</span> install.sh
 
-<span class="code-comment"># Verify - 15 tools ready ✓</span>
-<span class="code-cmd">openclaw</span> status
-<span class="code-output"># → SoloFlow loaded ✓</span></code></pre>
+<span class="code-comment"># Or manual install</span>
+<span class="code-cmd">cp</span> plugins/soloflow.py ~/.hermes/plugins/
+<span class="code-cmd">cp</span> -r skills/meta/soloflow ~/.hermes/skills/meta/
+<span class="code-cmd">hermes</span> skills reload
+
+<span class="code-comment"># Verify installation</span>
+<span class="code-cmd">hermes</span> skills list | grep soloflow
+<span class="code-output"># → soloflow ✓</span></code></pre>
             </div>
-            <div class="code-panel" id="panel-workflow">
-              <div class="code-header">
-                <span class="code-dots"><i></i><i></i><i></i></span>
-                <span class="code-filename">workflow.ts</span>
-                <button class="code-copy" data-copy="workflow" aria-label="Copy to clipboard">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-              </div>
-              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Create a workflow via RPC</span>
-<span class="code-keyword">const</span> { id } = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.create"</span>, {
-  <span class="code-prop">steps</span>: [
-    { <span class="code-prop">id</span>: <span class="code-string">"research"</span>,  <span class="code-prop">name</span>: <span class="code-string">"Research topic"</span>,        <span class="code-prop">discipline</span>: <span class="code-string">"deep"</span>,       <span class="code-prop">dependencies</span>: [],           <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Research AI agent frameworks"</span> } },
-    { <span class="code-prop">id</span>: <span class="code-string">"analyze"</span>,   <span class="code-prop">name</span>: <span class="code-string">"Analyze findings"</span>,      <span class="code-prop">discipline</span>: <span class="code-string">"ultrabrain"</span>, <span class="code-prop">dependencies</span>: [<span class="code-string">"research"</span>], <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Compare and rank by features"</span> } },
-    { <span class="code-prop">id</span>: <span class="code-string">"visualize"</span>, <span class="code-prop">name</span>: <span class="code-string">"Create chart"</span>,         <span class="code-prop">discipline</span>: <span class="code-string">"visual"</span>,    <span class="code-prop">dependencies</span>: [<span class="code-string">"analyze"</span>],  <span class="code-prop">config</span>: { <span class="code-prop">prompt</span>: <span class="code-string">"Generate comparison table"</span> } },
-  ],
-});
-
-<span class="code-comment">// Start the workflow</span>
-<span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.start"</span>, { id });
-<span class="code-output">// → Workflow queued, DAG execution begins</span></code></pre>
-            </div>
-            <div class="code-panel" id="panel-run">
-              <div class="code-header">
-                <span class="code-dots"><i></i><i></i><i></i></span>
-                <span class="code-filename">run.ts</span>
-                <button class="code-copy" data-copy="run" aria-label="Copy to clipboard">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-              </div>
-              <pre class="code-block"><code class="lang-ts"><span class="code-comment">// Check workflow status via MCP tool</span>
-<span class="code-keyword">const</span> status = <span class="code-keyword">await</span> api.rpc.call(<span class="code-string">"workflow.status"</span>, { 
-  <span class="code-prop">id</span>, 
-  <span class="code-prop">verbose</span>: <span class="code-bool">true</span> 
-});
-console.<span class="code-fn">log</span>(status.steps);
-
-<span class="code-comment">// FSM states: idle → queued → running → completed/failed/retry</span>
-<span class="code-comment">// Steps execute in parallel where possible with automatic retry</span>
-<span class="code-output">// → { state: 'running', steps: 3, memory: { working: [...], episodic: [...] } }</span></code></pre>
-            </div>
-          </div>
         </div>
       </div>
     </section>

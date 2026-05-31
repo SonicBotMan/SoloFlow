@@ -28,11 +28,11 @@
         getStarted: 'Get Started',
         learnMore: 'Learn More',
         stats: {
-          tests: 'Tests Passing',
-          modules: 'Modules',
-          bundle: 'Bundle Size',
+          tests: 'Tests',
+          modules: 'Python Files',
+          bundle: 'Zero Deps',
           mcpTools: 'MCP Tools',
-          deps: 'Runtime Deps'
+          deps: 'Open Source'
         }
       },
       problem: {
@@ -173,10 +173,10 @@
         learnMore: '了解更多',
         stats: {
           tests: '测试通过',
-          modules: '模块数',
-          bundle: '包大小',
+          modules: 'Python 文件',
+          bundle: '零依赖',
           mcpTools: 'MCP 工具',
-          deps: '运行时依赖'
+          deps: '开源免费'
         }
       },
       problem: {
