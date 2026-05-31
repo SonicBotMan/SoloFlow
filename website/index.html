@@ -960,6 +960,68 @@
 <span class="code-cmd">hermes</span> skills list | grep soloflow
 <span class="code-output"># → soloflow ✓</span></code></pre>
             </div>
+            <div class="code-panel" id="panel-workflow">
+              <div class="code-header">
+                <span class="code-dots"><i></i><i></i><i></i></span>
+                <span class="code-filename">workflow.py</span>
+                <button class="code-copy" data-copy="workflow" aria-label="Copy to clipboard">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              </div>
+              <pre class="code-block"><code class="lang-python"><span class="code-comment"># Create a DAG workflow with parallel branches</span>
+<span class="code-keyword">import</span> asyncio
+<span class="code-keyword">from</span> pathlib <span class="code-keyword">import</span> Path
+<span class="code-keyword">from</span> hermes_plugin.store.sqlite_store <span class="code-keyword">import</span> SQLiteStore
+<span class="code-keyword">from</span> hermes_plugin.services.workflow_service <span class="code-keyword">import</span> WorkflowService
+<span class="code-keyword">from</span> hermes_plugin.services.scheduler <span class="code-keyword">import</span> Scheduler
+
+<span class="code-keyword">async def</span> <span class="code-func">main</span>():
+    store = SQLiteStore(Path(<span class="code-string">"soloflow.db"</span>))
+    store.initialize()
+    ws = WorkflowService(store)
+    ws.set_scheduler(Scheduler(store, ws))
+
+    <span class="code-comment"># Define workflow with parallel branches</span>
+    wf = <span class="code-keyword">await</span> ws.create_workflow(
+        name=<span class="code-string">"research-report"</span>,
+        description=<span class="code-string">"行业调研报告"</span>,
+        steps=[
+            {<span class="code-string">"id"</span>: <span class="code-string">"search_a"</span>, <span class="code-string">"name"</span>: <span class="code-string">"学术搜索"</span>, <span class="code-string">"discipline"</span>: <span class="code-string">"quick"</span>},
+            {<span class="code-string">"id"</span>: <span class="code-string">"search_b"</span>, <span class="code-string">"name"</span>: <span class="code-string">"行业搜索"</span>, <span class="code-string">"discipline"</span>: <span class="code-string">"quick"</span>},
+            {<span class="code-string">"id"</span>: <span class="code-string">"merge"</span>,    <span class="code-string">"name"</span>: <span class="code-string">"合并分析"</span>, <span class="code-string">"discipline"</span>: <span class="code-string">"deep"</span>},
+        ],
+        edges=[(<span class="code-string">"search_a"</span>, <span class="code-string">"merge"</span>), (<span class="code-string">"search_b"</span>, <span class="code-string">"merge"</span>)],
+    )
+
+    <span class="code-comment"># Execute with DAG parallelism</span>
+    <span class="code-keyword">await</span> ws.start_workflow(wf[<span class="code-string">"id"</span>])</code></pre>
+            </div>
+            <div class="code-panel" id="panel-run">
+              <div class="code-header">
+                <span class="code-dots"><i></i><i></i><i></i></span>
+                <span class="code-filename">Terminal</span>
+                <button class="code-copy" data-copy="run" aria-label="Copy to clipboard">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              </div>
+              <pre class="code-block"><code class="lang-bash"><span class="code-comment"># Mark workflow boundaries</span>
+<span class="code-cmd">/soloflow</span> begin research-report
+
+<span class="code-comment"># Perform your steps...</span>
+<span class="code-comment"># SoloFlow watches and aggregates automatically</span>
+
+<span class="code-cmd">/soloflow</span> end
+
+<span class="code-comment"># Propose a skill from detected pattern</span>
+<span class="code-cmd">/soloflow</span> propose
+
+<span class="code-comment"># Generate and install the skill</span>
+<span class="code-cmd">/soloflow</span> generate research-report
+
+<span class="code-output"># → Skill installed to ~/.hermes/skills/</span>
+<span class="code-output"># → Run 'hermes skills reload' to activate</span></code></pre>
+            </div>
+          </div>
         </div>
       </div>
     </section>
