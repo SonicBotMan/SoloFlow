@@ -201,6 +201,7 @@ class SessionTracker:
         self.proposal_queue: list[dict[str, Any]] = []
         self.last_proposal: dict[str, Any] | None = None
         self.last_generated_skill: Skill | None = None
+        self.awaiting_choice: bool = False
 
         self.session_start = time.time()
         self.tool_calls_count = 0
@@ -233,6 +234,7 @@ class SessionTracker:
         self.proposal_queue.clear()
         self.last_proposal = None
         self.last_generated_skill = None
+        self.awaiting_choice = False
         self.tool_calls_count = 0
         self.commands_count = 0
         self.workflows_recorded = 0
@@ -492,34 +494,75 @@ def register(hermes):
 
         await ctx.reply(proposal_text)
 
+        _tracker.awaiting_choice = True
+
         await ctx.inject_system_message(
             "The user has triggered /soloflow propose. "
-            "A skill proposal has been presented. "
-            "Wait for the user's response (A/B/C/D or 'yes'). "
-            "When they respond, use the appropriate action to generate the skill."
+            "A skill proposal has been presented with options A/B/C/D. "
+            "WAIT for the user's response. "
+            "When they reply with A, B, C, D, or 'yes':\n"
+            "- A → run `/soloflow generate --type md`\n"
+            "- B → run `/soloflow generate --type py`\n"
+            "- C or 'yes' → run `/soloflow generate` (both files, recommended)\n"
+            "- D → say 'Skipped. Run `/soloflow propose` when ready.'\n"
+            "Do NOT generate anything until the user responds."
         )
 
     # ------------------------------------------------------------------
-    # /soloflow generate <name>
+    # /soloflow generate [name] [--type md|py|both]
     # ------------------------------------------------------------------
     @hermes.command(
         name="soloflow generate",
         description="Generate and install a skill from the last proposal",
-        usage="/soloflow generate [skill-name]",
+        usage="/soloflow generate [skill-name] [--type md|py|both]",
     )
     async def cmd_generate(ctx, args: str = ""):
-        """Generate and install a skill from the last proposal."""
+        """Generate and install a skill from the last proposal.
+
+        Supports A/B/C/D shorthand from proposal response:
+          A → --type md (SKILL.md only)
+          B → --type py (plugin.py only)
+          C or no flag → --type both (recommended)
+          D → skip
+        """
         if not _tracker.last_proposal:
             await ctx.reply(
                 "No skill proposal active. Run `/soloflow propose` first."
             )
             return
 
+        # Parse args: extract --type and skill name
+        generate_type = "both"  # default
+        skill_name = None
+
+        args_parts = args.strip().split() if args.strip() else []
+        i = 0
+        while i < len(args_parts):
+            if args_parts[i] == "--type" and i + 1 < len(args_parts):
+                generate_type = args_parts[i + 1].lower()
+                i += 2
+            elif args_parts[i].upper() in ("A", "B", "C", "D"):
+                # A/B/C/D shorthand
+                choice = args_parts[i].upper()
+                if choice == "A":
+                    generate_type = "md"
+                elif choice == "B":
+                    generate_type = "py"
+                elif choice == "C":
+                    generate_type = "both"
+                elif choice == "D":
+                    _tracker.awaiting_choice = False
+                    await ctx.reply("⏭️ Skipped. Run `/soloflow propose` when ready.")
+                    return
+                i += 1
+            else:
+                skill_name = args_parts[i]
+                i += 1
+
+        _tracker.awaiting_choice = False
+
         pattern = _tracker.last_proposal["pattern"]
         score = _tracker.last_proposal["score"]
-
-        # Use provided name or generate from pattern
-        skill_name = args.strip() if args.strip() else None
 
         # Package the skill
         skill = _tracker.packager.package_pattern(
@@ -532,8 +575,26 @@ def register(hermes):
             skill.name = skill_name.lower().replace(" ", "-").replace("_", "-")
             skill.display_name = skill_name.replace("-", " ").replace("_", " ").title()
 
-        # Install to Hermes directory
-        installed_files = _tracker.packager.install_skill(skill)
+        # Install to Hermes directory (selective by type)
+        installed_files = []
+
+        hermes_dir = Path.home() / ".hermes"
+
+        if generate_type in ("md", "both"):
+            skill_dir = hermes_dir / "skills" / skill.category / skill.name
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_md_path = skill_dir / "SKILL.md"
+            skill_md_path.write_text(skill.skill_md_content, encoding="utf-8")
+            installed_files.append(skill_md_path)
+
+        if generate_type in ("py", "both"):
+            plugins_dir = hermes_dir / "plugins"
+            plugins_dir.mkdir(parents=True, exist_ok=True)
+            plugin_py_path = plugins_dir / f"{skill.name}.py"
+            plugin_py_path.write_text(skill.plugin_py_content, encoding="utf-8")
+            installed_files.append(plugin_py_path)
+
+        type_label = {"md": "SKILL.md", "py": "plugin.py", "both": "SKILL.md + plugin.py"}[generate_type]
 
         # Update skill quality scores
         skill.quality_score = score.overall_score
@@ -557,7 +618,7 @@ def register(hermes):
         files_list = "\n".join(f"- `{f}`" for f in installed_files)
 
         await ctx.reply(
-            f"✅ **Skill '{skill.display_name}' generated and installed!**\n\n"
+            f"✅ **Skill '{skill.display_name}' generated!** ({type_label})\n\n"
             f"Files written:\n{files_list}\n\n"
             f"Quality Score: {score.overall_score:.2f} (Grade: {score.grade})\n\n"
             f"Next steps:\n"

@@ -139,6 +139,19 @@ Reply with A, B, C, or D (or just "yes" for C).
 
 Only propose one skill at a time. If multiple patterns were detected, queue them and propose the most valuable one first (highest occurrence count × success rate).
 
+### Handling User Response
+
+When the user replies with A, B, C, D, or "yes", run the corresponding command:
+
+| User replies | Command to run |
+|---|---|
+| `A` | `/soloflow generate --type md` |
+| `B` | `/soloflow generate --type py` |
+| `C` or `yes` | `/soloflow generate` (both files, recommended) |
+| `D` | Say "Skipped. Run `/soloflow propose` when ready." |
+
+**Important:** Do NOT generate anything until the user explicitly responds. Wait for their choice.
+
 ---
 
 ## Phase 4: Skill Generation
