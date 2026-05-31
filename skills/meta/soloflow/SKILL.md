@@ -303,6 +303,8 @@ Generated plugin.py files MUST:
 
 | Command | Description |
 |---|---|
+| `/soloflow begin [name]` | Mark the start of a workflow you want to capture |
+| `/soloflow end [name]` | Mark the end, auto-flush as a recorded workflow |
 | `/soloflow propose` | Analyze current session and propose the top detected skill now |
 | `/soloflow generate [name]` | Generate and install a skill from the last proposal |
 | `/soloflow list` | List all detected patterns in the current session |

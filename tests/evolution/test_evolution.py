@@ -236,6 +236,53 @@ def test_quality_scorer_update():
     assert skill.success_count == 1
 
 
+def test_integration_step_descriptions():
+    """Steps in generated SKILL.md have meaningful descriptions, not just tool names."""
+    detector = PatternDetector()
+    for i in range(3):
+        detector.record_execution(
+            workflow={
+                "id": f"m_{i}",
+                "name": "meeting-notes-pipeline",
+                "steps": [
+                    {"id": "s1", "name": "terminal", "prompt": "Run shell command (command=rec start)"},
+                    {"id": "s2", "name": "write_file", "prompt": "Write file (path=/tmp/audio.raw)"},
+                    {"id": "s3", "name": "terminal", "prompt": "Run shell command (command=whisper /tmp/audio.raw)"},
+                ],
+                "edges": [("s1", "s2"), ("s2", "s3")],
+            },
+            success=True, duration_ms=1500,
+            tools_used=["terminal", "write_file"],
+        )
+
+    patterns = detector.detect_patterns(min_occurrences=2)
+    packager = SkillPackager()
+    skill = packager.package_pattern(patterns[0])
+
+    # Steps must have descriptions beyond just the tool name
+    assert "Run shell command" in skill.skill_md_content
+    assert "Write file" in skill.skill_md_content
+
+    # Description should include args context
+    assert "command=rec start" in skill.skill_md_content
+    assert "path=/tmp/audio.raw" in skill.skill_md_content
+
+
+def test_describe_step_enrichment():
+    """_describe_step extracts meaningful context from tool_args."""
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "plugins"))
+    # Import the describe function directly
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "soloflow", str(Path(__file__).parent.parent.parent / "plugins" / "soloflow.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert mod._describe_step("terminal", {"command": "ls -la"}) == "Run shell command (command=ls -la)"
+    assert mod._describe_step("read_file", {"path": "/etc/hosts"}) == "Read file contents (path=/etc/hosts)"
+    assert mod._describe_step("unknown_tool", {}) == "Use unknown_tool"
+
+
 def test_integration_multi_workflow():
     """Full integration: detect → package → score → install."""
     detector = PatternDetector()

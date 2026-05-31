@@ -1,9 +1,0 @@
-name: soloflow
-description: >
-  SoloFlow workflow orchestration with DAG-based parallel execution,
-  three-tier memory (working/episodic/semantic), and automatic pattern extraction.
-  Provides 8 workflow tools: create, start, advance_step, status, list,
-  ready_steps, cancel, plus memory search across all three memory tiers.
-version: "1.0.0"
-category: memory
-homepage: https://github.com/SonicBotMan/SoloFlow
