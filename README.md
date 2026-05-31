@@ -5,7 +5,7 @@
 **Turn chaotic multi-step AI tasks into structured, observable, retryable workflows — with cognitive memory, discipline-aware routing, and automatic skill evolution.**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-173%20passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/tests-68%20passing-brightgreen.svg)](./tests)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](./requirements.txt)
 
@@ -341,7 +341,7 @@ SoloFlow/
 ├── memory/forgetting/      # Ebbinghaus forgetting curve
 ├── routing/                # Discipline-aware routing
 ├── install.sh              # One-command installer
-└── tests/                  # Test suite (173 tests)
+└── tests/                  # Test suite (68 tests)
 ```
 
 ---
@@ -374,7 +374,7 @@ python3.11 -m pytest tests/hermes-plugin/ -v
 python3.11 -m pytest tests/mcp/ -v
 ```
 
-**173 tests, all passing.**
+**68 tests, all passing.**
 
 ---
 
