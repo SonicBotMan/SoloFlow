@@ -31,7 +31,7 @@
           tests: 'Tests',
           modules: 'Python Files',
           bundle: 'Zero Deps',
-          mcpTools: 'MCP Tools',
+          mcpTools: 'Hermes Skills',
           deps: 'GitHub Stars'
         }
       },
@@ -107,15 +107,15 @@
           dagFsm: 'DAG + FSM Hybrid',
           visual: 'Visual Builder',
           multiUser: 'Multi-user / RBAC',
-          mcp: 'MCP Tool Interface',
+          mcp: 'Hermes Plugin Interface',
           leanDeps: 'Lean runtime dependencies'
         }
       },
       metrics: {
-        tests: { value: '175', label: 'TypeScript Tests', desc: 'All passing, strict mode' },
-        modules: { value: '180+', label: 'Modules', desc: 'Clean, modular architecture' },
-        bundle: { value: '0.27MB', label: 'Bundle Size', desc: 'Incredibly lightweight' },
-        mcp: { value: '5', label: 'MCP Tools', desc: 'Exposed interface' },
+        tests: { value: '68', label: 'Python Tests', desc: 'All passing' },
+        modules: { value: '47', label: 'Python Files', desc: 'Clean, modular architecture' },
+        bundle: { value: '0', label: 'Zero Deps', desc: 'Pure Python' },
+        mcp: { value: '130', label: 'GitHub Stars', desc: 'Open source' },
         deps: { value: '3', label: 'Runtime Deps', desc: 'jose, yaml, better-sqlite3' },
         license: { value: 'MIT', label: 'License', desc: 'Fully open source' }
       },
@@ -124,7 +124,7 @@
         title: 'Up and running in <span class="gradient-text">seconds</span>',
         desc: 'Install SoloFlow, define your first workflow, and watch it orchestrate. It\'s that simple.',
         tabs: { install: 'Install', workflow: 'Create Workflow', run: 'Run & Monitor' },
-        installCode: '# Clone SoloFlow into your OpenClaw plugins directory\ngit clone https://github.com/SonicBotMan/SoloFlow.git\ncd SoloFlow/openclaw-plugin\n\n# Install dependencies with Bun\nbun install\n\n# Build the plugin\nbun run build\n\n# Verify - 175 tests passing ✓\nbun test\n# → 175 passing tests ✓'
+        installCode: '# Clone and install SoloFlow\ngit clone https://github.com/SonicBotMan/SoloFlow.git\ncd SoloFlow\n\n# One-command install\nbash install.sh\n\n# Verify\nhermes skills list | grep soloflow\n# → soloflow ✓'
       },
       cta: {
         title: 'Ready to orchestrate <span class="gradient-text">intelligently</span>?',
@@ -149,7 +149,7 @@
           changelog: 'Changelog',
           license: 'License (MIT)'
         },
-        copyright: '© 2026 OpenClaw. All rights reserved. Built with ❤️ for the AI-native era.'
+        copyright: '© 2026 SoloFlow. All rights reserved. Built with ❤️ for the AI-native era.'
       }
     },
     zh: {
@@ -175,7 +175,7 @@
           tests: '测试通过',
           modules: '模块数',
           bundle: '包大小',
-          mcpTools: 'MCP 工具',
+          mcpTools: 'Hermes 技能',
           deps: '运行时依赖'
         }
       },
@@ -251,15 +251,15 @@
           dagFsm: 'DAG + FSM 混合',
           visual: '可视化构建器',
           multiUser: '多用户 / RBAC',
-          mcp: 'MCP 工具接口',
+          mcp: 'Hermes 插件接口',
           leanDeps: '轻量运行时依赖'
         }
       },
       metrics: {
-        tests: { value: '175', label: 'TypeScript 测试', desc: '全部通过，严格模式' },
+        tests: { value: '68', label: 'Python 测试', desc: '全部通过' },
         modules: { value: '180+', label: '模块数', desc: '清晰的模块化架构' },
         bundle: { value: '0.27MB', label: '包大小', desc: '令人难以置信的轻量' },
-        mcp: { value: '5', label: 'MCP 工具', desc: '暴露的接口' },
+        mcp: { value: '130', label: 'GitHub 星标', desc: '开源项目' },
         deps: { value: '3', label: '运行时依赖', desc: 'jose、yaml、better-sqlite3' },
         license: { value: 'MIT', label: '许可证', desc: '完全开源' }
       },
@@ -268,7 +268,7 @@
         title: '几秒钟内<span class="gradient-text">启动</span>',
         desc: '安装 SoloFlow，定义您的第一个工作流，然后看着它编排执行。就这么简单。',
         tabs: { install: '安装', workflow: '创建工作流', run: '运行与监控' },
-        installCode: '# 将 SoloFlow 克隆到 OpenClaw 插件目录\ngit clone https://github.com/SonicBotMan/SoloFlow.git\ncd SoloFlow/openclaw-plugin\n\n# 使用 Bun 安装依赖\nbun install\n\n# 构建插件\nbun run build\n\n# 验证 - 175 个测试通过 ✓\nbun test\n# → 175 个测试通过 ✓'
+        installCode: '# 克隆并安装 SoloFlow\ngit clone https://github.com/SonicBotMan/SoloFlow.git\ncd SoloFlow\n\n# 一键安装\nbash install.sh\n\n# 验证\nhermes skills list | grep soloflow\n# → soloflow ✓'
       },
       cta: {
         title: '准备好<span class="gradient-text">智能编排</span>了吗？',
@@ -293,7 +293,7 @@
           changelog: '更新日志',
           license: '许可证 (MIT)'
         },
-        copyright: '© 2026 OpenClaw. 保留所有权利。用 ❤️ 为 AI 原生时代构建。'
+        copyright: '© 2026 SoloFlow. 保留所有权利。用 ❤️ 为 AI 原生时代构建。'
       }
     }
   };
