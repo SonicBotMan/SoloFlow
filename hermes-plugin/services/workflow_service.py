@@ -18,10 +18,15 @@ class WorkflowService:
     def __init__(self, store: object) -> None:
         self._store = store
         self._scheduler = None
+        self._on_complete = None  # callback(workflow_id, success, duration_ms, workflow_def)
 
     def set_scheduler(self, scheduler: object) -> None:
         """Set the scheduler for workflow execution."""
         self._scheduler = scheduler
+
+    def set_on_complete(self, callback) -> None:
+        """Set callback for workflow completion. Args: (workflow_id, success, duration_ms, workflow_def)."""
+        self._on_complete = callback
 
     async def create_workflow(
         self,
@@ -163,6 +168,16 @@ class WorkflowService:
             has_failed = any(s["state"] == StepState.FAILED.value for s in all_steps)
             final_state = WorkflowState.FAILED.value if has_failed else WorkflowState.COMPLETED.value
             self._store.update_workflow_state(workflow_id, final_state)
+
+            # Notify completion callback (for evolution pattern detection)
+            if self._on_complete:
+                try:
+                    success = not has_failed
+                    started = workflow.get("started_at") or workflow.get("created_at")
+                    duration_ms = int((time.time() - started) * 1000) if started else 0
+                    self._on_complete(workflow_id, success, duration_ms, workflow)
+                except Exception as e:
+                    logger.warning(f"on_complete callback failed: {e}")
 
         return await self.get_status(workflow_id)
 

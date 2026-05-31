@@ -333,6 +333,60 @@ def register(hermes):
     """Register SoloFlow commands with the Hermes agent."""
 
     # ------------------------------------------------------------------
+    # DAG Engine Integration — auto-feed completed workflows to PatternDetector
+    # ------------------------------------------------------------------
+    def _on_workflow_complete(workflow_id: str, success: bool, duration_ms: int, workflow_def: dict):
+        """Callback when a DAG workflow completes. Feeds to PatternDetector."""
+        steps = workflow_def.get("steps", [])
+        edges_raw = workflow_def.get("edges", [])
+
+        # Normalize edges
+        edges = []
+        for e in edges_raw:
+            if isinstance(e, dict):
+                edges.append((e["from"], e["to"]))
+            elif isinstance(e, (list, tuple)):
+                edges.append((e[0], e[1]))
+
+        # Build step list with prompts
+        step_list = []
+        for s in steps:
+            step_list.append({
+                "id": s.get("id", ""),
+                "name": s.get("name", s.get("id", "")),
+                "prompt": s.get("prompt", s.get("description", "")),
+            })
+
+        tools = list(set(s.get("discipline", "general") for s in steps))
+
+        _tracker.detector.record_execution(
+            workflow={
+                "id": workflow_id,
+                "name": workflow_def.get("name", "dag-workflow"),
+                "steps": step_list,
+                "edges": edges,
+            },
+            success=success,
+            duration_ms=duration_ms,
+            tools_used=tools,
+        )
+        _tracker.workflows_recorded += 1
+
+    # Try to hook into WorkflowService if available
+    try:
+        import importlib
+        ws_mod = importlib.import_module("services.workflow_service")
+        if hasattr(ws_mod, "WorkflowService"):
+            # Patch the constructor to auto-register our callback
+            _orig_init = ws_mod.WorkflowService.__init__
+            def _patched_init(self, store, *args, **kwargs):
+                _orig_init(self, store, *args, **kwargs)
+                self.set_on_complete(_on_workflow_complete)
+            ws_mod.WorkflowService.__init__ = _patched_init
+    except (ImportError, AttributeError):
+        pass  # WorkflowService not available, rely on event hooks only
+
+    # ------------------------------------------------------------------
     # /soloflow begin — explicit workflow start
     # ------------------------------------------------------------------
     @hermes.command(
