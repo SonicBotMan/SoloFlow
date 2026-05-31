@@ -8,7 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- MCP Tool Layer (Phase 1)
+- SoloFlow Plugin v1.1.0 — Skill Factory for Hermes (replaces skill-factory)
+  - `plugins/soloflow.py` — Hermes plugin with event hooks and commands
+  - `skills/meta/soloflow/SKILL.md` — AI behavior guidance for skill detection
+  - `evolution/pattern_detector.py` — Fingerprint-based pattern detection
+  - `evolution/skill_packager.py` — Auto-generate SKILL.md + plugin.py
+  - `evolution/quality_scorer.py` — 4-dimension quality scoring (reliability, efficiency, maturity, reusability)
+  - WorkflowBuilder — aggregates consecutive tool_call events into multi-step workflows
+  - Rich step descriptions — extracts key args (command, path, url) into human-readable steps
+  - DAG engine integration — WorkflowService.set_on_complete() callback
+  - Natural language triggers — "save this as a skill", "I always do this", etc.
+  - Commands: `/soloflow begin`, `/soloflow end`, `/soloflow propose`, `/soloflow generate`, `/soloflow list`, `/soloflow skills`, `/soloflow status`, `/soloflow queue`, `/soloflow clear`
+  - `install.sh` — one-command installer
+  - 24 new tests (173 total)
   - 5 MCP tools: create, run, status, list, cancel
   - MCP Server implementation
   - Tool schema export
