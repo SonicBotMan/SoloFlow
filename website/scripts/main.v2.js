@@ -23,7 +23,7 @@
       hero: {
         badge: 'AI Workflow Orchestration',
         title: 'The <span class="gradient-text">Brain</span> Behind<br>Intelligent Workflows',
-        subtitle: 'Turn chaotic multi-step AI tasks into structured, observable,<br class="hide-mobile"> retryable workflows — with cognitive memory and discipline-aware routing.',
+        subtitle: 'Turn chaotic multi-step AI tasks into structured, observable,<br class="hide-mobile"> retryable workflows — with cognitive memory and discipline-aware routing.<br><small style="opacity:0.7">Built for <a href="https://github.com/NousResearch/hermes-agent" target="_blank" rel="noopener" style="color:inherit">Hermes Agent</a> · Works with <a href="https://github.com/NousResearch/hermes-agent" target="_blank" rel="noopener" style="color:inherit">OpenClaw</a></small>',
         viewGithub: 'View on GitHub',
         getStarted: 'Get Started',
         learnMore: 'Learn More',
@@ -167,7 +167,7 @@
       hero: {
         badge: 'AI 工作流编排',
         title: '智能工作流的<span class="gradient-text">核心引擎</span>',
-        subtitle: '将复杂的多步骤 AI 任务转化为结构化、可观察、可重试的工作流。<br class="hide-mobile">由认知记忆和智能路由驱动。',
+        subtitle: '将复杂的多步骤 AI 任务转化为结构化、可观察、可重试的工作流。<br class="hide-mobile">由认知记忆和智能路由驱动。<br><small style="opacity:0.7">为 <a href="https://github.com/NousResearch/hermes-agent" target="_blank" rel="noopener" style="color:inherit">Hermes Agent</a> 构建 · 兼容 <a href="https://github.com/NousResearch/hermes-agent" target="_blank" rel="noopener" style="color:inherit">OpenClaw</a></small>',
         viewGithub: '查看 GitHub',
         getStarted: '开始使用',
         learnMore: '了解更多',
