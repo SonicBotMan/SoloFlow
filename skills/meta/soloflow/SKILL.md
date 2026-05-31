@@ -56,15 +56,35 @@ The `PatternDetector` automatically tracks:
 
 ## Phase 2: Trigger Conditions
 
-Propose skill creation when ANY of the following occur:
+**You MUST propose skill creation when ANY of the following occur. Do not wait for the user to explicitly ask.**
 
-| Trigger | Example |
-|---|---|
-| User explicitly requests | "save this as a skill", "remember this workflow", "let's capture this" |
-| Slash command | `/soloflow propose` |
-| Repeated pattern (2x+) | Same workflow appeared twice in the session |
-| Session winding down | User says "done", "thanks", "that's all", or asks unrelated wrap-up questions |
-| User expresses frustration | "I always have to do this manually..." |
+| Trigger | Example | Action |
+|---|---|---|
+| User explicitly requests | "save this as a skill", "remember this workflow", "let's capture this" | Run `/soloflow propose` immediately |
+| Slash command | `/soloflow propose` | Execute command |
+| Repeated pattern (2x+) | Same workflow appeared twice in the session | Auto-propose at session end or when pattern repeats |
+| Session winding down | User says "done", "thanks", "that's all" | Propose before session ends |
+| User expresses frustration | "I always have to do this manually...", "here we go again..." | Propose immediately |
+| Natural language triggers | See list below | Run `/soloflow propose` immediately |
+
+### Natural Language Triggers (auto-detect)
+
+When the user says ANY of these, immediately run `/soloflow propose`:
+
+- "save this as a skill"
+- "remember how to do this"
+- "turn this into a reusable skill"
+- "capture this workflow"
+- "I always do this"
+- "let's automate this"
+- "make this repeatable"
+- "this is a pattern"
+- "save this for later"
+- "create a template for this"
+- "how do I do this again" (suggest capturing it)
+- "I keep doing the same thing" (propose capturing)
+
+**Important**: These triggers should be detected in natural conversation, not just exact matches. If the user's intent is to capture/reuse a workflow, treat it as a trigger.
 
 ---
 
@@ -321,7 +341,13 @@ You can also just tell Hermes naturally:
 - *"Save this as a skill"*
 - *"Remember how to do this"*
 - *"Turn this workflow into a reusable skill"*
-- *"I always do this manually..."* (triggers proposal)
+- *"I always do this manually..."*
+- *"Let's automate this"*
+- *"Make this repeatable"*
+- *"Capture this workflow"*
+- *"I keep doing the same thing"*
+
+When SoloFlow detects these phrases, it will automatically run `/soloflow propose`.
 
 ---
 
