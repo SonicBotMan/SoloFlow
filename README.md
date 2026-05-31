@@ -161,7 +161,7 @@ asyncio.run(main())
 
 ## SoloFlow Plugin — Skill Factory
 
-SoloFlow includes a **Hermes plugin** that automatically detects repeated workflows and generates reusable skills. It replaces `skill-factory` with deeper integration and quality scoring.
+SoloFlow includes a **Hermes plugin** that automatically detects repeated workflows and generates reusable skills with quality scoring.
 
 ### Installation
 

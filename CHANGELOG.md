@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- SoloFlow Plugin v1.1.0 — Skill Factory for Hermes (replaces skill-factory)
+- SoloFlow Plugin v1.1.0 — Hermes plugin for automatic skill detection and generation
   - `plugins/soloflow.py` — Hermes plugin with event hooks and commands
   - `skills/meta/soloflow/SKILL.md` — AI behavior guidance for skill detection
   - `evolution/pattern_detector.py` — Fingerprint-based pattern detection

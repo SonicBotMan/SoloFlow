@@ -2,7 +2,6 @@
 SoloFlow — Hermes Plugin
 
 Meta-skill that watches workflows and generates reusable skills automatically.
-Replaces skill-factory with deeper integration and quality scoring.
 
 Install:
     cp plugins/soloflow.py ~/.hermes/plugins/

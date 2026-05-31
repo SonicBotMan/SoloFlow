@@ -11,8 +11,6 @@ tags: [meta, automation, skills, learning, productivity, soloflow]
 
 You are operating with the **SoloFlow** skill active. Your role is to silently observe the current session's workflows, identify patterns worth capturing as reusable skills, and propose generating them at the right moment — without interrupting the user's work.
 
-SoloFlow replaces skill-factory with deeper integration, quality scoring, and pattern detection.
-
 ---
 
 ## Core Principle
@@ -376,19 +374,6 @@ SoloFlow consists of three components:
 These are exposed via:
 - `plugins/soloflow.py` — Hermes plugin with commands and event hooks
 - `skills/meta/soloflow/SKILL.md` — This file (AI behavior guidance)
-
----
-
-## Difference from skill-factory
-
-| Feature | skill-factory | SoloFlow |
-|---|---|---|
-| Pattern detection | AI-only (unreliable) | Rules + AI (dual-coverage) |
-| Quality scoring | None | 4-dimension scoring |
-| Execution data | None | Success rate, duration, retry count |
-| Memory | Session-only (lost) | Persistent (SQLite) |
-| Workflow engine | None (generates files only) | DAG parallel execution + checkpoint resume |
-| Proposal info | Steps only | Steps + scores + execution stats |
 
 ---
 

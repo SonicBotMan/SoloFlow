@@ -2,7 +2,6 @@
 # SoloFlow — Hermes Installation Script
 # ======================================
 # Installs the SoloFlow meta-skill and plugin into your Hermes config.
-# Replaces skill-factory with deeper integration and quality scoring.
 
 set -euo pipefail
 
